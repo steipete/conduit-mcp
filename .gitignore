@@ -26,7 +26,7 @@ coverage
 # nyc test coverage
 .nyc_output
 
-# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-temporary-files)
 .grunt
 
 # Bower dependency directory (https://bower.io/)
@@ -44,6 +44,9 @@ jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
+
+# TypeScript v1 declaration files
+typings/
 
 # TypeScript cache
 *.tsbuildinfo
@@ -70,24 +73,23 @@ web_modules/
 *.tgz
 
 # Yarn Integrity file
-.yarn-integrity
+.yarnclean
 
-# dotenv environment variable files
+# dotenv environment variables file
 .env
+.env*.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
-# parcel-bundler cache (https://parceljs.org/)
+# parcel-bundler cache files
 .cache
-.parcel-cache
 
 # Next.js build output
 .next
 out
 
-# Nuxt.js build / generate output
+# Nuxt.js build output
 .nuxt
 dist
 
@@ -127,6 +129,9 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+
+# Compiled JavaScript files from TypeScript
+dist/
 
 # yarn v2
 .yarn/cache
