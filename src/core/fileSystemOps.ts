@@ -2,12 +2,7 @@ import fs from 'fs/promises';
 import type { Stats } from 'fs';
 import path from 'path';
 import { constants as fsConstants } from 'fs';
-import { conduitConfig } from './configLoader';
-import { ConduitError, ErrorCode, createMCPErrorStatus } from '@/utils/errorHandler';
-import logger from '@/utils/logger';
-import { EntryInfo } from '@/types/common';
-import { formatToISO8601UTC } from '@/utils/dateTime';
-import { getMimeType } from './mimeService';
+import { conduitConfig, ConduitError, ErrorCode, createMCPErrorStatus, logger, EntryInfo, formatToISO8601UTC, getMimeType } from '@/internal';
 
 /**
  * Checks if a path exists.
@@ -204,9 +199,10 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
   try {
     const stats = await getStats(sourcePath);
     if (stats.isDirectory()) {
-      await fs.cp(sourcePath, destinationPath, { recursive: true });
+      // For copying directories, fs.cp with recursive: true will copy contents into destinationPath if it's a directory,
+      // or create destinationPath as a directory. Overwriting of individual files within is controlled by `force`.
+      await fs.cp(sourcePath, destinationPath, { recursive: true, force: true }); // Added force: true
     } else {
-       // If destination is a directory, copy source file inside it
       let finalDest = destinationPath;
       try {
         const destStats = await getStats(destinationPath);
@@ -214,9 +210,10 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
           finalDest = path.join(destinationPath, path.basename(sourcePath));
         }
       } catch (destStatError: any) {
-        // Destination doesn't exist or is not a dir, fs.cp will handle it or error appropriately.
+        // Ignore if destinationPath doesn't exist or isn't a directory, fs.cp will handle creating it.
       }
-      await fs.cp(sourcePath, finalDest, { recursive: false }); // recursive false for files, true would also work.
+      // For copying files, fs.cp with force: true will overwrite if finalDest is an existing file.
+      await fs.cp(sourcePath, finalDest, { recursive: false, force: true }); // Added force: true
     }
   } catch (error: any) {
     if (error.code === 'ENOENT') {
@@ -234,23 +231,45 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
  */
 export async function movePath(sourcePath: string, destinationPath: string): Promise<void> {
   try {
-    // Ensure destination directory exists if moving into a directory
-    const destBasename = path.basename(destinationPath);
     const destDirname = path.dirname(destinationPath);
-
     let finalDestinationPath = destinationPath;
 
-    if (await pathExists(destinationPath)){
+    // Check if the intended final destination (could be inside a directory or the path itself) exists
+    let preliminaryFinalDest = destinationPath; 
+    if (await pathExists(destinationPath)) {
         const destStats = await getStats(destinationPath);
-        if(destStats.isDirectory()){
-            finalDestinationPath = path.join(destinationPath, path.basename(sourcePath));
+        if (destStats.isDirectory()) {
+            preliminaryFinalDest = path.join(destinationPath, path.basename(sourcePath));
         }
-    } else {
-        // If destination path does not exist, check if its parent directory exists.
-        // fs.rename will fail if the full new path structure doesn't exist partially.
-        if(!(await pathExists(destDirname))){
-             await createDirectory(destDirname, true); // Create parent if it doesn't exist
+    } 
+    // Now, `preliminaryFinalDest` is the actual path where the source would end up.
+    finalDestinationPath = preliminaryFinalDest;
+
+    // If this final target path exists and is a file, delete it to ensure overwrite behavior for fs.rename
+    if (await pathExists(finalDestinationPath)) {
+        const finalDestStats = await getStats(finalDestinationPath);
+        if (finalDestStats.isFile()) {
+            logger.debug(`Destination file ${finalDestinationPath} exists, deleting for overwrite before move.`);
+            await fs.unlink(finalDestinationPath); // Delete existing file for overwrite
+        } else if (finalDestStats.isDirectory()) {
+            // This case implies moving a file/dir into an existing directory, which then contains an item of the same name.
+            // If the source is a file and finalDestinationPath (after join) is an existing dir, fs.rename would likely fail or be OS-dependent.
+            // If source is a dir and finalDestinationPath is an existing dir, it should replace it (common on POSIX, might need rmdir on Windows first).
+            // For simplicity and safety, if finalDest is a dir (and source isn't being moved *into* it but *as* it), this is an issue.
+            // However, the logic above joining path.basename(sourcePath) should prevent finalDestinationPath from being an existing directory
+            // unless the source is a directory and the target is also a directory of the same name.
+            // fs.rename might handle merging/replacing directory contents differently or fail.
+            // To ensure clear overwrite of a directory, it would typically be deleted first.
+            // For now, we are primarily concerned with overwriting *files* as per spec.
+            // Overwriting directories with fs.rename is more complex (e.g. non-empty dirs).
+            // The spec says "Overwrites existing FILES at the destination by default."
         }
+    }
+
+    // Ensure the parent directory of the final destination exists
+    const finalDestParentDir = path.dirname(finalDestinationPath);
+    if (!(await pathExists(finalDestParentDir))) {
+        await createDirectory(finalDestParentDir, true);
     }
     
     await fs.rename(sourcePath, finalDestinationPath);

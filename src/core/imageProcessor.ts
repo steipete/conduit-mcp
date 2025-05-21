@@ -1,7 +1,5 @@
 import sharp from 'sharp';
-import { conduitConfig } from './configLoader';
-import logger from '@/utils/logger';
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
+import { conduitConfig, ConduitError, ErrorCode, logger } from '@/internal';
 
 export interface CompressionResult {
   buffer: Buffer;

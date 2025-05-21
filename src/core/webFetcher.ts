@@ -2,9 +2,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
-import { conduitConfig } from './configLoader';
-import logger from '@/utils/logger';
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
+import { conduitConfig, ConduitError, ErrorCode, logger } from '@/internal';
 
 const turndownService = new TurndownService();
 

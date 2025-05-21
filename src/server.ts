@@ -1,13 +1,18 @@
 import readline from 'readline';
-import { MCPRequest, MCPResponse } from '@/types/mcp';
-import { conduitConfig } from '@/core/configLoader'; // To initialize config early
-import {prependInfoNoticeIfApplicable } from '@/core/noticeService';
-import { handleReadTool } from '@/tools/readTool';
-import { handleWriteTool } from '@/tools/writeTool';
-import { handleListTool } from '@/tools/listTool';
-import { handleFindTool } from '@/tools/findTool';
-import { ConduitError, ErrorCode, createMCPErrorStatus } from '@/utils/errorHandler';
-import logger from '@/utils/logger';
+import {
+    MCPRequest,
+    MCPResponse,
+    conduitConfig,
+    prependInfoNoticeIfApplicable,
+    handleReadTool,
+    handleWriteTool,
+    handleListTool,
+    handleFindTool,
+    ConduitError,
+    ErrorCode,
+    createMCPErrorStatus,
+    logger
+} from '@/internal';
 
 logger.info(`conduit-mcp server v${conduitConfig.serverVersion} starting... Log level: ${conduitConfig.logLevel}`);
 logger.info(`Allowed paths: ${conduitConfig.allowedPaths.join(', ')}`);

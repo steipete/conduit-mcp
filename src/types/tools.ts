@@ -1,4 +1,5 @@
 import { EntryInfo, MCPResult, InfoNotice, MCPToolResponse, MCPErrorStatus, MCPSuccess } from './common';
+import { ErrorCode } from '@/internal';
 
 // This file will be expanded with specific request and response types for each tool
 // as they are implemented. For now, it re-exports common types useful for tools.
@@ -61,6 +62,7 @@ export namespace ReadTool {
   interface BaseResult {
     source: string;
     source_type: 'file' | 'url';
+    http_status_code?: number; // Added to make it available on error items
   }
 
   export interface ContentResultSuccess extends MCPSuccess, BaseResult {
@@ -95,6 +97,7 @@ export namespace ReadTool {
   export interface MetadataResultSuccess extends MCPSuccess, BaseResult {
     http_status_code?: number; // For URL source
     metadata: Metadata;
+    final_url?: string; // The final URL after any redirects
   }
   export type MetadataResultItem = MetadataResultSuccess | (MCPErrorStatus & BaseResult);
   export type MetadataResponse = MCPToolResponse<MetadataResultItem[]>;
@@ -310,4 +313,108 @@ export namespace FindTool {
   // Response is an array of EntryInfo objects, similar to list.entries
   // EntryInfo is already available from common types.
   export type FindResponse = MCPToolResponse<EntryInfo[]>;
+}
+
+// Namespace for the TestTool (New)
+export namespace TestTool {
+  export interface EchoParams {
+    operation: 'echo';
+    params_to_echo: any;
+  }
+
+  export interface GenerateErrorParams {
+    operation: 'generate_error';
+    error_code_to_generate: ErrorCode | string; // Allow any string for testing unregistered codes too
+    error_message_to_generate: string;
+  }
+
+  export type Parameters = EchoParams | GenerateErrorParams;
+
+  // --- Result Types ---
+  export interface EchoResultSuccess extends MCPSuccess {
+    echoed_params: any;
+  }
+  // For generate_error, the result IS an error, so it will conform to MCPErrorStatus directly.
+  // No specific success type for generate_error.
+
+  export type EchoResponse = MCPToolResponse<EchoResultSuccess>;
+  // Response for generate_error will be MCPErrorStatus, handled by the main MCPToolResponse structure.
+}
+
+export namespace ArchiveTool {
+  export interface ArchiveOptions {
+    overwrite?: boolean;
+    portable?: boolean; // For create
+    prefix?: string; // For create
+    filter_paths?: string[]; // Paths relative to source_paths for create, or archive root for extract
+    strip_components?: number; // For extract
+    keep_newer_files?: boolean; // For extract
+    preserve_owner?: boolean; // For extract
+  }
+
+  export interface CreateArchiveParams {
+    operation: 'create';
+    source_paths: string[];
+    archive_path: string;
+    compression?: 'gzip' | 'none';
+    metadata?: Record<string, any>;
+    options?: ArchiveOptions;
+  }
+
+  export interface ExtractArchiveParams {
+    operation: 'extract';
+    archive_path: string;
+    target_path: string;
+    options?: ArchiveOptions;
+  }
+
+  export type Params = CreateArchiveParams | ExtractArchiveParams;
+
+  // --- Result Types ---
+  export interface ArchiveResultError {
+    status: 'error'; // from MCPErrorStatus
+    error_code: string; // from MCPErrorStatus
+    error_message: string; // from MCPErrorStatus
+    operation: 'create' | 'extract';
+  }
+
+  export interface CreateArchiveSuccess {
+    status: 'success'; // from MCPSuccess
+    message?: string; // from MCPSuccess
+    operation: 'create';
+    archive_path: string;
+    size_bytes: number;
+    checksum_sha256: string;
+    source_paths_count: number;
+    compression?: 'gzip' | 'none';
+    metadata?: Record<string, any>;
+  }
+
+  export interface ExtractArchiveSuccess {
+    status: 'success'; // from MCPSuccess
+    message?: string; // from MCPSuccess
+    operation: 'extract';
+    archive_path: string;
+    target_path: string;
+    extracted_files_count: number;
+    options?: ArchiveOptions;
+  }
+
+  export type ArchiveResultItem = CreateArchiveSuccess | ExtractArchiveSuccess | ArchiveResultError;
+  // MCPToolResponse requires a tool_name and results for object responses
+  // The generic T in MCPToolResponse<T> refers to the type of the 'results' field content.
+  // So if Response is MCPToolResponse<ArchiveResultItem[]>, then it means results: ArchiveResultItem[]
+  // Let's define the Response structure explicitly to match MCPToolResponse expectation for an object
+  export interface Response {
+    tool_name: 'ArchiveTool';
+    results: ArchiveResultItem[];
+    // Plus potential InfoNotice as per MCPToolResponse definition
+    // This needs to be a union if InfoNotice can also be at the top level alone
+  }
+  // A more accurate MCPToolResponse structure might be needed if InfoNotice is also part of it.
+  // For now, assuming the primary structure is tool_name and results.
+  // The provided MCPToolResponse<T> = T | T[] | [InfoNotice, T] | [InfoNotice, ...T[]] definition
+  // might be too broad or misinterpreted by the linter in this context.
+  // Let's redefine Response to be the object structure expected by the handler
+
 } 

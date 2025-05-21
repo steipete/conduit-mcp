@@ -248,21 +248,22 @@ The server **must** parse these environment variables at startup. String values 
         *   `source`: `string` (The source path or URL that was processed for this result).
         *   `source_type`: `string` (`"file" | "url"`).
         *   `status`: `string` (`"success" | "error"`).
-        *   `error_code?`: `string` (Present if `status` is `"error"`; see Appendix A).
-        *   `error_message?`: `string` (Present if `status` is `"error"`).
-    *   **Additional fields for `operation: "content"` on `status: "success"`:**
-        *   `output_format_used`: `string` (The actual format of the `content` field, e.g., `"text"`, `"base64"`, `"markdown"`, `"checksum"`).
-        *   `content?`: `string` (The requested content: UTF-8 text, base64 encoded data, Markdown text, the placeholder string for `format: "text"` on binary, or the checksum string).
-        *   `mime_type?`: `string` (Detected MIME type of the source content before any conversion).
-        *   `size_bytes?`: `integer` (For `text`/`base64`/`markdown`, the size in bytes of the string in the `content` field. For `checksum`, this is the size of the original file/content that was checksummed).
-        *   `original_size_bytes?`: `integer` (If image compression applied, this is the size of the image data *before* compression. Otherwise omitted).
-        *   `compression_applied?`: `boolean` (True if image compression was performed, false otherwise. Omitted if not an image or not applicable).
-        *   `compression_error_note?`: `string` (If compression was attempted but failed, a brief note, e.g., "Compression failed, returning original image data." Omitted otherwise).
-        *   `checksum?`: `string` (The calculated checksum string, if `output_format_used: "checksum"`).
-        *   `checksum_algorithm_used?`: `string` (The algorithm used, if `output_format_used: "checksum"`).
-        *   `range_request_status?`: `string` (For partial reads of URL sources: `"native"` if HTTP Range headers were used successfully by the remote server; `"simulated"` if the server fetched the full content then sliced it because the remote server did not support Range or for the specific range; `"full_content_returned"` if a range was requested but the full content was small enough to fit or the remote didn't support range and returned full; `"not_supported"` if range request explicitly failed on remote server. Omitted for local files or non-ranged URL requests).
-        *   `markdown_conversion_status?`: `string` (If `format: "markdown"` was requested for a URL: `"success"` or `"skipped_unsupported_content_type"`).
-        *   `markdown_conversion_skipped_reason?`: `string` (If `markdown_conversion_status` is `"skipped_unsupported_content_type"`, e.g., `"Original Content-Type 'image/png' is not suitable for Markdown conversion; returning raw content."`).
+        *   If `status: "error"`, then `error_code: string` and `error_message: string` are also present. For some errors, `http_status_code: integer` may be included.
+    *   **Fields specific to `operation: "content"` and `status: "success"`:**
+        *   `output_format_used`: `string` (The actual format of the content returned, e.g., `"text"`, `"base64"`, `"markdown"`. This can be `"text"` even if `"markdown"` was requested, if fallback occurred).
+        *   `content?`: `string` (The actual content. For `format: "text"`, this is a UTF-8 string. For `format: "base64"`, a base64 encoded string. For `format: "markdown"`, the resulting Markdown string. If `format: "text"` was requested for binary data, this is a placeholder string. This field is absent if `format: "checksum"` was used).
+        *   `mime_type?`: `string` (The detected MIME type of the source content, e.g., `"text/plain"`, `"image/jpeg"`).
+        *   `size_bytes?`: `integer` (The size of the returned `content` in bytes if applicable, e.g., for text, base64. For `format: "checksum"`, this is the size of the data that was checksummed).
+        *   `original_size_bytes?`: `integer` (For `format: "base64"` on images, if compression was applied, this is the size of the image data *before* compression but *after* any range-limiting logic for URLs).
+        *   `compression_applied?`: `boolean` (For `format: "base64"` on images, `true` if compression was attempted and resulted in a smaller or equal size, `false` otherwise).
+        *   `compression_error_note?`: `string` (Optional. If `compression_applied: false` due to an error during compression attempt, this provides a brief note).
+        *   `checksum?`: `string` (If `format: "checksum"` was requested, this is the calculated checksum string).
+        *   `checksum_algorithm_used?`: `string` (If `format: "checksum"` was requested, the algorithm used, e.g., `"sha256"`).
+        *   `http_status_code?`: `integer` (For URL sources, the HTTP status code from the final response, e.g., `200`, `206`).
+        *   `range_request_status?`: `string` (For URL sources where a byte range was requested or implied by `offset`/`length`. Values: `"native"` if server returned HTTP 206, `"simulated"` if server returned full content and conduit-mcp sliced it, `"full_content_returned"` if server returned full content and no slicing was needed/done by conduit-mcp for the request, or `"not_supported"` if range headers were not applicable or ignored by the server and full content was used/expected. This helps client understand how the byte range was handled.)
+        *   `markdown_conversion_status?`: `string` (If `format: "markdown"` was requested. Values: `"success"`, `"skipped_unsupported_content_type"`).
+        *   `markdown_conversion_skipped_reason?`: `string` (If `markdown_conversion_status` is `"skipped_unsupported_content_type"`, this explains why).
+        *   `final_url?`: `string` (For URL sources, if redirects occurred, this is the final URL from which content was fetched. Only present if different from the original `source` URL).
     *   **Additional fields for `operation: "metadata"` on `status: "success"`:**
         *   `http_status_code?`: `integer` (For `source_type: "url"`, the HTTP status code from the response, e.g., 200, 304).
         *   `metadata`: `object` (Contains metadata attributes):
@@ -360,8 +361,8 @@ The server **must** parse these environment variables at startup. String values 
             *   `mime_type?`: `string` (For `type: "file"`, detected MIME type).
             *   `created_at_iso`: `string` (ISO 8601 UTC).
             *   `modified_at_iso`: `string` (ISO 8601 UTC).
-            *   `permissions_octal?`: `string` (e.g., `"0755"`).
-            *   `permissions_string?`: `string` (e.g., `"rwxr-xr-x"`).
+            *   `permissions_octal?`: `string` (For local files, e.g., `"0755"`).
+            *   `permissions_string?`: `string` (For local files, e.g., `"rwxr-xr-x"`).
             *   `children?`: `EntryInfo[]` (Array of child `EntryInfo` objects, present if `recursive_depth > 0` and the current entry is a directory that has children within the depth limit).
             *   `recursive_size_calculation_note?`: `string` (Optional. E.g., `"Calculation timed out due to server limit"`, `"Partial size: depth limit reached"`, if `calculate_recursive_size` was true but encountered issues or couldn't complete fully for this entry).
     *   **For `operation: "system_info"` with `info_type: "server_capabilities"`:** A single object:

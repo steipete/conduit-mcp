@@ -1,8 +1,6 @@
 import os from 'os';
 import path from 'path';
-import { ConduitServerConfig } from '@/types/config';
-import { getCurrentISO8601UTC } from '@/utils/dateTime';
-import logger from '@/utils/logger';
+import { ConduitServerConfig, getCurrentISO8601UTC, logger } from '../internal';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version } = require('../../package.json');
 
@@ -47,14 +45,17 @@ export function loadConfig(): ConduitServerConfig {
     // Potentially throw an error here to prevent server startup with no accessible paths
     // For now, it will continue, but securityHandler will block all fs access.
   }
+  const currentWorkingDirectory = path.resolve(process.cwd());
 
   const config: ConduitServerConfig = {
+    workspaceRoot: currentWorkingDirectory,
     logLevel: parseEnvString(process.env.LOG_LEVEL, 'INFO', ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'] as const).toUpperCase() as ConduitServerConfig['logLevel'],
     allowedPaths: resolvedAllowedPaths,
     httpTimeoutMs: parseEnvInt(process.env.CONDUIT_HTTP_TIMEOUT_MS, 30000),
     maxPayloadSizeBytes: parseEnvInt(process.env.CONDUIT_MAX_PAYLOAD_SIZE_BYTES, 10485760),
     maxFileReadBytes: parseEnvInt(process.env.CONDUIT_MAX_FILE_READ_BYTES, 52428800),
-    maxUrlDownloadBytes: parseEnvInt(process.env.CONDUIT_MAX_URL_DOWNLOAD_BYTES, 20971520),
+    maxFileReadBytesFind: parseEnvInt(process.env.CONDUIT_MAX_FILE_READ_BYTES_FIND, 524288),
+    maxUrlDownloadSizeBytes: parseEnvInt(process.env.CONDUIT_MAX_URL_DOWNLOAD_SIZE_BYTES, 20971520),
     imageCompressionThresholdBytes: parseEnvInt(process.env.CONDUIT_IMAGE_COMPRESSION_THRESHOLD_BYTES, 1048576),
     imageCompressionQuality: parseEnvInt(process.env.CONDUIT_IMAGE_COMPRESSION_QUALITY, 75),
     defaultChecksumAlgorithm: parseEnvString(process.env.CONDUIT_DEFAULT_CHECKSUM_ALGORITHM, 'sha256', ['md5', 'sha1', 'sha256', 'sha512'] as const) as ConduitServerConfig['defaultChecksumAlgorithm'],

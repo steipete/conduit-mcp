@@ -2,10 +2,10 @@ import { conduitConfig } from '@/core/configLoader';
 import { validateAndResolvePath, validatePathForCreation } from '@/core/securityHandler';
 import * as fsOps from '@/core/fileSystemOps';
 import * as archiveOps from '@/operations/archiveOps';
-import { WriteTool } from '@/types/tools';
-import { ConduitError, ErrorCode, createMCPErrorStatus } from '@/utils/errorHandler';
+import { makeDirectory } from '@/operations/mkdirOps';
+import { WriteTool, ArchiveTool } from '@/types/tools';
+import { ConduitError, ErrorCode, createMCPErrorStatus, MCPErrorStatus } from '@/utils/errorHandler';
 import logger from '@/utils/logger';
-import { MCPErrorStatus } from '@/types/common';
 
 async function handlePutAction(entry: WriteTool.PutEntry): Promise<WriteTool.WriteResultItem> {
   const resolvedPath = validatePathForCreation(entry.path);
@@ -25,18 +25,20 @@ async function handlePutAction(entry: WriteTool.PutEntry): Promise<WriteTool.Wri
 }
 
 async function handleMkdirAction(entry: WriteTool.MkdirEntry): Promise<WriteTool.WriteResultItem> {
-  const resolvedPath = validatePathForCreation(entry.path);
+  // Security validation for the path itself is handled by makeDirectory's use of resolve, 
+  // and the underlying fs.mkdir will fail if segments are not creatable due to permissions.
+  // The main security check (is entry.path within workspaceRoot) is done by makeDirectory.
   try {
-    await fsOps.createDirectory(resolvedPath, entry.recursive || false);
-    return {
-      status: 'success',
-      action_performed: 'mkdir',
-      path: resolvedPath,
-      message: 'Directory created successfully.'
-    };
+    // Call the new makeDirectory function
+    // It now takes config, so we need to pass conduitConfig (assuming it's loaded and available)
+    return await makeDirectory(entry, conduitConfig);
   } catch (e: any) {
     logger.error(`Write.mkdir failed for ${entry.path}: ${e.message}`);
-    throw e;
+    // makeDirectory should return a WriteResultItem, so if it throws, it's unexpected.
+    // However, to be safe and align with other handlers, we can re-throw or create an error item.
+    // For consistency with the pattern in this file, let's re-throw, 
+    // and the batch handler will catch it.
+    throw e; 
   }
 }
 
@@ -163,34 +165,78 @@ async function handleBatchActions(params: WriteTool.BaseBatchParams): Promise<Wr
 
 async function handleArchiveAction(params: WriteTool.ArchiveParams): Promise<WriteTool.ArchiveActionResponse> {
     try {
-        const { skipped_sources } = await archiveOps.createArchive(params);
-        return {
-            status: 'success',
-            action_performed: 'archive',
-            path: params.archive_path,
-            message: 'Archive created successfully.',
-            skipped_sources
-        } as WriteTool.WriteResultSuccess;
+        // Pass conduitConfig to archiveOps functions
+        const archiveResult = await archiveOps.createArchive(params as unknown as ArchiveTool.CreateArchiveParams, conduitConfig);
+
+        if (archiveResult.status === 'success') {
+            const successResult = archiveResult as ArchiveTool.CreateArchiveSuccess;
+            return {
+                status: 'success',
+                action_performed: 'archive',
+                path: successResult.archive_path,
+                message: successResult.message || 'Archive created successfully.',
+                // skipped_sources: successResult.skipped_sources, // CreateArchiveSuccess from ArchiveTool doesn't have skipped_sources directly, it might be part of a general message or logged.
+                                                                // Let's assume for WriteTool.WriteResultSuccess, skipped_sources is optional.
+            } as WriteTool.WriteResultSuccess;
+        } else {
+            const errorResult = archiveResult as ArchiveTool.ArchiveResultError;
+            return {
+                status: 'error',
+                error_code: errorResult.error_code,
+                error_message: errorResult.error_message,
+                action_performed: 'archive', // From BaseResult part of WriteTool.WriteResultItem
+                path: params.archive_path, // From BaseResult part of WriteTool.WriteResultItem
+            } as WriteTool.WriteResultItem; // This will be MCPErrorStatus & BaseResult
+        }
     } catch (error: any) {
         logger.error(`Write.archive failed for ${params.archive_path}: ${error.message}`);
-        return (error instanceof ConduitError ? error.MCPPErrorStatus : createMCPErrorStatus(ErrorCode.ERR_ARCHIVE_CREATION_FAILED, error.message)) as MCPErrorStatus;
+        // Fallback for unexpected errors from archiveOps.createArchive itself (not returned error objects)
+        return {
+            status: 'error',
+            error_code: ErrorCode.ERR_ARCHIVE_CREATION_FAILED,
+            error_message: error.message || 'Failed to create archive due to an unexpected error.',
+            action_performed: 'archive',
+            path: params.archive_path,
+        } as WriteTool.WriteResultItem;
     }
 }
 
 async function handleUnarchiveAction(params: WriteTool.UnarchiveParams): Promise<WriteTool.ArchiveActionResponse> {
     try {
-        const { extracted_files_count } = await archiveOps.extractArchive(params);
+        // Pass conduitConfig to archiveOps functions
+        const unarchiveResult = await archiveOps.extractArchive(params as unknown as ArchiveTool.ExtractArchiveParams, conduitConfig);
+
+        if (unarchiveResult.status === 'success') {
+            const successResult = unarchiveResult as ArchiveTool.ExtractArchiveSuccess;
+            return {
+                status: 'success',
+                action_performed: 'unarchive',
+                path: successResult.archive_path,
+                destination_path: successResult.target_path,
+                message: successResult.message || 'Archive extracted successfully.',
+                extracted_files_count: successResult.extracted_files_count,
+            } as WriteTool.WriteResultSuccess;
+        } else {
+            const errorResult = unarchiveResult as ArchiveTool.ArchiveResultError;
+            return {
+                status: 'error',
+                error_code: errorResult.error_code,
+                error_message: errorResult.error_message,
+                action_performed: 'unarchive',
+                path: params.archive_path,
+                destination_path: params.destination_path,
+            } as WriteTool.WriteResultItem;
+        }
+    } catch (error: any) {
+        logger.error(`Write.unarchive failed for ${params.archive_path} to ${params.destination_path}: ${error.message}`);
         return {
-            status: 'success',
+            status: 'error',
+            error_code: ErrorCode.ERR_UNARCHIVE_FAILED,
+            error_message: error.message || 'Failed to extract archive due to an unexpected error.',
             action_performed: 'unarchive',
             path: params.archive_path,
             destination_path: params.destination_path,
-            message: 'Archive extracted successfully.',
-            extracted_files_count
-        } as WriteTool.WriteResultSuccess;
-    } catch (error: any) {
-        logger.error(`Write.unarchive failed for ${params.archive_path} to ${params.destination_path}: ${error.message}`);
-        return (error instanceof ConduitError ? error.MCPPErrorStatus : createMCPErrorStatus(ErrorCode.ERR_UNARCHIVE_FAILED, error.message)) as MCPErrorStatus;
+        } as WriteTool.WriteResultItem;
     }
 }
 

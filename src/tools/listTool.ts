@@ -1,76 +1,21 @@
 import { conduitConfig } from '@/core/configLoader';
 import { validateAndResolvePath } from '@/core/securityHandler';
-import * as fsOps from '@/core/fileSystemOps';
-import { ListTool } from '@/types/tools';
-import { ConduitError, ErrorCode, createMCPErrorStatus } from '@/utils/errorHandler';
+// import * as fsOps from '@/core/fileSystemOps'; // No longer directly needed here for entries
+import { ListTool, EntryInfo, MCPErrorStatus, ConduitError, ErrorCode, createMCPErrorStatus } from '@/internal'; // Updated imports
+import { listEntries } from '@/operations/listOps'; // Import the new listEntries
 import logger from '@/utils/logger';
-import { EntryInfo } from '@/types/common';
-import path from 'path';
-import os from 'os'; // For filesystem_stats when no path is given
-import fs from 'fs/promises'; // For checkDiskSpace
+import checkDiskSpace from 'check-disk-space'; // Added import
+// import path from 'path'; // No longer needed here
+// import os from 'os'; // For filesystem_stats when no path is given - keep
+// import fs from 'fs/promises'; // For checkDiskSpace - keep
 
-async function getDirectoryEntriesRecursive(dirPath: string, currentDepth: number, maxDepth: number, calculateSize: boolean, startTimeForSizeCalc: number): Promise<EntryInfo[]> {
-  const entries: EntryInfo[] = [];
-  const itemNames = await fsOps.listDirectory(dirPath);
+const operationLogger = logger.child({ component: 'listToolHandler' }); // Added logger for the handler
 
-  for (const itemName of itemNames) {
-    const itemFullPath = path.join(dirPath, itemName);
-    try {
-      const stats = await fsOps.getLstats(itemFullPath); // Use lstat to avoid following symlinks for basic listing
-      const entryInfoBase = await fsOps.createEntryInfo(itemFullPath, stats, itemName);
-      const entry: EntryInfo = { ...entryInfoBase, children: undefined, recursive_size_calculation_note: undefined };
-
-      if (stats.isDirectory()) {
-        if (calculateSize) {
-          const sizeInfo = await fsOps.calculateRecursiveDirectorySize(itemFullPath, currentDepth /* start sub-calc from current depth for this dir */, conduitConfig.maxRecursiveDepth, conduitConfig.recursiveSizeTimeoutMs, startTimeForSizeCalc);
-          entry.size_bytes = sizeInfo.size;
-          entry.recursive_size_calculation_note = sizeInfo.note;
-        }
-        if (currentDepth < maxDepth) {
-          if (Date.now() - startTimeForSizeCalc > conduitConfig.recursiveSizeTimeoutMs && calculateSize) {
-            entry.recursive_size_calculation_note = entry.recursive_size_calculation_note || 'Calculation timed out before deep recursion';
-          } else {
-            entry.children = await getDirectoryEntriesRecursive(itemFullPath, currentDepth + 1, maxDepth, calculateSize, startTimeForSizeCalc);
-          }
-        }
-      }
-      entries.push(entry);
-    } catch (error: any) {
-      logger.warn(`Failed to process entry ${itemFullPath} in list.entries: ${error.message}`);
-      // Optionally add an error entry or skip
-    }
-     if (Date.now() - startTimeForSizeCalc > conduitConfig.recursiveSizeTimeoutMs && calculateSize) {
-        // Overall timeout check for the entire list operation for one top-level path, esp. for size calculation
-        // This isn't perfect for stopping all recursion but helps cap the total time for one `list.entries` call.
-        logger.warn(`list.entries for ${dirPath} aborted due to recursive size calculation timeout.`);
-        // Potentially add a note to the parent or throw a specific error if the whole operation should fail.
-        break; 
-    }
-  }
-  return entries;
-}
-
-async function handleEntriesOperation(params: ListTool.EntriesParams): Promise<ListTool.EntriesResponse> {
-  const resolvedPath = await validateAndResolvePath(params.path, { isExistenceRequired: true });
-  const stats = await fsOps.getStats(resolvedPath);
-
-  if (!stats.isDirectory()) {
-    throw new ConduitError(ErrorCode.ERR_FS_IS_FILE, `Path for list.entries must be a directory: ${resolvedPath}`);
-  }
-
-  const maxDepth = Math.min(params.recursive_depth === -1 ? conduitConfig.maxRecursiveDepth : (params.recursive_depth || 0), conduitConfig.maxRecursiveDepth);
-  const calculateSize = params.calculate_recursive_size || false;
-  const startTimeForSizeCalc = Date.now(); // For timeout on recursive size calculation
-  
-  const results = await getDirectoryEntriesRecursive(resolvedPath, 0, maxDepth, calculateSize, startTimeForSizeCalc);
-  return results;
-}
+// Removed getDirectoryEntriesRecursive and handleEntriesOperation as their logic is now in listOps.ts
 
 async function handleSystemInfoOperation(params: ListTool.SystemInfoParams): Promise<ListTool.ServerCapabilitiesResponse | ListTool.FilesystemStatsResponse> {
   if (params.info_type === 'server_capabilities') {
     const activeConfigForDisplay: Record<string, any> = { ...conduitConfig };
-    // Potentially redact or simplify certain complex objects for display if needed in future
-    // For now, showing resolved allowedPaths is good.
     return {
       server_version: conduitConfig.serverVersion,
       active_configuration: activeConfigForDisplay,
@@ -86,68 +31,67 @@ async function handleSystemInfoOperation(params: ListTool.SystemInfoParams): Pro
         status_message: "No specific path provided for filesystem_stats. To retrieve statistics for a filesystem volume, please provide a 'path' parameter pointing to a location within one of the configured allowed paths.",
         server_version: conduitConfig.serverVersion,
         server_start_time_iso: conduitConfig.serverStartTimeIso,
-        configured_allowed_paths: conduitConfig.allowedPaths, // Show resolved paths
+        configured_allowed_paths: conduitConfig.allowedPaths, 
       } as ListTool.FilesystemStatsNoPath;
     }
     const resolvedPath = await validateAndResolvePath(params.path, {isExistenceRequired: true});
     try {
-      // The 'fs.statfs' function is not available in Node.js core 'fs/promises' or 'fs'.
-      // We need a library like 'check-disk-space' or to execute a df command.
-      // For simplicity and to avoid adding a new direct dependency now if not already planned:
-      // let's simulate this or state it as not directly implementable with pure Node fs.
-      // The spec implies it should work. Let's use check-disk-space if it were added.
-      // For now, I will mock this data or return an ERR_NOT_IMPLEMENTED style error.
-      // Alternative: use child_process to run `df` and parse output (platform-dependent).
- 
-      // Correct way if `check-disk-space` was a dependency:
-      // import checkDiskSpace from 'check-disk-space';
-      // const diskSpace = await checkDiskSpace(resolvedPath);
-      // return {
-      // path_queried: resolvedPath,
-      // total_bytes: diskSpace.size,
-      // free_bytes: diskSpace.free,
-      // available_bytes: diskSpace.free, // available might differ from free on some OS for non-root
-      // used_bytes: diskSpace.size - diskSpace.free,
-      // };
-      
-      // Since check-disk-space is not listed as a direct dependency in the spec or package.json yet:
-      // Returning a not implemented error or placeholder data.
-      // For now, let's provide placeholder data as the spec expects a success structure.
-       logger.warn("filesystem_stats using placeholder data as 'check-disk-space' lib is not integrated or df command parsing is not implemented.");
+       // Use checkDiskSpace library
+       const diskSpace = await checkDiskSpace(resolvedPath);
        return {
         path_queried: resolvedPath,
-        total_bytes: 100 * 1024 * 1024 * 1024, // 100 GB example
-        free_bytes: 50 * 1024 * 1024 * 1024,  // 50 GB example
-        available_bytes: 45 * 1024 * 1024 * 1024, // 45 GB example
-        used_bytes: 50 * 1024 * 1024 * 1024, // 50 GB example
+        total_bytes: diskSpace.size,
+        free_bytes: diskSpace.free,
+        available_bytes: diskSpace.free, // check-disk-space typically shows free as available to user
+        used_bytes: diskSpace.size - diskSpace.free,
        } as ListTool.FilesystemStats;
-
     } catch (error: any) {
-        logger.error(`Filesystem stats failed for path ${resolvedPath}: ${error.message}`);
-        throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to get filesystem stats for ${resolvedPath}: ${error.message}`);
+        operationLogger.error(`Filesystem stats failed for path ${resolvedPath} using checkDiskSpace: ${error.message}`);
+        if (error instanceof ConduitError) throw error; // Re-throw if it's already a ConduitError (e.g. from validateAndResolvePath)
+        // Wrap other errors from checkDiskSpace
+        throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to get filesystem stats for ${resolvedPath}: ${error.message || 'Unknown error from checkDiskSpace'}`);
     }
   }
-  throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, `Invalid info_type: ${params.info_type}`);
+  // This part should be logically unreachable because the switch in handleListTool covers all known info_type or defaults.
+  // However, to satisfy TypeScript's exhaustiveness checks for return paths if new info_types were added without updating the switch:
+  throw new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION, `Invalid or unhandled info_type: ${(params as any).info_type}`);
 }
 
-export async function handleListTool(params: ListTool.Parameters): Promise<ListTool.EntriesResponse | ListTool.ServerCapabilitiesResponse | ListTool.FilesystemStatsResponse> {
+export async function handleListTool(
+  params: ListTool.Parameters
+  ): Promise<ListTool.EntriesResponse | ListTool.ServerCapabilitiesResponse | ListTool.FilesystemStatsResponse | MCPErrorStatus> { 
   if (!params || !params.operation) {
-    throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'operation' parameter for list tool.");
+    return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'operation' parameter for list tool.");
   }
 
-  switch (params.operation) {
-    case 'entries':
-      if (!params.path) {
-        throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'path' parameter for list.entries operation.");
-      }
-      return handleEntriesOperation(params as ListTool.EntriesParams);
-    case 'system_info':
-      if (!params.info_type) {
-        throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'info_type' parameter for list.system_info operation.");
-      }
-      return handleSystemInfoOperation(params as ListTool.SystemInfoParams);
-    default:
-      // @ts-expect-error
-      throw new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION, `Unknown operation '${params.operation}' for list tool.`);
+  try {
+    switch (params.operation) {
+      case 'entries':
+        if (!params.path) {
+          return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'path' parameter for list.entries operation.");
+        }
+        const result = await listEntries(params as ListTool.EntriesParams, conduitConfig);
+        if (result instanceof ConduitError) { 
+            return createMCPErrorStatus(result.errorCode, result.message); // Corrected: removed result.details
+        }
+        return result; 
+      case 'system_info':
+        if (!params.info_type) {
+          return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'info_type' parameter for list.system_info operation.");
+        }
+        return await handleSystemInfoOperation(params as ListTool.SystemInfoParams);
+      default:
+        // @ts-expect-error If switch is exhaustive, params.operation is never here.
+        const exhaustiveCheck: never = params.operation;
+        // Log the value that slipped through for debugging, but use the typed `exhaustiveCheck` for type safety demonstration if possible.
+        operationLogger.error(`Unknown list operation received: ${exhaustiveCheck as string}`); 
+        return createMCPErrorStatus(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION, `Unknown operation '${exhaustiveCheck as string}' for list tool.`); // Use params.operation for user message
+    }
+  } catch (error: any) {
+    operationLogger.error(`Unhandled error in handleListTool: ${error.message}`, { errorDetails: error.details, stack: error.stack });
+    if (error instanceof ConduitError) {
+        return createMCPErrorStatus(error.errorCode, error.message); // Corrected: removed error.details
+    }
+    return createMCPErrorStatus(ErrorCode.ERR_INTERNAL_SERVER_ERROR, `Internal server error in list tool: ${error.message || 'Unknown error'}`);
   }
 } 
