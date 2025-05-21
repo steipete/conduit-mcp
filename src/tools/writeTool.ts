@@ -10,7 +10,17 @@ import logger from '@/utils/logger';
 async function handlePutAction(entry: WriteTool.PutEntry): Promise<WriteTool.WriteResultItem> {
   const resolvedPath = validatePathForCreation(entry.path);
   try {
-    const bytesWritten = await fsOps.writeFile(resolvedPath, entry.content, entry.input_encoding || 'text', entry.write_mode || 'overwrite');
+    const writeModeForFsOps = entry.write_mode === 'error_if_exists' ? 'overwrite' : entry.write_mode || 'overwrite';
+    if (entry.write_mode === 'error_if_exists' && await fsOps.pathExists(resolvedPath)) {
+        return {
+            status: 'error',
+            action_performed: 'put',
+            path: resolvedPath,
+            error_code: ErrorCode.ERR_FS_ALREADY_EXISTS,
+            error_message: `File already exists at ${resolvedPath} and write_mode is 'error_if_exists'.`
+        }
+    }
+    const bytesWritten = await fsOps.writeFile(resolvedPath, entry.content, entry.input_encoding || 'text', writeModeForFsOps);
     return {
       status: 'success',
       action_performed: 'put',
@@ -231,7 +241,7 @@ async function handleUnarchiveAction(params: WriteTool.UnarchiveParams): Promise
         logger.error(`Write.unarchive failed for ${params.archive_path} to ${params.destination_path}: ${error.message}`);
         return {
             status: 'error',
-            error_code: ErrorCode.ERR_UNARCHIVE_FAILED,
+            error_code: ErrorCode.ERR_ARCHIVE_EXTRACTION_FAILED,
             error_message: error.message || 'Failed to extract archive due to an unexpected error.',
             action_performed: 'unarchive',
             path: params.archive_path,
@@ -242,7 +252,7 @@ async function handleUnarchiveAction(params: WriteTool.UnarchiveParams): Promise
 
 export async function handleWriteTool(params: WriteTool.Parameters): Promise<WriteTool.BatchResponse | WriteTool.ArchiveActionResponse> {
   if (!params || !params.action) {
-    throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'action' parameter for write tool.");
+    throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing 'action' parameter for write tool.");
   }
 
   switch (params.action) {

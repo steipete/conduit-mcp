@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { conduitConfig, ConduitError, ErrorCode, logger } from '@/internal';
+import { configLoader, ConduitError, ErrorCode, logger } from '@/internal';
 
 export interface CompressionResult {
   buffer: Buffer;
@@ -32,11 +32,11 @@ export async function compressImageIfNecessary(imageBuffer: Buffer, mimeType: st
   // Sharp typically supports jpeg, png, webp, tiff, gif, avif. Add more if needed based on sharp's capabilities.
   const supportedForCompression = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff', 'image/gif', 'image/avif'].includes(mimeType.toLowerCase());
 
-  if (supportedForCompression && originalSizeBytes > conduitConfig.imageCompressionThresholdBytes) {
-    logger.debug(`Attempting compression for image (${mimeType}, ${originalSizeBytes} bytes) as it exceeds threshold ${conduitConfig.imageCompressionThresholdBytes} bytes.`);
+  if (supportedForCompression && originalSizeBytes > configLoader.conduitConfig.imageCompressionThresholdBytes) {
+    logger.debug(`Attempting compression for image (${mimeType}, ${originalSizeBytes} bytes) as it exceeds threshold ${configLoader.conduitConfig.imageCompressionThresholdBytes} bytes.`);
     try {
       let sharpInstance = sharp(imageBuffer);
-      const quality = conduitConfig.imageCompressionQuality;
+      const quality = configLoader.conduitConfig.imageCompressionQuality;
 
       switch (mimeType.toLowerCase()) {
         case 'image/jpeg':
@@ -96,7 +96,7 @@ export async function compressImageIfNecessary(imageBuffer: Buffer, mimeType: st
       finalBuffer = imageBuffer; // Return original on error
     }
   } else if (supportedForCompression) {
-    logger.debug(`Image (${mimeType}, ${originalSizeBytes} bytes) does not exceed compression threshold ${conduitConfig.imageCompressionThresholdBytes} bytes. No compression applied.`);
+    logger.debug(`Image (${mimeType}, ${originalSizeBytes} bytes) does not exceed compression threshold ${configLoader.conduitConfig.imageCompressionThresholdBytes} bytes. No compression applied.`);
   } else {
     logger.debug(`Image type ${mimeType} is not configured for compression with sharp. No compression attempted.`);
   }

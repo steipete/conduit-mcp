@@ -13,8 +13,6 @@ import {
     imageProcessor // Namespace for imageProcessor functions and types
 } from '@/internal';
 
-const operationLogger = logger.child({component: 'getContentOps'});
-
 interface BaseResultForError {
     source: string;
     source_type: 'file' | 'url';
@@ -46,6 +44,7 @@ export async function getContent(
   params: ReadTool.ContentParams, 
   config: ConduitServerConfig, 
 ): Promise<ReadTool.ContentResultItem> { 
+  const operationLogger = logger.child({component: 'getContentOps'});
   operationLogger.debug(`Getting content for source: ${source} with params: ${JSON.stringify(params)}`);
   try {
     const isUrlSource = source.startsWith('http://') || source.startsWith('https://');
@@ -64,18 +63,19 @@ export async function getContent(
   }
 }
 
-async function getContentFromFile(
+export async function getContentFromFile(
   filePath: string,
   params: ReadTool.ContentParams, 
   config: ConduitServerConfig, 
 ): Promise<ReadTool.ContentResultItem> { 
+  const operationLogger = logger.child({component: 'getContentOps'});
   operationLogger.debug(`Getting content from file: ${filePath} with params: ${JSON.stringify(params)}`);
   
   try {
     const stats = await fileSystemOps.getStats(filePath); 
 
     if (stats.isDirectory()) {
-      return createErrorContentResultItem(filePath, 'file', ErrorCode.ERR_FS_IS_DIRECTORY, `Source is a directory, not a file: ${filePath}`);
+      return createErrorContentResultItem(filePath, 'file', ErrorCode.ERR_FS_PATH_IS_DIR, `Source is a directory, not a file: ${filePath}`);
     }
 
     const detectedMimeType = await getMimeType(filePath);
@@ -164,17 +164,22 @@ async function getContentFromFile(
 
     if (format === 'checksum') {
       const algo = params.checksum_algorithm || config.defaultChecksumAlgorithm;
-      const checksum = await calculateChecksum(fileBuffer, algo as string);
-      return {
-        source: filePath,
-        source_type: 'file',
-        status: 'success',
-        output_format_used: 'checksum',
-        checksum: checksum,
-        checksum_algorithm_used: algo,
-        size_bytes: fileBuffer.length, 
-        mime_type: detectedMimeType,
-      } as ReadTool.ContentResultSuccess;
+      try {
+        const checksum = await calculateChecksum(fileBuffer, algo as string);
+        return {
+          source: filePath,
+          source_type: 'file',
+          status: 'success',
+          output_format_used: 'checksum',
+          checksum: checksum,
+          checksum_algorithm_used: algo,
+          size_bytes: fileBuffer.length, 
+          mime_type: detectedMimeType,
+        } as ReadTool.ContentResultSuccess;
+      } catch (checksumError: any) {
+        operationLogger.error(`Checksum calculation failed for ${filePath}: ${checksumError.message}`);
+        throw new ConduitError(ErrorCode.ERR_CHECKSUM_FAILED, `Checksum calculation failed for ${filePath}: ${checksumError.message || 'Unknown error'}`);
+      }
     }
 
     const sourceMimeType = detectedMimeType;
@@ -304,6 +309,7 @@ async function getContentFromUrl(
   params: ReadTool.ContentParams, 
   config: ConduitServerConfig, 
 ): Promise<ReadTool.ContentResultItem> { 
+  const operationLogger = logger.child({component: 'getContentOps'});
   operationLogger.info(`Attempting to get content from URL: ${url}`);
   let fetchedData: webFetcher.FetchedContent;
   try {
@@ -323,7 +329,6 @@ async function getContentFromUrl(
         if (fetchedData.httpStatus === 206) { // Partial Content
             rangeRequestStatus = 'native';
         } else if (fetchedData.httpStatus === 200) { // Full content returned despite range request
-            // We might need to simulate the range if the server didn't honor it but sent full content
             rangeRequestStatus = 'full_content_returned'; 
         }
     }
@@ -350,13 +355,10 @@ async function getContentFromUrl(
             contentBuffer = contentBuffer.subarray(offset, Math.min(end, contentBuffer.length));
             finalRangeStatus = 'simulated';
         } else {
-             // Offset is beyond content length, return empty
             contentBuffer = Buffer.alloc(0);
-            finalRangeStatus = 'simulated'; // Or 'not_applicable_offset_oob'
+            finalRangeStatus = 'not_applicable_offset_oob';
         }
     } else if (!rangeHeader && (params.offset || params.length)) {
-        // If a range was specified in params but not sent as header (e.g. for checksum full read)
-        // we need to simulate it now if the format is not checksum/markdown (which use full buffer)
         if (actualFormat !== 'checksum' && actualFormat !== 'markdown') {
             const offset = params.offset || 0;
             let length = params.length;
@@ -366,27 +368,36 @@ async function getContentFromUrl(
                 finalRangeStatus = 'simulated';
             } else {
                 contentBuffer = Buffer.alloc(0);
-                finalRangeStatus = 'simulated';
+                finalRangeStatus = 'not_applicable_offset_oob';
             }
         }
     }
 
     if (actualFormat === 'checksum') {
       const algo = params.checksum_algorithm || config.defaultChecksumAlgorithm;
-      // For checksum, always use the (potentially range-simulated) contentBuffer
-      const checksum = await calculateChecksum(contentBuffer, algo as string);
-      return {
-        source: fetchedData.finalUrl,
-        source_type: 'url',
-        status: 'success',
-        output_format_used: 'checksum',
-        checksum: checksum,
-        checksum_algorithm_used: algo,
-        size_bytes: contentBuffer.length,
-        mime_type: sourceMimeType,
-        http_status_code: fetchedData.httpStatus,
-        range_request_status: finalRangeStatus,
-      } as ReadTool.ContentResultSuccess;
+      try {
+        const checksum = await calculateChecksum(contentBuffer, algo as string);
+        return {
+          source: fetchedData.finalUrl,
+          source_type: 'url',
+          status: 'success',
+          output_format_used: 'checksum',
+          checksum: checksum,
+          checksum_algorithm_used: algo,
+          size_bytes: contentBuffer.length,
+          mime_type: sourceMimeType,
+          http_status_code: fetchedData.httpStatus,
+          range_request_status: finalRangeStatus,
+        } as ReadTool.ContentResultSuccess;
+      } catch (checksumError: any) {
+        operationLogger.error(`Checksum calculation failed for URL ${url}: ${checksumError.message}`);
+        const conduitChecksumError = new ConduitError(
+            ErrorCode.ERR_CHECKSUM_FAILED, 
+            `Checksum calculation failed for URL ${url}: ${checksumError.message || 'Unknown error'}`
+        );
+        (conduitChecksumError as any).httpStatus = fetchedData.httpStatus;
+        throw conduitChecksumError;
+      }
     }
 
     let markdownConversionStatus: ReadTool.ContentResultSuccess['markdown_conversion_status'] = undefined;

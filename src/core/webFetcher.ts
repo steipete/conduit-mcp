@@ -2,7 +2,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
-import { conduitConfig, ConduitError, ErrorCode, logger } from '@/internal';
+import { configLoader, ConduitError, ErrorCode, logger } from '@/internal';
 
 const turndownService = new TurndownService();
 
@@ -19,12 +19,14 @@ export interface FetchedContent {
  * @param urlString The URL to fetch.
  * @param isHeadRequest Whether to make a HEAD request (for metadata only).
  * @param range Optional byte range (e.g., "bytes=0-1023").
+ * @param maxBytes Optional maximum byte size for the request.
  * @returns Promise<FetchedContent>
  */
 export async function fetchUrlContent(
   urlString: string,
   isHeadRequest: boolean = false,
-  range?: string
+  range?: string,
+  maxBytes?: number
 ): Promise<FetchedContent> {
   let url;
   try {
@@ -40,9 +42,9 @@ export async function fetchUrlContent(
   const requestConfig: AxiosRequestConfig = {
     method: isHeadRequest ? 'HEAD' : 'GET',
     url: urlString,
-    timeout: conduitConfig.httpTimeoutMs,
+    timeout: configLoader.conduitConfig.httpTimeoutMs,
     responseType: 'arraybuffer', // Fetch as arraybuffer to handle all content types
-    maxContentLength: conduitConfig.maxUrlDownloadBytes,
+    maxContentLength: maxBytes ?? configLoader.conduitConfig.maxUrlDownloadSizeBytes,
     // Follow redirects by default, up to axios' default (5)
     // headers: range ? { 'Range': range } : {},
   };
@@ -66,7 +68,7 @@ export async function fetchUrlContent(
   } catch (error: any) {
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED' || error.message.toLowerCase().includes('timeout')) {
-        throw new ConduitError(ErrorCode.ERR_HTTP_TIMEOUT, `Request to ${urlString} timed out after ${conduitConfig.httpTimeoutMs}ms.`);
+        throw new ConduitError(ErrorCode.ERR_HTTP_TIMEOUT, `Request to ${urlString} timed out after ${configLoader.conduitConfig.httpTimeoutMs}ms.`);
       }
       if (error.response) {
         // The request was made and the server responded with a status code

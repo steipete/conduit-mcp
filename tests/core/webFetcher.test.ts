@@ -83,45 +83,74 @@ describe('webFetcher', () => {
         expect(mockedAxios).toHaveBeenCalledWith(expect.objectContaining({ headers: { 'Range': range }}));
     });
 
-    it('should throw ERR_HTTP_INVALID_URL for invalid URL format', async () => {
+    it('should throw HTTP_INVALID_URL for invalid URL format', async () => {
+      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce({ isAxiosError: true, request: {}, message: 'Invalid URL', config: {}, name: '' });
       await expect(fetchUrlContent('invalid-url')).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_HTTP_INVALID_URL, expect.stringContaining('Invalid URL format'))
       );
     });
 
-    it('should throw ERR_HTTP_INVALID_URL for unsupported protocol', async () => {
+    it('should throw HTTP_INVALID_URL for unsupported protocol', async () => {
+      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce({ isAxiosError: true, request: {}, message: 'Protocol not supported', config: {}, name: '' });
       await expect(fetchUrlContent('ftp://example.com')).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_HTTP_INVALID_URL, expect.stringContaining('Unsupported URL protocol'))
       );
     });
 
-    it('should throw ERR_HTTP_TIMEOUT on axios timeout', async () => {
-      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValue({ isAxiosError: true, code: 'ECONNABORTED' } as AxiosError);
+    it('should throw HTTP_TIMEOUT on timeout', async () => {
+      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce({ isAxiosError: true, code: 'ECONNABORTED', message: 'timeout of 5000ms exceeded', config: {}, name: '' });
       await expect(fetchUrlContent('http://example.com/timeout')).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_HTTP_TIMEOUT, expect.stringContaining('timed out'))
       );
     });
 
-    it('should throw ERR_HTTP_STATUS_ERROR for non-2xx response', async () => {
+    it('should throw HTTP_STATUS_ERROR for non-2xx response', async () => {
       const mockUrl = 'http://example.com/notfound';
-      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValue({
+      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce({
         isAxiosError: true,
-        response: { status: 404, statusText: 'Not Found', request: { res: { responseUrl: mockUrl } } },
+        config: {} as any,
+        name: 'AxiosError',
+        message: 'Request failed with status code 404',
+        code: 'ERR_BAD_REQUEST',
+        status: 404,
+        statusText: 'Not Found',
+        request: { res: { responseUrl: mockUrl } },
+        response: {
+            data: null,
+            status: 404,
+            statusText: 'Not Found',
+            headers: {},
+            config: {} as any,
+        },
+        toJSON: () => ({})
       } as AxiosError);
       await expect(fetchUrlContent(mockUrl)).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_HTTP_STATUS_ERROR, expect.stringContaining('failed with HTTP status 404'))
       );
     });
 
-     it('should throw ERR_HTTP_REQUEST_FAILED for no response received', async () => {
-      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValue({ isAxiosError: true, request: {} }  as AxiosError);
+    it('should throw HTTP_REQUEST_FAILED for no response errors', async () => {
+      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce({ 
+        isAxiosError: true, 
+        request: {}, 
+        message: 'No response received from server', 
+        config: {} as any, 
+        name: 'AxiosError', 
+        code: 'ERR_NETWORK'
+      } as AxiosError);
       await expect(fetchUrlContent('http://example.com/noresponse')).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_HTTP_REQUEST_FAILED, expect.stringContaining('No response received'))
       );
     });
 
-    it('should throw ERR_HTTP_REQUEST_FAILED for other axios errors', async () => {
-      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValue(new Error('Network Error')); // Not an AxiosError specifically
+    it('should throw HTTP_REQUEST_FAILED for other network errors', async () => {
+      (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce({ 
+        isAxiosError: true, 
+        message: 'Network Error', 
+        config: {} as any, 
+        name: 'AxiosError', 
+        code: 'ERR_NETWORK'
+      });
       await expect(fetchUrlContent('http://example.com/networkerror')).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_HTTP_REQUEST_FAILED, expect.stringContaining('Network Error'))
       );
@@ -181,6 +210,45 @@ describe('webFetcher', () => {
       mockTurndownMethod.mockImplementationOnce(() => { throw new Error('Turndown failed'); });
       expect(() => cleanHtmlToMarkdown(mockHtmlContent, mockPageUrl))
         .toThrow(new ConduitError(ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED));
+    });
+
+    it('should throw ConduitError if turndownService.turndown throws an error', () => {
+      const htmlContent = '<p>Error case</p>';
+      const turndownSpy = vi.spyOn(TurndownService.prototype, 'turndown').mockImplementation(() => { throw new Error('Turndown internal error'); });
+      expect(() => cleanHtmlToMarkdown(htmlContent, 'http://example.com'))
+        .toThrow(new ConduitError(ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED));
+      turndownSpy.mockRestore();
+    });
+
+    it('should throw ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED if Readability parsing fails', () => {
+      const htmlContent = '<p>Test</p>';
+      // @ts-ignore
+      vi.spyOn(Readability.prototype, 'parse').mockReturnValue(null); // Simulate Readability failure
+      expect(() => cleanHtmlToMarkdown(htmlContent, 'http://example.com'))
+          .toThrow(new ConduitError(ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED));
+      vi.restoreAllMocks();
+    });
+
+    it('should throw ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED if Readability result has no content', () => {
+      const htmlContent = '<p>Test</p>';
+      // @ts-ignore
+      vi.spyOn(Readability.prototype, 'parse').mockReturnValue({textContent: '', title: '', content: null});
+      expect(() => cleanHtmlToMarkdown(htmlContent, 'http://example.com'))
+          .toThrow(new ConduitError(ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED));
+      vi.restoreAllMocks();
+    });
+
+    it('should throw ConduitError if turndownService.turndown throws within main content extraction', () => {
+      const htmlContent = '<article><h1>Title</h1><p>Real content.</p></article>';
+      // @ts-ignore // Mocking Readability a bit loosely for simplicity
+      vi.spyOn(Readability.prototype, 'parse').mockReturnValue({ textContent: 'Real content.', title: 'Title', content: '<p>Real content.</p>' });
+      const turndownSpy = vi.spyOn(TurndownService.prototype, 'turndown').mockImplementation(() => { throw new Error('Turndown broke on main content'); });
+
+      expect(() => cleanHtmlToMarkdown(htmlContent, 'http://example.com'))
+        .toThrow(new ConduitError(ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED));
+      
+      turndownSpy.mockRestore();
+      vi.restoreAllMocks();
     });
   });
 }); 

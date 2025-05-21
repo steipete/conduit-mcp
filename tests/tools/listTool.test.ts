@@ -7,15 +7,32 @@ import { EntryInfo } from '@/types/common';
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
 import { vi, Mocked } from 'vitest';
 import path from 'path';
+import { MCPErrorStatus } from '@/internal';
+import { DeepMockProxy } from 'vitest';
+import logger from '@/core/logger';
+import configLoader from '@/core/configLoader';
+import listOps from '@/core/listOps';
+import checkDiskSpace from '@/core/checkDiskSpace';
+import { ConduitServerConfig } from '@/types/config';
 
 // Mocks
 vi.mock('@/core/configLoader');
 vi.mock('@/core/securityHandler');
 vi.mock('@/core/fileSystemOps');
+vi.mocked(configLoader.loadAndValidateConfig, { partial: true });
+vi.mocked(configLoader.conduitConfig, { partial: true });
+vi.mocked(logger, { partial: true });
+vi.mocked(fileSystemOps, { partial: true });
+vi.mocked(listOps, { partial: true });
+vi.mocked(securityHandler, { partial: true });
+vi.mocked(checkDiskSpace, { partial: true });
 
 const mockedConduitConfig = conduitConfig as Mocked<typeof conduitConfig>;
 const mockedSecurityHandler = securityHandler as Mocked<typeof securityHandler>;
 const mockedFsOps = fsOps as Mocked<typeof fsOps>;
+
+// Simplified mock logger setup for all tests in this suite
+const mockedLogger = logger as DeepMockProxy<typeof logger>;
 
 describe('ListTool', () => {
   beforeEach(() => {
@@ -114,7 +131,21 @@ describe('ListTool', () => {
      it('should throw error if path is not a directory', async () => {
         mockedFsOps.getStats.mockResolvedValueOnce({ isDirectory: () => false } as any);
         const params: ListTool.EntriesParams = { operation: 'entries', path: '/notadir' };
-        await expect(handleListTool(params)).rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_IS_FILE));
+        await expect(handleListTool(params)).rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE));
+    });
+
+    // Test case: path is a file, not a directory
+    it('should return ERR_FS_PATH_IS_FILE if base path is a file', async () => {
+      const params: ListTool.Parameters = { operation: 'entries', path: '/test/file.txt' };
+      // Mock the underlying fileSystemOps.listDirectory (called by listOps.listEntries, which is called by handleListTool)
+      // to simulate the condition where the path is a file.
+      // This typically results in an ENOTDIR error, which should be mapped to ERR_FS_PATH_IS_FILE.
+      mockedFsOps.listDirectory.mockRejectedValue(new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE, 'Path is a file, not a directory'));
+      
+      const result = await handleListTool(params) as MCPErrorStatus; // Expecting an error response
+      expect(result.status).toBe('error');
+      expect(result.error_code).toBe(ErrorCode.ERR_FS_PATH_IS_FILE);
+      expect(result.error_message).toContain('Path is a file, not a directory');
     });
   });
 
@@ -140,6 +171,14 @@ describe('ListTool', () => {
         const result = await handleListTool(params) as ListTool.FilesystemStatsNoPath;
         expect(result.status_message).toContain('No specific path provided');
         expect(result.configured_allowed_paths).toEqual(mockedConduitConfig.allowedPaths);
+    });
+
+    it('should return server capabilities for system_info operation', async () => {
+      const params: ListTool.SystemInfoParams = { operation: 'system_info', info_type: 'server_capabilities' };
+      const result = await handleListTool(params) as ListTool.ServerCapabilities;
+      expect(result.server_version).toBe('1.0.0-test');
+      expect(result.supported_checksum_algorithms).toEqual(['md5', 'sha1', 'sha256', 'sha512']);
+      expect(result.active_configuration).toBeDefined();
     });
   });
   

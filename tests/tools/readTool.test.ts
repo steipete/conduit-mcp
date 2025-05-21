@@ -224,6 +224,19 @@ describe('ReadTool', () => {
             expect(result[0].content).toBe(Buffer.from('jpegdata').toString('base64'));
         }
     });
+
+    it('should return INVALID_PARAMETER error if sources array is empty for content op', async () => {
+        const params: ReadTool.Parameters = { operation: 'content', sources: [] };
+        mockedReadOpsHandler.handleReadTool.mockResolvedValueOnce({
+            status: 'error',
+            error_code: ErrorCode.INVALID_PARAMETER,
+            error_message: 'Sources array cannot be empty for content operation'
+        });
+        const result = await handleReadTool(params);
+        expect(result.status).toBe('error');
+        expect(result.error_code).toBe(ErrorCode.INVALID_PARAMETER);
+        expect(result.error_message).toBe('Sources array cannot be empty for content operation');
+    });
   });
 
   describe('handleMetadataOperation', () => {
@@ -299,6 +312,19 @@ describe('ReadTool', () => {
             sources: [mockSourceFile, mockSourceUrl],
         };
         await expect(handleReadTool(params)).rejects.toThrow(new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, 'Diff operation only supports local files, not URLs.'));
+    });
+
+    it('should return INVALID_PARAMETER error if sources array has more than two for diff op', async () => {
+        const params: ReadTool.Parameters = { operation: 'diff', sources: ['s1', 's2', 's3'] };
+        mockedReadOpsHandler.handleReadTool.mockResolvedValueOnce({
+            status: 'error',
+            error_code: ErrorCode.INVALID_PARAMETER,
+            error_message: 'Diff operation requires exactly two sources'
+        });
+        const result = await handleReadTool(params);
+        expect(result.status).toBe('error');
+        expect(result.error_code).toBe(ErrorCode.INVALID_PARAMETER);
+        expect(result.error_message).toBe('Diff operation requires exactly two sources');
     });
   });
 

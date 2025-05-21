@@ -9,11 +9,12 @@ import checkDiskSpace from 'check-disk-space'; // Added import
 // import os from 'os'; // For filesystem_stats when no path is given - keep
 // import fs from 'fs/promises'; // For checkDiskSpace - keep
 
-const operationLogger = logger.child({ component: 'listToolHandler' }); // Added logger for the handler
+// const operationLogger = logger.child({ component: 'listToolHandler' }); // Added logger for the handler
 
 // Removed getDirectoryEntriesRecursive and handleEntriesOperation as their logic is now in listOps.ts
 
 async function handleSystemInfoOperation(params: ListTool.SystemInfoParams): Promise<ListTool.ServerCapabilitiesResponse | ListTool.FilesystemStatsResponse> {
+  const operationLogger = logger.child({ component: 'listToolHandler' }); // Moved here
   if (params.info_type === 'server_capabilities') {
     const activeConfigForDisplay: Record<string, any> = { ...conduitConfig };
     return {
@@ -49,7 +50,7 @@ async function handleSystemInfoOperation(params: ListTool.SystemInfoParams): Pro
         operationLogger.error(`Filesystem stats failed for path ${resolvedPath} using checkDiskSpace: ${error.message}`);
         if (error instanceof ConduitError) throw error; // Re-throw if it's already a ConduitError (e.g. from validateAndResolvePath)
         // Wrap other errors from checkDiskSpace
-        throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to get filesystem stats for ${resolvedPath}: ${error.message || 'Unknown error from checkDiskSpace'}`);
+        throw new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to get filesystem stats for ${resolvedPath}: ${error.message || 'Unknown error from checkDiskSpace'}`);
     }
   }
   // This part should be logically unreachable because the switch in handleListTool covers all known info_type or defaults.
@@ -59,38 +60,42 @@ async function handleSystemInfoOperation(params: ListTool.SystemInfoParams): Pro
 
 export async function handleListTool(
   params: ListTool.Parameters
-  ): Promise<ListTool.EntriesResponse | ListTool.ServerCapabilitiesResponse | ListTool.FilesystemStatsResponse | MCPErrorStatus> { 
+  ): Promise<ListTool.EntriesResponse | ListTool.ServerCapabilitiesResponse | ListTool.FilesystemStatsResponse | MCPErrorStatus> {
+  const operationLogger = logger.child({ component: 'listToolHandler' });
+
   if (!params || !params.operation) {
-    return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'operation' parameter for list tool.");
+    return createMCPErrorStatus(ErrorCode.INVALID_PARAMETER, "Missing 'operation' parameter for list tool.");
   }
 
   try {
     switch (params.operation) {
       case 'entries':
         if (!params.path) {
-          return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'path' parameter for list.entries operation.");
+          return createMCPErrorStatus(ErrorCode.INVALID_PARAMETER, "Missing 'path' parameter for list.entries operation.");
         }
+        // Assuming listEntries and conduitConfig are correctly imported/available
         const result = await listEntries(params as ListTool.EntriesParams, conduitConfig);
-        if (result instanceof ConduitError) { 
-            return createMCPErrorStatus(result.errorCode, result.message); // Corrected: removed result.details
+        // Type guard or assertion might be needed if listEntries can return ConduitError directly
+        if (result instanceof ConduitError) { // Or check for MCPErrorStatus structure
+            return createMCPErrorStatus(result.errorCode, result.message);
         }
-        return result; 
+        return result as ListTool.EntriesResponse; // Ensure correct type casting
       case 'system_info':
         if (!params.info_type) {
-          return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'info_type' parameter for list.system_info operation.");
+          return createMCPErrorStatus(ErrorCode.INVALID_PARAMETER, "Missing 'info_type' parameter for list.system_info operation.");
         }
+        // Assuming handleSystemInfoOperation is correctly imported/available
         return await handleSystemInfoOperation(params as ListTool.SystemInfoParams);
       default:
         // @ts-expect-error If switch is exhaustive, params.operation is never here.
         const exhaustiveCheck: never = params.operation;
-        // Log the value that slipped through for debugging, but use the typed `exhaustiveCheck` for type safety demonstration if possible.
-        operationLogger.error(`Unknown list operation received: ${exhaustiveCheck as string}`); 
-        return createMCPErrorStatus(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION, `Unknown operation '${exhaustiveCheck as string}' for list tool.`); // Use params.operation for user message
+        operationLogger.error(`Unknown list operation received: ${exhaustiveCheck as string}`);
+        return createMCPErrorStatus(ErrorCode.UNSUPPORTED_OPERATION, `Unknown operation '${exhaustiveCheck as string}' for list tool.`);
     }
   } catch (error: any) {
     operationLogger.error(`Unhandled error in handleListTool: ${error.message}`, { errorDetails: error.details, stack: error.stack });
     if (error instanceof ConduitError) {
-        return createMCPErrorStatus(error.errorCode, error.message); // Corrected: removed error.details
+        return createMCPErrorStatus(error.errorCode, error.message);
     }
     return createMCPErrorStatus(ErrorCode.ERR_INTERNAL_SERVER_ERROR, `Internal server error in list tool: ${error.message || 'Unknown error'}`);
   }

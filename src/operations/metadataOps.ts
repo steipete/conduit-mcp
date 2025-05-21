@@ -4,14 +4,17 @@ import {
     ConduitError, 
     ErrorCode, 
     MCPErrorStatus, 
-    logger, 
     formatToISO8601UTC, 
     getMimeType, 
     fileSystemOps, // Namespace for fileSystemOps functions
-    webFetcher     // Namespace for webFetcher functions
+    webFetcher,     // Namespace for webFetcher functions
+    logger,
+    validateAndResolvePath, // Added validateAndResolvePath
 } from '@/internal';
+// import logger from '@/utils/logger'; // Direct import
+import * as path from 'path';
 
-const operationLogger = logger.child({ component: 'metadataOps' });
+// const operationLogger = logger.child({ component: 'metadataOps' });
 
 interface BaseResultForError {
     source: string;
@@ -47,6 +50,7 @@ export async function getMetadata(
     params: ReadTool.MetadataParams, // These are the params for the metadata operation specifically
     config: ConduitServerConfig
 ): Promise<ReadTool.MetadataResultItem> {
+    const operationLogger = logger.child({ component: 'metadataOps' });
     operationLogger.debug(`Getting metadata for source: ${source} with params: ${JSON.stringify(params)}`);
     try {
         const isUrl = source.startsWith('http://') || source.startsWith('https://');
@@ -70,43 +74,42 @@ async function getMetadataFromFile(
     params: ReadTool.MetadataParams,
     config: ConduitServerConfig
 ): Promise<ReadTool.MetadataResultItem> {
-    operationLogger.info(`Fetching metadata for file: ${filePath}`);
+    const operationLogger = logger.child({ operation: 'getMetadataFromFile', path: filePath });
+    operationLogger.info('Getting metadata from file');
     try {
-        if (!(await fileSystemOps.pathExists(filePath))) {
-            return createErrorMetadataResultItem(filePath, 'file', ErrorCode.ERR_FS_NOT_FOUND, `File or directory not found: ${filePath}`);
+        const resolvedPath = await validateAndResolvePath(filePath, { isExistenceRequired: true });
+        const stats = await fileSystemOps.getLstats(resolvedPath);
+        if (!stats) {
+            return createErrorMetadataResultItem(filePath, 'file', ErrorCode.ERR_FS_NOT_FOUND, `File not found or not accessible: ${filePath}`);
         }
-
-        const stats = await fileSystemOps.getStats(filePath);
-        const entryInfo = await fileSystemOps.createEntryInfo(filePath, stats);
+        const entryInfo = await fileSystemOps.createEntryInfo(resolvedPath, stats, path.basename(resolvedPath));
 
         const metadata: ReadTool.Metadata = {
             name: entryInfo.name,
-            entry_type: entryInfo.type, // 'file' or 'directory'
+            entry_type: entryInfo.type,
             size_bytes: entryInfo.size_bytes,
-            mime_type: entryInfo.mime_type, // Will be undefined for directories, which is fine per spec (optional)
+            mime_type: entryInfo.mime_type,
             created_at_iso: entryInfo.created_at_iso,
             modified_at_iso: entryInfo.modified_at_iso,
             permissions_octal: entryInfo.permissions_octal,
             permissions_string: entryInfo.permissions_string,
-            // http_headers is not applicable for files
         };
 
         return {
+            status: 'success',
             source: filePath,
             source_type: 'file',
-            status: 'success',
-            metadata,
+            metadata: metadata,
         };
-
     } catch (error: any) {
-        operationLogger.error(`Error fetching metadata for file ${filePath}:`, error);
+        operationLogger.error(`Error getting metadata for file ${filePath}: ${error.message}`);
         if (error instanceof ConduitError) {
+            if (error.errorCode === ErrorCode.ACCESS_DENIED || error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
+                return createErrorMetadataResultItem(filePath, 'file', ErrorCode.ERR_FS_PERMISSION_DENIED, `Permission denied to access metadata for: ${filePath}`);
+            }
             return createErrorMetadataResultItem(filePath, 'file', error.errorCode, error.message);
         }
-        if (error.code === 'EACCES' || error.code === 'EPERM') {
-            return createErrorMetadataResultItem(filePath, 'file', ErrorCode.ERR_FS_ACCESS_DENIED, `Permission denied to access metadata for: ${filePath}`);
-        }
-        return createErrorMetadataResultItem(filePath, 'file', ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to get metadata for file: ${filePath}. ${error.message}`);
+        return createErrorMetadataResultItem(filePath, 'file', ErrorCode.OPERATION_FAILED, `Failed to get metadata for file: ${filePath}. ${error.message}`);
     }
 }
 
@@ -115,6 +118,7 @@ async function getMetadataFromUrl(
     params: ReadTool.MetadataParams,
     config: ConduitServerConfig
 ): Promise<ReadTool.MetadataResultItem> {
+    const operationLogger = logger.child({ component: 'metadataOps' });
     operationLogger.info(`Fetching metadata for URL: ${urlString}`);
     try {
         const fetched = await webFetcher.fetchUrlContent(urlString, true, undefined);

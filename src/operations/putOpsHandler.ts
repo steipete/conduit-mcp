@@ -10,19 +10,22 @@ export async function handleWritePut(
     operationLogger.debug(`Handling write tool 'put' action with params: ${JSON.stringify(params)}`);
 
     if (!params.entries || params.entries.length === 0) {
-        const errorItem: WriteTool.WriteResultItem = {
+        // This case should ideally be caught by initial validation in the tool handler,
+        // but as a safeguard, return a global error for the batch.
+        // Note: The spec implies individual results. A single error for an empty batch might be an exception.
+        // For now, adhering to returning an array, even if it's a single global error item.
+        return [{
             status: 'error',
-            error_code: ErrorCode.ERR_INVALID_PARAMETER,
-            error_message: 'The 'entries' array is required and cannot be empty for the \'put\' action.',
-            action_performed: 'put', // General action type for this batch failure
-            // path is optional in BaseResult, so omitting it here is fine for a batch-level error
-        };
-        return { results: [errorItem] }; 
+            action_performed: 'put', // Generic action for the batch attempt
+            // path is not applicable for a missing entries error
+            error_code: ErrorCode.INVALID_PARAMETER,
+            error_message: "'entries' array is missing or empty for put operation."
+        }];
     }
   
     const results: WriteTool.WriteResultItem[] = await Promise.all(
         params.entries.map(entry => putContent(entry, config))
     );
   
-    return { results };
+    return results;
 } 

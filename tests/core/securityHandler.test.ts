@@ -84,13 +84,13 @@ describe('securityHandler', () => {
     it('should deny access to a path outside allowed directories', async () => {
       const userPath = '/disallowed/path/somefile.txt';
       await expect(validateAndResolvePath(userPath))
-        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, `Access to path '${userPath}' is denied.`));
+        .rejects.toThrow(new ConduitError(ErrorCode.ACCESS_DENIED, `Access to path '${userPath}' is denied.`));
     });
 
     it('should deny access using path traversal like ..', async () => {
       const userPath = '/allowed/path1/../../disallowed/file.txt';
       await expect(validateAndResolvePath(userPath))
-        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, expect.stringContaining('Access to path')));
+        .rejects.toThrow(new ConduitError(ErrorCode.ACCESS_DENIED, expect.stringContaining('Access to path')));
     });
 
     it('should resolve and allow a symlink pointing to an allowed path', async () => {
@@ -110,7 +110,7 @@ describe('securityHandler', () => {
       // Let's refine mocks for symlink tests if current ones are insufficient.
       mockFs.realpath.mockResolvedValueOnce(path.resolve('/disallowed/file.txt')); 
       await expect(validateAndResolvePath(userPath))
-        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, expect.stringContaining('Access to path')));
+        .rejects.toThrow(new ConduitError(ErrorCode.ACCESS_DENIED, expect.stringContaining('Access to path')));
     });
     
     it('should handle symlink to relative path resolving to allowed', async () => {
@@ -134,7 +134,7 @@ describe('securityHandler', () => {
         mockFs.realpath.mockResolvedValueOnce(path.resolve('/outside/file.txt'));
 
         await expect(validateAndResolvePath(userPath))
-            .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED));
+            .rejects.toThrow(new ConduitError(ErrorCode.ACCESS_DENIED));
     });
 
     it('should throw ERR_FS_NOT_FOUND if path does not exist and isExistenceRequired is true', async () => {
@@ -157,14 +157,14 @@ describe('securityHandler', () => {
       const userPath = '/disallowed/path/newfile.txt';
       mockFs.realpath.mockRejectedValueOnce({ code: 'ENOENT' });
       await expect(validateAndResolvePath(userPath, { isExistenceRequired: false }))
-        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED));
+        .rejects.toThrow(new ConduitError(ErrorCode.ACCESS_DENIED));
     });
 
     it('should throw ERR_FS_BAD_PATH_INPUT for empty or whitespace path', async () => {
       await expect(validateAndResolvePath(''))
-        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_BAD_PATH_INPUT, 'Path must be a non-empty string.'));
+        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.'));
       await expect(validateAndResolvePath('   '))
-        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_BAD_PATH_INPUT, 'Path must be a non-empty string.'));
+        .rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.'));
     });
   });
 
@@ -178,20 +178,20 @@ describe('securityHandler', () => {
     it('should deny a path for creation if its resolved absolute form is outside allowed directories', async () => {
       const userPath = '/disallowed/new_sub/newfile.txt';
       expect(() => validatePathForCreation(userPath))
-        .toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, expect.stringContaining('Access to path')));
+        .toThrow(new ConduitError(ErrorCode.ACCESS_DENIED, expect.stringContaining('Access to path')));
     });
     
     it('should deny path traversal for creation path', () => {
         const userPath = '/allowed/path1/../../disallowed/newfile.txt';
         expect(() => validatePathForCreation(userPath))
-            .toThrow(new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED));
+            .toThrow(new ConduitError(ErrorCode.ACCESS_DENIED));
     });
 
     it('should throw ERR_FS_BAD_PATH_INPUT for empty or whitespace path for creation', async () => {
       expect(() => validatePathForCreation(''))
-        .toThrow(new ConduitError(ErrorCode.ERR_FS_BAD_PATH_INPUT, 'Path must be a non-empty string.'));
+        .toThrow(new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.'));
       expect(() => validatePathForCreation('   '))
-        .toThrow(new ConduitError(ErrorCode.ERR_FS_BAD_PATH_INPUT, 'Path must be a non-empty string.'));
+        .toThrow(new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.'));
     });
   });
 }); 

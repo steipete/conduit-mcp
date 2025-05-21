@@ -1,7 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { conduitConfig } from './configLoader';
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
+import { configLoader, ConduitError, ErrorCode } from '@/internal';
 import logger from '@/utils/logger';
 
 /**
@@ -47,11 +46,11 @@ async function resolveToRealPath(userPath: string): Promise<string> {
  * @returns True if the path is within allowed directories, false otherwise.
  */
 function isPathWithinAllowedDirs(realPath: string): boolean {
-  if (conduitConfig.allowedPaths.length === 0) {
+  if (configLoader.conduitConfig.allowedPaths.length === 0) {
     logger.warn('No allowed paths configured. Denying all filesystem access.');
     return false;
   }
-  return conduitConfig.allowedPaths.some(allowedDir => {
+  return configLoader.conduitConfig.allowedPaths.some(allowedDir => {
     const relative = path.relative(allowedDir, realPath);
     return !relative.startsWith('..') && !path.isAbsolute(relative);
   });
@@ -71,7 +70,7 @@ function isPathWithinAllowedDirs(realPath: string): boolean {
  */
 export async function validateAndResolvePath(userPath: string, { isExistenceRequired = true }: { isExistenceRequired?: boolean } = {}): Promise<string> {
   if (typeof userPath !== 'string' || userPath.trim() === '') {
-    throw new ConduitError(ErrorCode.ERR_FS_BAD_PATH_INPUT, 'Path must be a non-empty string.');
+    throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.');
   }
 
   let resolvedPathForCheck: string;
@@ -97,8 +96,8 @@ export async function validateAndResolvePath(userPath: string, { isExistenceRequ
   }
 
   if (!isPathWithinAllowedDirs(resolvedPathForCheck)) {
-    logger.warn(`Access denied for path: ${userPath} (resolved to: ${resolvedPathForCheck}). Not within allowed paths: ${conduitConfig.allowedPaths.join(', ')}`);
-    throw new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, `Access to path '${userPath}' is denied. It is outside the configured allowed directories.`);
+    logger.warn(`Access denied for path: ${userPath} (resolved to: ${resolvedPathForCheck}). Not within allowed paths: ${configLoader.conduitConfig.allowedPaths.join(', ')}`);
+    throw new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path '${userPath}' is denied. It is outside the configured allowed directories.`);
   }
   
   logger.debug(`Path validation successful for: ${userPath} (resolved to: ${resolvedPathForCheck})`);
@@ -119,14 +118,14 @@ export async function validateAndResolvePath(userPath: string, { isExistenceRequ
  */
 export function validatePathForCreation(userPath: string): string {
     if (typeof userPath !== 'string' || userPath.trim() === '') {
-        throw new ConduitError(ErrorCode.ERR_FS_BAD_PATH_INPUT, 'Path must be a non-empty string.');
+        throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.');
     }
 
     const absolutePath = path.resolve(userPath);
 
     if (!isPathWithinAllowedDirs(absolutePath)) {
-        logger.warn(`Access denied for creation path: ${userPath} (resolved to: ${absolutePath}). Not within allowed paths: ${conduitConfig.allowedPaths.join(', ')}`);
-        throw new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, `Access to path '${userPath}' for creation is denied. It is outside the configured allowed directories.`);
+        logger.warn(`Access denied for creation path: ${userPath} (resolved to: ${absolutePath}). Not within allowed paths: ${configLoader.conduitConfig.allowedPaths.join(', ')}`);
+        throw new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path '${userPath}' for creation is denied. It is outside the configured allowed directories.`);
     }
     
     logger.debug(`Path validation for creation successful for: ${userPath} (resolved to: ${absolutePath})`);

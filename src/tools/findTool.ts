@@ -3,19 +3,18 @@ import { FindTool, EntryInfo, MCPErrorStatus, ConduitError, ErrorCode, createMCP
 import { findEntries } from '@/operations/findOps';
 import logger from '@/utils/logger';
 
-const operationLogger = logger.child({ component: 'findToolHandler' });
-
 export async function handleFindTool(
     params: FindTool.Parameters
 ): Promise<FindTool.FindResponse | MCPErrorStatus> {
+    const operationLogger = logger.child({ component: 'findToolHandler' });
     if (!params) {
-        return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing parameters for find tool.");
+        return createMCPErrorStatus(ErrorCode.INVALID_PARAMETER, "Missing parameters for find tool.");
     }
     if (!params.base_path) {
-        return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'base_path' parameter for find tool.");
+        return createMCPErrorStatus(ErrorCode.INVALID_PARAMETER, "Missing 'base_path' parameter for find tool.");
     }
     if (!params.match_criteria || params.match_criteria.length === 0) {
-        return createMCPErrorStatus(ErrorCode.ERR_INVALID_PARAMETER, "Missing or empty 'match_criteria' parameter for find tool.");
+        return createMCPErrorStatus(ErrorCode.INVALID_PARAMETER, "Missing or empty 'match_criteria' parameter for find tool.");
     }
 
     try {

@@ -52,10 +52,10 @@ async function handleContentOperation(params: ReadTool.ContentParams): Promise<R
       let fetchedUrlData: FetchedContent | undefined;
 
       const effectiveOffset = params.offset || 0;
-      if (effectiveOffset < 0) throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Offset cannot be negative.");
+      if (effectiveOffset < 0) throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Offset cannot be negative.");
       let effectiveLength = params.length;
       if (effectiveLength !== undefined && effectiveLength !== -1 && effectiveLength < 0) {
-         throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Length cannot be negative (unless -1 for 'to end').");
+         throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Length cannot be negative (unless -1 for 'to end').");
       }
       const isRangeRequested = params.offset !== undefined || params.length !== undefined;
 
@@ -267,11 +267,11 @@ async function handleMetadataOperation(params: ReadTool.MetadataParams): Promise
 async function handleDiffOperation(params: ReadTool.DiffParams): Promise<ReadTool.DiffResponse> {
   try {
     if (params.sources.length !== 2) {
-      throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, 'Diff operation requires exactly two source file paths.');
+      throw new ConduitError(ErrorCode.INVALID_PARAMETER, 'Diff operation requires exactly two source file paths.');
     }
     const [source1, source2] = params.sources;
     if (isUrl(source1) || isUrl(source2)) {
-      throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, 'Diff operation only supports local files, not URLs.');
+      throw new ConduitError(ErrorCode.INVALID_PARAMETER, 'Diff operation only supports local files, not URLs.');
     }
 
     const resolvedPath1 = await validateAndResolvePath(source1);
@@ -282,7 +282,7 @@ async function handleDiffOperation(params: ReadTool.DiffParams): Promise<ReadToo
 
     const diffFormat = params.diff_format || 'unified';
     if (diffFormat !== 'unified') {
-      throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, `Unsupported diff format: ${diffFormat}. Only 'unified' is supported.`);
+      throw new ConduitError(ErrorCode.INVALID_PARAMETER, `Unsupported diff format: ${diffFormat}. Only 'unified' is supported.`);
     }
 
     const diffResult = diff.createPatch(path.basename(resolvedPath1), content1, content2, '', '', { context: 3 });
@@ -302,24 +302,24 @@ async function handleDiffOperation(params: ReadTool.DiffParams): Promise<ReadToo
 
 export async function handleReadTool(params: ReadTool.Parameters): Promise<ReadTool.ContentResponse | ReadTool.MetadataResponse | ReadTool.DiffResponse> {
   if (!params || !params.operation) {
-    throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'operation' parameter for read tool.");
+    throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing 'operation' parameter for read tool.");
   }
 
   switch (params.operation) {
     case 'content':
       if (!params.sources || params.sources.length === 0) {
-        throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing or empty 'sources' parameter for read.content operation.");
+        throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing or empty 'sources' parameter for read.content operation.");
       }
       return handleContentOperation(params as ReadTool.ContentParams);
     case 'metadata':
       if (!params.sources || params.sources.length === 0) {
-        throw new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing or empty 'sources' parameter for read.metadata operation.");
+        throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing or empty 'sources' parameter for read.metadata operation.");
       }
       return handleMetadataOperation(params as ReadTool.MetadataParams);
     case 'diff':
       return handleDiffOperation(params as ReadTool.DiffParams);
     default:
       // @ts-expect-error 
-      throw new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION, `Unknown operation '${params.operation}' for read tool.`);
+      throw new ConduitError(ErrorCode.UNSUPPORTED_OPERATION, `Unknown operation '${params.operation}' for read tool.`);
   }
 } 

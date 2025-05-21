@@ -18,22 +18,31 @@ const mockedFindOps = findOps as Mocked<typeof findOps>;
 
 describe('FindTool', () => {
   const mockBasePath = '/allowed/search_base';
+  const mockTimestamp = new Date().toISOString();
   const mockEntryInfoFile: EntryInfo = {
     name: 'file.txt',
-    path: `${mockBasePath}/file.txt`,
+    path: '/test/file.txt',
     type: 'file',
     size_bytes: 100,
     mime_type: 'text/plain',
-    created_at_iso: new Date().toISOString(),
-    modified_at_iso: new Date().toISOString(),
+    created_at: mockTimestamp,
+    modified_at: mockTimestamp,
+    created_at_iso: mockTimestamp,
+    modified_at_iso: mockTimestamp,
+    permissions_octal: '0644',
+    permissions_string: 'rw-r--r--',
   };
   const mockEntryInfoDir: EntryInfo = {
-    name: 'subdir',
-    path: `${mockBasePath}/subdir`,
+    name: 'directory',
+    path: '/test/directory',
     type: 'directory',
     size_bytes: 0,
-    created_at_iso: new Date().toISOString(),
-    modified_at_iso: new Date().toISOString(),
+    created_at: mockTimestamp,
+    modified_at: mockTimestamp,
+    created_at_iso: mockTimestamp,
+    modified_at_iso: mockTimestamp,
+    permissions_octal: '0755',
+    permissions_string: 'rwxr-xr-x',
   };
 
   beforeEach(() => {
@@ -120,26 +129,26 @@ describe('FindTool', () => {
     expect(actualResults).toEqual(expectedResults);
   });
 
-  it('should throw ERR_INVALID_PARAMETER if base_path is missing', async () => {
+  it('should throw ConduitError if base_path is missing', async () => {
     const params = { match_criteria: [] } as any;
     await expect(handleFindTool(params)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing 'base_path' parameter for find tool.")
+        new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing 'base_path' parameter for find tool.")
     );
   });
 
-  it('should throw ERR_INVALID_PARAMETER if match_criteria is missing or empty', async () => {
+  it('should throw ConduitError if match_criteria is missing or empty', async () => {
     let params = { base_path: mockBasePath } as any;
     await expect(handleFindTool(params)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing or empty 'match_criteria' for find tool.")
+        new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing or empty 'match_criteria' for find tool.")
     );
     params = { base_path: mockBasePath, match_criteria: [] } as any;
     await expect(handleFindTool(params)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_INVALID_PARAMETER, "Missing or empty 'match_criteria' for find tool.")
+        new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing or empty 'match_criteria' for find tool.")
     );
   });
 
-  it('should propagate errors from findEntriesRecursive if they are ConduitErrors', async () => {
-    const specificError = new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, 'Specific find op failure');
+  it('should throw ConduitError if findEntriesRecursive throws specific ConduitError', async () => {
+    const specificError = new ConduitError(ErrorCode.OPERATION_FAILED, 'Specific find op failure');
     mockedFindOps.findEntriesRecursive.mockRejectedValueOnce(specificError);
     const params: FindTool.Parameters = {
       base_path: mockBasePath,
@@ -148,15 +157,15 @@ describe('FindTool', () => {
     await expect(handleFindTool(params)).rejects.toThrow(specificError);
   });
 
-  it('should wrap generic errors from findEntriesRecursive into ConduitError', async () => {
-    const genericError = new Error('Generic failure in find op');
+  it('should throw ConduitError with generic message if findEntriesRecursive throws non-ConduitError', async () => {
+    const genericError = new Error('Generic find op failure');
     mockedFindOps.findEntriesRecursive.mockRejectedValueOnce(genericError);
     const params: FindTool.Parameters = {
       base_path: mockBasePath,
       match_criteria: [{ type: 'name_pattern', pattern: '*' }],
     };
     await expect(handleFindTool(params)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Find operation failed: ${genericError.message}`)
+        new ConduitError(ErrorCode.OPERATION_FAILED, `Find operation failed: ${genericError.message}`)
     );
   });
 }); 

@@ -2,7 +2,12 @@ import fs from 'fs/promises';
 import type { Stats } from 'fs';
 import path from 'path';
 import { constants as fsConstants } from 'fs';
-import { conduitConfig, ConduitError, ErrorCode, createMCPErrorStatus, logger, EntryInfo, formatToISO8601UTC, getMimeType } from '@/internal';
+import { configLoader, ConduitError, ErrorCode, createMCPErrorStatus, logger, EntryInfo, formatToISO8601UTC, getMimeType } from '@/internal';
+import * as fsExtra from 'fs-extra';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import { glob } from 'glob';
+import checkDiskSpace from 'check-disk-space';
 
 /**
  * Checks if a path exists.
@@ -28,7 +33,7 @@ export async function getStats(filePath: string): Promise<Stats> {
     if (error.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${filePath}`);
     }
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to get stats for path: ${filePath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to get stats for path: ${filePath}. Error: ${error.message}`);
   }
 }
 
@@ -43,7 +48,7 @@ export async function getLstats(filePath: string): Promise<Stats> {
     if (error.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${filePath}`);
     }
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to get lstats for path: ${filePath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to get lstats for path: ${filePath}. Error: ${error.message}`);
   }
 }
 
@@ -55,11 +60,11 @@ export async function getLstats(filePath: string): Promise<Stats> {
  * @returns File content as string.
  * @throws ConduitError on failure (e.g., not found, access denied, exceeds limit).
  */
-export async function readFileAsString(filePath: string, maxLength: number = conduitConfig.maxFileReadBytes): Promise<string> {
+export async function readFileAsString(filePath: string, maxLength: number = configLoader.conduitConfig.maxFileReadBytes): Promise<string> {
   try {
     const stats = await getStats(filePath);
     if (stats.size > maxLength) {
-      throw new ConduitError(ErrorCode.ERR_RESOURCE_LIMIT_EXCEEDED, `File size ${stats.size} bytes exceeds maximum allowed read limit of ${maxLength} bytes for ${filePath}.`);
+      throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `File size ${stats.size} bytes exceeds maximum allowed read limit of ${maxLength} bytes for ${filePath}.`);
     }
     return await fs.readFile(filePath, { encoding: 'utf8' });
   } catch (error: any) {
@@ -79,11 +84,11 @@ export async function readFileAsString(filePath: string, maxLength: number = con
  * @returns File content as Buffer.
  * @throws ConduitError on failure.
  */
-export async function readFileAsBuffer(filePath: string, maxLength: number = conduitConfig.maxFileReadBytes): Promise<Buffer> {
+export async function readFileAsBuffer(filePath: string, maxLength: number = configLoader.conduitConfig.maxFileReadBytes): Promise<Buffer> {
   try {
     const stats = await getStats(filePath);
     if (stats.size > maxLength) {
-      throw new ConduitError(ErrorCode.ERR_RESOURCE_LIMIT_EXCEEDED, `File size ${stats.size} bytes exceeds maximum allowed read limit of ${maxLength} bytes for ${filePath}.`);
+      throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `File size ${stats.size} bytes exceeds maximum allowed read limit of ${maxLength} bytes for ${filePath}.`);
     }
     return await fs.readFile(filePath);
   } catch (error: any) {
@@ -113,8 +118,8 @@ export async function writeFile(filePath: string, content: string | Buffer, enco
       bufferContent = content;
     }
 
-    if (bufferContent.length > conduitConfig.maxFileReadBytes) { // Using maxFileReadBytes as a proxy for max write size
-        throw new ConduitError(ErrorCode.ERR_RESOURCE_LIMIT_EXCEEDED, `Content size ${bufferContent.length} bytes exceeds maximum allowed write limit of ${conduitConfig.maxFileReadBytes} bytes for ${filePath}.`);
+    if (bufferContent.length > configLoader.conduitConfig.maxFileReadBytes) { // Using maxFileReadBytes as a proxy for max write size
+        throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `Content size ${bufferContent.length} bytes exceeds maximum allowed write limit of ${configLoader.conduitConfig.maxFileReadBytes} bytes for ${filePath}.`);
     }
 
     if (mode === 'append') {
@@ -143,7 +148,7 @@ export async function createDirectory(dirPath: string, recursive: boolean = fals
       return;
     }
     logger.error(`Error creating directory ${dirPath}: ${error.message}`);
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to create directory: ${dirPath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.ERR_FS_DIR_CREATE_FAILED, `Failed to create directory: ${dirPath}. Error: ${error.message}`);
   }
 }
 
@@ -180,13 +185,13 @@ export async function listDirectory(dirPath: string): Promise<string[]> {
     return await fs.readdir(dirPath);
   } catch (error: any) {
     if (error.code === 'ENOENT') {
-      throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Directory not found: ${dirPath}`);
+      throw new ConduitError(ErrorCode.ERR_FS_DIR_NOT_FOUND, `Directory not found: ${dirPath}`);
     }
     if (error.code === 'ENOTDIR') {
-        throw new ConduitError(ErrorCode.ERR_FS_IS_FILE, `Path is a file, not a directory: ${dirPath}`);
+        throw new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE, `Path is a file, not a directory: ${dirPath}`);
     }
     logger.error(`Error listing directory ${dirPath}: ${error.message}`);
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to list directory: ${dirPath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.ERR_FS_DIR_LIST_FAILED, `Failed to list directory: ${dirPath}. Error: ${error.message}`);
   }
 }
 
@@ -220,7 +225,7 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Source path not found for copy: ${sourcePath}`);
     }
     logger.error(`Error copying path ${sourcePath} to ${destinationPath}: ${error.message}`);
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.ERR_FS_COPY_FAILED, `Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
   }
 }
 
@@ -278,7 +283,7 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Source path not found for move: ${sourcePath}`);
     }
     logger.error(`Error moving path ${sourcePath} to ${destinationPath}: ${error.message}`);
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to move/rename: ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.ERR_FS_MOVE_FAILED, `Failed to move/rename: ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
   }
 }
 
@@ -296,40 +301,54 @@ export async function touchFile(filePath: string): Promise<void> {
     }
   } catch (error: any) {
     logger.error(`Error touching file ${filePath}: ${error.message}`);
-    throw new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to touch file: ${filePath}. Error: ${error.message}`);
+    throw new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to touch file: ${filePath}. Error: ${error.message}`);
   }
 }
 
 /**
  * Populates an EntryInfo object from fs.Stats.
  * @param fullPath Absolute path to the entry.
- * @param stats fs.Stats object for the entry.
+ * @param statsParam fs.Stats object for the entry.
  * @param name Optional name override (defaults to basename of fullPath).
  * @returns Populated EntryInfo object.
  */
-export async function createEntryInfo(fullPath: string, stats: Stats, name?: string): Promise<Omit<EntryInfo, 'children' | 'recursive_size_calculation_note'>> {
-  const entryType = stats.isDirectory() ? 'directory' : 'file';
-  let mime: string | undefined = undefined;
-  if (entryType === 'file' && stats.size > 0) {
-      mime = await getMimeType(fullPath);
-  }
+export async function createEntryInfo(fullPath: string, statsParam: Stats, name?: string): Promise<Omit<EntryInfo, 'children' | 'recursive_size_calculation_note'>> {
+  try {
+    const lstats = await fs.lstat(fullPath);
+    let effectiveStats: Stats = lstats;
+    let symlinkReadTarget: string | undefined = undefined;
+    const isSymlink = lstats.isSymbolicLink();
 
-  return {
+    if (isSymlink) {
+      try {
+        const linkTarget = await fs.readlink(fullPath, { encoding: 'utf8' });
+        symlinkReadTarget = linkTarget.toString();
+        effectiveStats = await fs.stat(fullPath);
+      } catch (e) {
+        effectiveStats = lstats;
+        if (!(e instanceof ConduitError) && (e as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+            logger.debug(`Symlink target stat/readlink failed for ${fullPath}: using lstat. Error: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    return {
       name: name || path.basename(fullPath),
       path: fullPath,
-      type: entryType,
-      size_bytes: stats.size,
-      mime_type: mime,
-      created_at_iso: formatToISO8601UTC(stats.birthtime),
-      modified_at_iso: formatToISO8601UTC(stats.mtime),
-      permissions_octal: `0${(stats.mode & 0o777).toString(8)}`,
-      // Basic rwx string, not handling setuid/setgid/sticky bits for simplicity here
-      permissions_string: [
-          (stats.mode & 0o400 ? 'r' : '-'), (stats.mode & 0o200 ? 'w' : '-'), (stats.mode & 0o100 ? 'x' : '-'),
-          (stats.mode & 0o040 ? 'r' : '-'), (stats.mode & 0o020 ? 'w' : '-'), (stats.mode & 0o010 ? 'x' : '-'),
-          (stats.mode & 0o004 ? 'r' : '-'), (stats.mode & 0o002 ? 'w' : '-'), (stats.mode & 0o001 ? 'x' : '-'),
-      ].join(''),
-  };
+      type: isSymlink ? 'symlink' : effectiveStats.isDirectory() ? 'directory' : effectiveStats.isFile() ? 'file' : 'other',
+      size_bytes: effectiveStats.isFile() && !isSymlink ? effectiveStats.size : undefined,
+      created_at: formatToISO8601UTC(effectiveStats.birthtime),
+      modified_at: formatToISO8601UTC(effectiveStats.mtime),
+      last_accessed_at: formatToISO8601UTC(effectiveStats.atime),
+      is_readonly: !(effectiveStats.mode & fsConstants.S_IWUSR),
+      mime_type: effectiveStats.isFile() && !isSymlink ? await getMimeType(fullPath) : undefined,
+      symlink_target: symlinkReadTarget,
+    };
+  } catch (error: any) {
+    if (error instanceof ConduitError) throw error;
+    logger.error(`Failed to create entry info for ${fullPath}: ${error.message}`);
+    throw new ConduitError(ErrorCode.OPERATION_FAILED, `Could not get entry info for ${fullPath}. Error: ${error.message}`);
+  }
 }
 
 /**
@@ -389,4 +408,41 @@ export async function calculateRecursiveDirectorySize(
         if(!note) note = 'Error during size calculation';
     }
     return { size: totalSize, note };
+}
+
+export async function getFilesystemStats(resolvedPath: string): Promise<{
+    total_bytes: number;
+    free_bytes: number;
+    available_bytes: number; // Often same as free_bytes for non-root
+    used_bytes: number;
+}> {
+    try {
+        const ds = await checkDiskSpace(resolvedPath);
+        return {
+            total_bytes: ds.size,
+            free_bytes: ds.free,
+            available_bytes: ds.free, 
+            used_bytes: ds.size - ds.free,
+        };
+    } catch (error: any) {
+        logger.error(`Failed to get disk space info for path "${resolvedPath}": ${error.message}`);
+        throw new ConduitError(
+            ErrorCode.OPERATION_FAILED,
+            `Could not retrieve disk space information for "${resolvedPath}". Underlying error: ${error.message}`
+        );
+    }
+}
+
+/**
+ * Ensures that a directory exists. Creates it recursively if missing.
+ * @param dirPath Directory path to ensure.
+ */
+export async function ensureDirectoryExists(dirPath: string): Promise<void> {
+  try {
+    await fs.mkdir(dirPath, { recursive: true });
+  } catch (error: any) {
+    if (error.code === 'EEXIST') return; // Already exists
+    logger.error(`Error ensuring directory exists ${dirPath}: ${error.message}`);
+    throw new ConduitError(ErrorCode.ERR_FS_DIR_CREATE_FAILED, `Failed to ensure directory exists: ${dirPath}. Error: ${error.message}`);
+  }
 } 

@@ -25,9 +25,16 @@ export const createArchive = async (
   const { workspaceRoot } = config;
 
   const absoluteArchivePath = path.resolve(workspaceRoot, archive_path);
-  const absoluteSourcePaths = source_paths.map((p: string) => path.resolve(workspaceRoot, p));
+  const relativeSourcePathsForTar = source_paths.map((p: string) => {
+    const absPath = path.resolve(workspaceRoot, p);
+    const relPath = path.relative(workspaceRoot, absPath);
+    if (relPath.startsWith('..') || path.isAbsolute(relPath)) {
+        throw new ConduitError(ErrorCode.INVALID_PARAMETER, `Source path ${p} is outside the workspace root or invalid.`);
+    }
+    return relPath;
+  });
 
-  if (await fs.pathExists(absoluteArchivePath) && !options?.overwrite) {
+  if (await fs.pathExists(absoluteArchivePath) && !(options?.overwrite)) {
     return createErrorArchiveResultItem(
       'create',
       `Archive already exists at ${archive_path} and overwrite is false.`,
@@ -37,63 +44,37 @@ export const createArchive = async (
   }
 
   if (!params.archive_path) {
-    return createErrorArchiveResultItem('create', 'archive_path is required for archive creation.', ErrorCode.ERR_INVALID_PARAMETER);
+    return createErrorArchiveResultItem('create', 'archive_path is required for archive creation.', ErrorCode.INVALID_PARAMETER);
+  }
+  if (!source_paths || source_paths.length === 0) {
+    return createErrorArchiveResultItem('create', 'source_paths cannot be empty for archive creation.', ErrorCode.ERR_ARCHIVE_NO_SOURCES);
   }
 
-  // Default format is zip as per spec
-  const archiveFormat = params.format || 'zip';
-  const recursiveSourceListing = params.recursive_source_listing !== undefined ? params.recursive_source_listing : true;
-
-  const resolvedArchiveParentDir = path.dirname(path.resolve(config.workspaceRoot, params.archive_path));
+  const inferredFormat = archive_path.endsWith('.zip') ? 'zip' : 'tar.gz'; // Or just 'tar' if .gz is separate
 
   try {
     await fs.ensureDir(path.dirname(absoluteArchivePath));
 
-    if (archiveFormat === 'zip') {
-      // Create zip archive using adm-zip
+    if (inferredFormat === 'zip') {
       const zip = new AdmZip();
-      
-      for (const sourcePath of absoluteSourcePaths) {
-        const relativePath = path.relative(workspaceRoot, sourcePath);
-        const sourceStats = await fs.stat(sourcePath);
+      for (const sourcePath of source_paths) {
+        const absoluteSourcePath = path.resolve(workspaceRoot, sourcePath);
+        const stats = await fs.stat(absoluteSourcePath);
         
-        if (sourceStats.isDirectory()) {
-          // Add directory and its contents
-          const files = await fs.readdir(sourcePath, { withFileTypes: true });
-          for (const file of files) {
-            const fullPath = path.join(sourcePath, file.name);
-            const entryPath = path.join(relativePath, file.name);
-            
-            if (file.isDirectory() && recursiveSourceListing) {
-              zip.addLocalFolder(fullPath, entryPath);
-            } else if (file.isFile()) {
-              if (options?.filter_paths && options.filter_paths.length > 0) {
-                // Apply filter if configured
-                const isIncluded = options.filter_paths.some(filterPath => {
-                  const absoluteFilterPath = path.resolve(workspaceRoot, filterPath);
-                  return fullPath === absoluteFilterPath || fullPath.startsWith(absoluteFilterPath);
-                });
-                
-                if (isIncluded) {
-                  zip.addLocalFile(fullPath, path.dirname(entryPath));
-                }
-              } else {
-                zip.addLocalFile(fullPath, path.dirname(entryPath));
-              }
-            }
-          }
+        const entryZipPath = options?.prefix ? path.join(options.prefix, path.basename(sourcePath)) : path.basename(sourcePath);
+        if (stats.isDirectory()) {
+          zip.addLocalFolder(absoluteSourcePath, entryZipPath);
         } else {
-          // Add individual file
-          zip.addLocalFile(sourcePath, options?.prefix ? options.prefix : '');
+          const dirInZip = options?.prefix ? options.prefix : '';
+          const fileNameInZip = path.basename(sourcePath);
+          const finalEntryPath = path.join(dirInZip, fileNameInZip);
+          zip.addLocalFile(absoluteSourcePath, dirInZip, fileNameInZip);
         }
       }
-      
-      // Write the zip file
       zip.writeZip(absoluteArchivePath);
-    } else if (archiveFormat === 'tar.gz') {
-      // Use tar.js for tar.gz format
-      const tarOptions: tar.CreateOptions & { sync?: boolean } = {
-        gzip: compression === 'gzip',
+    } else { // Assuming tar.gz or tar
+      const tarOptions: tar.CreateOptions & tar.FileOptions = {
+        gzip: compression === 'gzip' || archive_path.endsWith('.gz'), // prefer .gz in name
         file: absoluteArchivePath,
         cwd: workspaceRoot,
         portable: options?.portable ?? true,
@@ -101,25 +82,13 @@ export const createArchive = async (
       };
       
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, stat: fs.Stats) => {
+        tarOptions.filter = (entryPath: string, stat: fs.Stats) => { 
           return options.filter_paths!.some((filterPath: string) => {
-            const absoluteFilterPath = path.resolve(workspaceRoot, filterPath);
-            const absoluteEntryPath = path.resolve(workspaceRoot, entryPath);
-            if (stat.isDirectory()) {
-              return absoluteEntryPath.startsWith(absoluteFilterPath);
-            }
-            return absoluteEntryPath === absoluteFilterPath || path.dirname(absoluteEntryPath).startsWith(absoluteFilterPath);
+            return entryPath.startsWith(filterPath);
           });
         };
       }
-
-      await tar.create(tarOptions as any, absoluteSourcePaths.map((p: string) => path.relative(workspaceRoot, p)));
-    } else {
-      return createErrorArchiveResultItem(
-        'create',
-        `Unsupported archive format: ${archiveFormat}`,
-        ErrorCode.ERR_INVALID_PARAMETER
-      );
+      await tar.create(tarOptions, relativeSourcePathsForTar);
     }
 
     const stats = await fs.stat(absoluteArchivePath);
@@ -129,11 +98,12 @@ export const createArchive = async (
       status: 'success',
       operation: 'create',
       archive_path,
+      format_used: inferredFormat,
       size_bytes: stats.size,
+      entries_processed: source_paths.length, // This is count of top-level sources, not all files
       checksum_sha256: checksum,
-      source_paths_count: source_paths.length,
-      compression,
-      metadata,
+      compression_used: inferredFormat === 'zip' ? 'zip' : (compression === 'gzip' || archive_path.endsWith('.gz') ? 'gzip' : 'none'),
+      metadata: params.metadata,
     };
     return successResult;
   } catch (error: any) {
@@ -169,10 +139,13 @@ export const extractArchive = async (
   try {
     await fs.ensureDir(absoluteTargetPath);
 
-    // Determine the archive format
-    const archiveFormat = params.format || (archive_path.endsWith('.zip') ? 'zip' : 'tar.gz');
+    // Determine the archive format from extension, ignore params.format
+    const inferredFormat = archive_path.endsWith('.zip') ? 'zip' 
+                        : (archive_path.endsWith('.tar.gz') || archive_path.endsWith('.tgz')) ? 'tar.gz' 
+                        : archive_path.endsWith('.tar') ? 'tar' 
+                        : 'unknown';
 
-    if (archiveFormat === 'zip') {
+    if (inferredFormat === 'zip') {
       // Extract zip archive
       const zip = new AdmZip(absoluteArchivePath);
       
@@ -184,48 +157,49 @@ export const extractArchive = async (
             entry.entryName.startsWith(filterPath));
           
           if (isIncluded) {
-            if (entry.isDirectory) {
-              await fs.ensureDir(path.join(absoluteTargetPath, entry.entryName));
-            } else {
-              zip.extractEntryTo(entry, absoluteTargetPath, false, true);
-            }
+            // When filtering, extract the entry to the base target_path.
+            // adm-zip will use the entryName to create subdirectories if maintainEntryPath is true.
+            zip.extractEntryTo(entry, absoluteTargetPath, /*maintainEntryPath*/true, /*overwrite*/options?.overwrite ?? true);
           }
         }
       } else {
         // Extract all files
-        zip.extractAllTo(absoluteTargetPath, true);
+        zip.extractAllTo(absoluteTargetPath, options?.overwrite ?? true);
       }
-    } else if (archiveFormat === 'tar.gz') {
-      // Extract tar.gz archive
-      const tarOptions: tar.ExtractOptions & { sync?: boolean } = {
+    } else if (inferredFormat === 'tar.gz' || inferredFormat === 'tar') {
+      // Extract tar.gz or tar archive
+      const tarOptions: tar.ExtractOptions & tar.FileOptions = {
         file: absoluteArchivePath,
         cwd: absoluteTargetPath,
-        strip: options?.strip_components,
-        filter: options?.filter_paths && options.filter_paths.length > 0
-          ? (entryPath: string) => options.filter_paths!.some((p: string) => entryPath.startsWith(p))
-          : undefined,
-        newer: options?.keep_newer_files,
-        preserveOwner: options?.preserve_owner ?? false,
+        strip: options?.strip_components ?? 0,
       };
-
-      await tar.extract(tarOptions as any);
+      if (options?.filter_paths && options.filter_paths.length > 0) {
+        tarOptions.filter = (entryPath: string, stat: tar.FileStat) => { 
+          const normalizedEntryPath = entryPath.startsWith('./') ? entryPath.substring(2) : entryPath;
+          return options.filter_paths!.some((filterPath: string) => {
+            return normalizedEntryPath.startsWith(filterPath);
+          });
+        };
+      }
+      await tar.extract(tarOptions);
     } else {
       return createErrorArchiveResultItem(
         'extract',
-        `Unsupported archive format: ${archiveFormat}`,
-        ErrorCode.ERR_INVALID_PARAMETER
+        `Unsupported archive format inferred for ${archive_path}. Supported: .zip, .tar, .tar.gz, .tgz`,
+        ErrorCode.ERR_ARCHIVE_FORMAT_NOT_SUPPORTED
       );
     }
 
-    const extractedFiles = await fs.readdir(absoluteTargetPath);
-
+    // For simplicity, not calculating extracted_files_count precisely here without walking the target_path.
+    // This could be added if essential.
     const successResult: ArchiveTool.ExtractArchiveSuccess = {
       status: 'success',
       operation: 'extract',
       archive_path,
       target_path,
-      extracted_files_count: extractedFiles.length,
-      options,
+      format_used: inferredFormat,
+      entries_extracted: -1, // Placeholder, actual counting is complex and not implemented
+      options_applied: params.options,
     };
     return successResult;
   } catch (error: any) {
@@ -256,10 +230,10 @@ export const archiveToolHandler = async (
         const exhaustiveCheck: never = params;
         logger.error('Unhandled archive operation:', exhaustiveCheck);
         resultItem = createErrorArchiveResultItem(
-          (params as any).operation as any,
+          (params as any).operation || 'unknown_operation_type', // Provide a fallback string
           'Invalid or unsupported archive operation.',
-          ErrorCode.ERR_INVALID_PARAMS,
-          `Operation ${(params as any).operation} is not supported.`,
+          ErrorCode.UNSUPPORTED_OPERATION,
+          `Operation type '${(params as any).operation}' is not supported by archiveToolHandler.`,
         );
         break;
     }
@@ -269,7 +243,7 @@ export const archiveToolHandler = async (
     resultItem = createErrorArchiveResultItem(
       operation as 'create' | 'extract',
       `An unexpected error occurred: ${error.message || 'Unknown error'}`,
-      ErrorCode.ERR_INTERNAL_SERVER_ERROR,
+      ErrorCode.INTERNAL_ERROR,
       error.stack,
     );
   }

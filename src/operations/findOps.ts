@@ -5,15 +5,12 @@ import {
     EntryInfo,
     ErrorCode,
     FindTool,
-    logger,
     fileSystemOps,
     ConduitError,
-    getMimeType,
-    readFileAsBuffer
+    getMimeType
 } from '@/internal';
 import micromatch from 'micromatch';
-
-const operationLogger = logger.child({ component: 'findOps' });
+import logger from '@/utils/logger';
 
 async function isTextBasedFileForContentSearch(filePath: string, fileTypesToSearch?: string[]): Promise<boolean> {
     if (fileTypesToSearch && fileTypesToSearch.length > 0) {
@@ -42,11 +39,12 @@ async function matchesContentPattern(
     criterion: FindTool.ContentPatternCriterion,
     config: ConduitServerConfig
 ): Promise<boolean> {
+    const operationLogger = logger.child({ component: 'findOps' });
     if (!await isTextBasedFileForContentSearch(filePath, criterion.file_types_to_search)) {
         return false;
     }
     try {
-        const buffer = await readFileAsBuffer(filePath, config.maxFileReadBytesFind);
+        const buffer = await fileSystemOps.readFileAsBuffer(filePath, config.maxFileReadBytesFind);
         const content = buffer.toString('utf-8');
         const pattern = criterion.pattern;
         if (criterion.is_regex) {
@@ -72,6 +70,7 @@ function matchesMetadataFilter(
     entryInfo: EntryInfo,
     criterion: FindTool.MetadataFilterCriterion
 ): boolean {
+    const operationLogger = logger.child({ component: 'findOps' });
     const attributeName = criterion.attribute === 'entry_type' ? 'type' : criterion.attribute;
     const attributeValue = (entryInfo as any)[attributeName];
 
@@ -164,6 +163,7 @@ async function checkAllCriteria(
     criteria: FindTool.MatchCriterion[],
     config: ConduitServerConfig
 ): Promise<boolean> {
+    const operationLogger = logger.child({ component: 'findOps' });
     for (const criterion of criteria) {
         let match = false;
         switch (criterion.type) {
@@ -181,9 +181,8 @@ async function checkAllCriteria(
                 match = matchesMetadataFilter(entryInfo, criterion);
                 break;
             default:
-                // @ts-expect-error Should be exhaustive
                 const _exhaustiveCheck: never = criterion;
-                operationLogger.warn(`Unknown match criterion type: ${_exhaustiveCheck}`);
+                operationLogger.warn(`Unknown match criterion type encountered: ${JSON.stringify(_exhaustiveCheck)}`);
                 return false; 
         }
         if (!match) return false; 
@@ -196,8 +195,9 @@ async function findEntriesRecursive(
     params: FindTool.Parameters,
     config: ConduitServerConfig,
     currentDepth: number,
-    processedPaths: Set<string> // To avoid duplicate processing due to symlinks or odd structures
+    processedPaths: Set<string>
 ): Promise<EntryInfo[]> {
+    const operationLogger = logger.child({ component: 'findOps' });
     const foundEntries: EntryInfo[] = [];
     if (processedPaths.has(currentPath)) {
         return foundEntries;
@@ -233,15 +233,14 @@ async function findEntriesRecursive(
             }
             
             if (matchesCurrentEntry && await checkAllCriteria(entryInfo, params.match_criteria, config)) {
-                const { children, recursive_size_calculation_note, ...findResultEntry } = entryInfo;
-                foundEntries.push(findResultEntry);
+                foundEntries.push(entryInfo);
             }
 
             if (stats.isDirectory() && params.recursive !== false && currentDepth < maxDepth) {
                  foundEntries.push(...await findEntriesRecursive(entryAbsolutePath, params, config, currentDepth + 1, processedPaths));
             }
         } catch (statError: any) {
-            operationLogger.warn(`Could not stat or process entry during find ${entryAbsolutePath}: ${statError.message}. Skipping.\)`);
+            operationLogger.warn(`Could not stat or process entry during find ${entryAbsolutePath}: ${statError.message}. Skipping.`);
         }
     }
     return foundEntries;
@@ -251,7 +250,8 @@ export async function findEntries(
     params: FindTool.Parameters,
     config: ConduitServerConfig
 ): Promise<EntryInfo[] | ConduitError> {
-    operationLogger.info(`Processing findEntries for base_path: ${params.base_path}`);
+    const operationLogger = logger.child({ component: 'findOps' });
+    operationLogger.info(`Processing findEntries in base_path: ${params.base_path} with criteria: ${JSON.stringify(params.match_criteria)}`);
 
     const absoluteBasePath = path.resolve(config.workspaceRoot, params.base_path);
 
@@ -261,21 +261,21 @@ export async function findEntries(
     const baseStats = await fileSystemOps.getStats(absoluteBasePath);
     
     if (!baseStats.isDirectory()) {
-        if (params.recursive !== false) {
-            return new ConduitError(ErrorCode.ERR_FS_IS_FILE, `Base path for recursive find must be a directory: ${params.base_path}`);
-        }
-        try {
-            const entryInfo = await fileSystemOps.createEntryInfo(absoluteBasePath, baseStats, path.basename(absoluteBasePath));
-            if (params.entry_type_filter && params.entry_type_filter !== 'any' && entryInfo.type !== params.entry_type_filter) {
+        if (params.recursive === false || params.recursive === undefined) {
+            try {
+                const entryInfo = await fileSystemOps.createEntryInfo(absoluteBasePath, baseStats, path.basename(absoluteBasePath));
+                if (params.entry_type_filter && params.entry_type_filter !== 'any' && entryInfo.type !== params.entry_type_filter) {
+                    return [];
+                }
+                if (await checkAllCriteria(entryInfo, params.match_criteria, config)) {
+                    return [entryInfo];
+                }
                 return [];
+            } catch (e: any) {
+                 return new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to process base_path file ${params.base_path}: ${e.message}`);
             }
-            if (await checkAllCriteria(entryInfo, params.match_criteria, config)) {
-                const { children, recursive_size_calculation_note, ...findResultEntry } = entryInfo;
-                return [findResultEntry];
-            }
+        } else {
             return [];
-        } catch (e: any) {
-             return new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to process base_path file ${params.base_path}: ${e.message}`);
         }
     }
     
@@ -289,22 +289,20 @@ export async function findEntries(
             for (const name of dirContentsNames) {
                 const entryPath = path.join(absoluteBasePath, name);
                 if (processedPaths.has(entryPath)) continue;
-                processedPaths.add(entryPath);
 
                 try {
                     const stats = await fileSystemOps.getLstats(entryPath);
                     const entryInfoBase = await fileSystemOps.createEntryInfo(entryPath, stats, name);
-                     if (params.entry_type_filter && params.entry_type_filter !== 'any') {
+                    if (params.entry_type_filter && params.entry_type_filter !== 'any') {
                         if (entryInfoBase.type !== params.entry_type_filter) {
                             continue; 
                         }
                     }
                     if (await checkAllCriteria(entryInfoBase, params.match_criteria, config)) {
-                        const { children, recursive_size_calculation_note, ...findResultEntry } = entryInfoBase;
-                        results.push(findResultEntry);
+                        results.push(entryInfoBase);
                     }
                 } catch (statError: any) {
-                     operationLogger.warn(`Could not stat or process entry ${entryPath} in non-recursive find: ${statError.message}. Skipping.\)`);
+                     operationLogger.warn(`Could not stat or process entry ${entryPath} in non-recursive find: ${statError.message}. Skipping.`);
                 }
             }
             return results;

@@ -1,7 +1,6 @@
 import * as path from 'path';
 import { ConduitServerConfig, EntryInfo, ErrorCode, ListTool, logger, fileSystemOps, ConduitError } from '@/internal';
-
-const operationLogger = logger.child({ component: 'listOps' });
+import checkDiskSpace from 'check-disk-space'; // Import for use in getSystemInfo
 
 async function listDirectoryEntriesRecursive(
     currentPath: string,
@@ -10,6 +9,7 @@ async function listDirectoryEntriesRecursive(
     params: ListTool.EntriesParams,
     config: ConduitServerConfig
 ): Promise<EntryInfo[]> {
+    const operationLogger = logger.child({ component: 'listOps' });
     const entries: EntryInfo[] = [];
     if (currentDepth > (params.recursive_depth ?? 0) && params.recursive_depth !== -1) { // -1 means unlimited within server max
         return entries;
@@ -92,17 +92,18 @@ export async function listEntries(
     params: ListTool.EntriesParams,
     config: ConduitServerConfig
 ): Promise<EntryInfo[] | ConduitError> { // Return ConduitError to be handled by tool handler
+    const operationLogger = logger.child({ component: 'listOps' });
     operationLogger.info(`Processing listEntries for path: ${params.path}, depth: ${params.recursive_depth}, calc_size: ${params.calculate_recursive_size}`);
 
     const absoluteBasePath = path.resolve(config.workspaceRoot, params.path);
 
     // Validate base path
     if (!await fileSystemOps.pathExists(absoluteBasePath)) {
-        return new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Base path not found: ${params.path}`);
+        return new ConduitError(ErrorCode.RESOURCE_NOT_FOUND, `Base path not found: ${params.path}`);
     }
     const baseStats = await fileSystemOps.getStats(absoluteBasePath);
     if (!baseStats.isDirectory()) {
-        return new ConduitError(ErrorCode.ERR_FS_IS_FILE, `Base path is a file, not a directory: ${params.path}`);
+        return new ConduitError(ErrorCode.ERR_FS_PATH_IS_DIR, `Base path is a file, not a directory: ${params.path}`);
     }
 
     // Cap recursive_depth by server's maxRecursiveDepth
@@ -158,6 +159,78 @@ export async function listEntries(
     } catch (error: any) {
         operationLogger.error(`Failed to list entries for ${params.path}: ${error.message}`);
         if (error instanceof ConduitError) return error;
-        return new ConduitError(ErrorCode.ERR_FS_OPERATION_FAILED, `Failed to list entries for path ${params.path}: ${error.message || 'Unknown error'}`);
+        return new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to list entries for path ${params.path}: ${error.message || 'Unknown error'}`);
+    }
+}
+
+export async function getSystemInfo(
+    params: ListTool.SystemInfoParams,
+    config: ConduitServerConfig
+): Promise<ListTool.ServerCapabilities | ListTool.FilesystemStats | ListTool.FilesystemStatsNoPath | ConduitError> {
+    const operationLogger = logger.child({ component: 'listOps', operation: 'getSystemInfo' });
+    operationLogger.info(`Processing getSystemInfo for type: ${params.info_type}`);
+
+    try {
+        if (params.info_type === 'server_capabilities') {
+            const capabilities: ListTool.ServerCapabilities = {
+                server_version: config.serverVersion,
+                active_configuration: { // Exposing a subset of config, not all of it for security/relevance
+                    workspaceRoot: config.workspaceRoot,
+                    allowedPaths: config.allowedPaths,
+                    httpTimeoutMs: config.httpTimeoutMs,
+                    maxPayloadSizeBytes: config.maxPayloadSizeBytes,
+                    maxFileReadBytes: config.maxFileReadBytes,
+                    maxFileReadBytesFind: config.maxFileReadBytesFind,
+                    maxUrlDownloadSizeBytes: config.maxUrlDownloadSizeBytes,
+                    imageCompressionThresholdBytes: config.imageCompressionThresholdBytes,
+                    imageCompressionQuality: config.imageCompressionQuality,
+                    defaultChecksumAlgorithm: config.defaultChecksumAlgorithm,
+                    maxRecursiveDepth: config.maxRecursiveDepth,
+                    recursiveSizeTimeoutMs: config.recursiveSizeTimeoutMs,
+                },
+                supported_checksum_algorithms: ['md5', 'sha1', 'sha256', 'sha512'], // Could be from config if dynamic
+                supported_archive_formats: ['zip', 'tar.gz', 'tgz'], // Could be from config
+                default_checksum_algorithm: config.defaultChecksumAlgorithm,
+                max_recursive_depth: config.maxRecursiveDepth,
+            };
+            return capabilities;
+        } else if (params.info_type === 'filesystem_stats') {
+            if (params.path) {
+                const absolutePath = path.resolve(config.workspaceRoot, params.path);
+                // Ensure path is within allowed workspace or configured allowed paths
+                // This check should ideally be in a security handler or fileSystemOps itself
+                // For now, assume path is valid if it resolves correctly for the purpose of this op.
+                // fileSystemOps.getFilesystemStats should handle errors like path not found or not accessible.
+                
+                // This function is assumed to exist in fileSystemOps and use check-disk-space
+                const stats = await fileSystemOps.getFilesystemStats(absolutePath);
+                return {
+                    path_queried: params.path, // Return relative path as queried
+                    ...stats, // Spread total_bytes, free_bytes, available_bytes, used_bytes from getFilesystemStats
+                } as ListTool.FilesystemStats;
+            } else {
+                // Return general info about allowed paths if no specific path is given
+                return {
+                    info_type_requested: 'filesystem_stats',
+                    status_message: 'Filesystem stats require a specific path. Returning server-wide path information instead.',
+                    server_version: config.serverVersion,
+                    server_start_time_iso: config.serverStartTimeIso,
+                    configured_allowed_paths: config.allowedPaths,
+                } as ListTool.FilesystemStatsNoPath;
+            }
+        } else {
+            // Should not happen if types are correct, but as a safeguard
+            const exhaustiveCheck: never = params.info_type;
+            operationLogger.warn(`Unknown system_info type: ${exhaustiveCheck}`);
+            return new ConduitError(ErrorCode.INVALID_PARAMETER, `Unknown system_info type: ${(params as any).info_type}`);
+        }
+    } catch (error: any) {
+        operationLogger.error(`Error in getSystemInfo for type ${params.info_type}: ${error.message}`);
+        if (error instanceof ConduitError) return error;
+        // Map specific errors from check-disk-space if necessary, otherwise generic
+        if (error.code === 'ENOENT') { // Example if check-disk-space throws this for bad path
+             return new ConduitError(ErrorCode.RESOURCE_NOT_FOUND, `Path not found for filesystem_stats: ${params.path}`);
+        }
+        return new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to get system info: ${error.message || 'Unknown error'}`);
     }
 } 

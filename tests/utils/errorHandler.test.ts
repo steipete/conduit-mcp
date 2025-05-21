@@ -95,5 +95,89 @@ describe('errorHandler utils', () => {
       expect(conduitError.stack).toBeDefined();
       expect(conduitError.stack).toContain('ConduitError');
     });
+
+    it('should correctly create an error with a simple ErrorCode', () => {
+      const errorCode = ErrorCode.INVALID_PARAMETER;
+      const message = 'Test error message';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should correctly create an error with a namespaced ErrorCode (ERR_FS_ACCESS_DENIED)', () => {
+      const errorCode = ErrorCode.ERR_FS_ACCESS_DENIED;
+      const message = 'File access denied';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should correctly create an error with another namespaced ErrorCode (NOT_IMPLEMENTED)', () => {
+      const errorCode = ErrorCode.NOT_IMPLEMENTED;
+      const message = 'This is not done yet';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should handle FS_NOT_FOUND (alias for ERR_FS_NOT_FOUND)', () => {
+      const errorCode = ErrorCode.ERR_FS_NOT_FOUND;
+      const message = 'File is not here';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should correctly create an error with default message if none provided (INTERNAL_SERVER_ERROR)', () => {
+      const conduitError = new ConduitError(ErrorCode.ERR_INTERNAL_SERVER_ERROR);
+      expect(conduitError.message).toBe('An internal server error occurred.');
+      expect(conduitError.errorCode).toBe(ErrorCode.ERR_INTERNAL_SERVER_ERROR);
+    });
+
+    it('should wrap an original error and retain its stack (INTERNAL_SERVER_ERROR)', () => {
+      const originalError = new Error('Original Coder Oopsie');
+      const conduitError = new ConduitError(ErrorCode.ERR_INTERNAL_SERVER_ERROR, 'Wrapper message');
+      expect(conduitError.message).toContain('Wrapper message');
+      expect(conduitError.stack).toBeDefined();
+      expect(conduitError.stack).toContain('ConduitError');
+    });
+
+    it('should correctly create an error for UNKNOWN_TOOL', () => {
+      const errorCode = ErrorCode.ERR_UNKNOWN_TOOL;
+      const message = 'What is this tool?';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should correctly create an error for CONFIG_INVALID', () => {
+      const errorCode = ErrorCode.ERR_CONFIG_INVALID;
+      const message = 'Config is bad.';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should correctly create an error for HTTP_TIMEOUT', () => {
+      const errorCode = ErrorCode.ERR_HTTP_TIMEOUT;
+      const message = 'Too slow!';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should correctly create an error for FS_ACCESS_DENIED (alias for ERR_ACCESS_DENIED)', () => {
+      const errorCode = ErrorCode.ACCESS_DENIED;
+      const message = 'No access to this FS resource!';
+      const error = new ConduitError(errorCode, message);
+      expect(error.message).toBe(message);
+      expect(error.errorCode).toBe(errorCode);
+    });
+
+    it('should use default message for INTERNAL_SERVER_ERROR if message is undefined', () => {
+      const conduitError = new ConduitError(ErrorCode.ERR_INTERNAL_SERVER_ERROR, undefined);
+      expect(conduitError.message).toBe('An internal server error occurred.');
+      expect(conduitError.errorCode).toBe(ErrorCode.ERR_INTERNAL_SERVER_ERROR);
+    });
   });
 });

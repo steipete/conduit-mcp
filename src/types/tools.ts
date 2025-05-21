@@ -32,6 +32,7 @@ export namespace ReadTool {
   export type ContentFormat = 'text' | 'base64' | 'markdown' | 'checksum';
   export type ChecksumAlgorithm = 'md5' | 'sha1' | 'sha256' | 'sha512';
   export type DiffFormat = 'unified';
+  export type RangeRequestStatus = 'native' | 'simulated' | 'full_content_returned' | 'not_supported' | 'not_applicable_offset_oob';
 
   export interface BaseParams {
     sources: string[];
@@ -75,7 +76,7 @@ export namespace ReadTool {
     compression_error_note?: string;
     checksum?: string;
     checksum_algorithm_used?: ChecksumAlgorithm | string;
-    range_request_status?: 'native' | 'simulated' | 'full_content_returned' | 'not_supported';
+    range_request_status?: RangeRequestStatus;
     markdown_conversion_status?: 'success' | 'skipped_unsupported_content_type';
     markdown_conversion_skipped_reason?: string;
   }
@@ -116,7 +117,7 @@ export namespace ReadTool {
 export namespace WriteTool {
   export type WriteAction = 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch' | 'archive' | 'unarchive';
   export type InputEncoding = 'text' | 'base64';
-  export type WriteMode = 'overwrite' | 'append';
+  export type WriteMode = 'overwrite' | 'append' | 'error_if_exists';
   export type ArchiveFormat = 'zip' | 'tar.gz' | 'tgz';
 
   // Entry types for batchable operations
@@ -125,6 +126,7 @@ export namespace WriteTool {
     content: string; // string, as Buffer cannot be in JSON. Base64 handled by input_encoding.
     input_encoding?: InputEncoding;
     write_mode?: WriteMode;
+    checksum_algorithm?: string;
   }
   export interface MkdirEntry {
     path: string;
@@ -205,6 +207,8 @@ export namespace WriteTool {
   
   export interface WriteResultSuccess extends MCPSuccess, BaseResult {
     bytes_written?: number; // For put
+    checksum?: string;
+    checksum_algorithm_used?: string;
     message?: string; // e.g., "Directory created."
     skipped_sources?: string[]; // For archive
     extracted_files_count?: number; // For unarchive
@@ -379,25 +383,29 @@ export namespace ArchiveTool {
   }
 
   export interface CreateArchiveSuccess {
-    status: 'success'; // from MCPSuccess
-    message?: string; // from MCPSuccess
+    status: 'success';
     operation: 'create';
     archive_path: string;
+    format_used: string; // e.g., 'zip', 'tar', 'tar.gz'
     size_bytes: number;
-    checksum_sha256: string;
-    source_paths_count: number;
-    compression?: 'gzip' | 'none';
+    entries_processed: number; // Number of top-level source paths processed
+    checksum_sha256?: string;
+    compression_used?: 'zip' | 'gzip' | 'none';
     metadata?: Record<string, any>;
+    options_applied?: ArchiveOptions;
+    message?: string;
   }
 
   export interface ExtractArchiveSuccess {
-    status: 'success'; // from MCPSuccess
-    message?: string; // from MCPSuccess
+    status: 'success';
     operation: 'extract';
     archive_path: string;
     target_path: string;
-    extracted_files_count: number;
-    options?: ArchiveOptions;
+    format_used: string; // e.g., 'zip', 'tar', 'tar.gz'
+    entries_extracted: number; // Number of entries extracted, -1 if not easily countable
+    options_applied?: ArchiveOptions;
+    extracted_files_count?: number;
+    message?: string;
   }
 
   export type ArchiveResultItem = CreateArchiveSuccess | ExtractArchiveSuccess | ArchiveResultError;

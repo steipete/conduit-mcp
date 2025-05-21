@@ -2,8 +2,7 @@ import readline from 'readline';
 import {
     MCPRequest,
     MCPResponse,
-    conduitConfig,
-    prependInfoNoticeIfApplicable,
+    configLoader,
     handleReadTool,
     handleWriteTool,
     handleListTool,
@@ -11,13 +10,14 @@ import {
     ConduitError,
     ErrorCode,
     createMCPErrorStatus,
-    logger
+    logger,
+    prependInfoNoticeIfApplicable,
 } from '@/internal';
 
-logger.info(`conduit-mcp server v${conduitConfig.serverVersion} starting... Log level: ${conduitConfig.logLevel}`);
-logger.info(`Allowed paths: ${conduitConfig.allowedPaths.join(', ')}`);
-logger.info(`Default checksum algorithm: ${conduitConfig.defaultChecksumAlgorithm}`);
-logger.debug('Full configuration:', conduitConfig); 
+logger.info(`conduit-mcp server v${configLoader.conduitConfig.serverVersion} starting... Log level: ${configLoader.conduitConfig.logLevel}`);
+logger.info(`Allowed paths: ${configLoader.conduitConfig.allowedPaths.join(', ')}`);
+logger.info(`Default checksum algorithm: ${configLoader.conduitConfig.defaultChecksumAlgorithm}`);
+logger.debug('Full configuration:', configLoader.conduitConfig); 
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -30,8 +30,8 @@ async function processRequest(line: string): Promise<void> {
   let responsePayload: any;
 
   try {
-    if (line.length > conduitConfig.maxPayloadSizeBytes) {
-        throw new ConduitError(ErrorCode.ERR_RESOURCE_LIMIT_EXCEEDED, `Incoming MCP request payload size (${line.length} bytes) exceeds CONDUIT_MAX_PAYLOAD_SIZE_BYTES (${conduitConfig.maxPayloadSizeBytes} bytes).`);
+    if (line.length > configLoader.conduitConfig.maxPayloadSizeBytes) {
+        throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `Incoming MCP request payload size (${line.length} bytes) exceeds CONDUIT_MAX_PAYLOAD_SIZE_BYTES (${configLoader.conduitConfig.maxPayloadSizeBytes} bytes).`);
     }
     request = JSON.parse(line) as MCPRequest;
     logger.debug(`Received MCP Request (ID: ${request.requestId}): Tool='${request.toolName}', Params='${JSON.stringify(request.parameters).substring(0,200)}...'`);

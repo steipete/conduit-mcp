@@ -4,9 +4,11 @@ export * as webFetcher from './core/webFetcher';
 export * as imageProcessor from './core/imageProcessor';
 export * as configLoader from './core/configLoader';
 export * as securityHandler from './core/securityHandler';
+export { validateAndResolvePath } from './core/securityHandler';
 export * as noticeService from './core/noticeService';
 export * as mimeService from './core/mimeService';
 export { getMimeType } from './core/mimeService';
+export { prependInfoNoticeIfApplicable } from './core/noticeService';
 
 // Utils
 export { default as logger } from './utils/logger';

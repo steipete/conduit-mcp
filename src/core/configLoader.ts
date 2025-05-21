@@ -1,6 +1,8 @@
 import os from 'os';
 import path from 'path';
-import { ConduitServerConfig, getCurrentISO8601UTC, logger } from '../internal';
+import { ConduitServerConfig } from '../types/config';
+import { getCurrentISO8601UTC } from '../utils/dateTime';
+import { default as logger } from '../utils/logger';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { version } = require('../../package.json');
 
