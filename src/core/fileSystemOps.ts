@@ -68,7 +68,7 @@ export async function readFileAsString(filePath: string, maxLength: number = con
     }
     return await fs.readFile(filePath, { encoding: 'utf8' });
   } catch (error: any) {
-    if (error instanceof ConduitError) throw error;
+    if (error instanceof ConduitError || (error && typeof error.errorCode === 'string' && Object.values(ErrorCode).includes(error.errorCode as ErrorCode))) throw error;
     if (error.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `File not found: ${filePath}`);
     }
@@ -92,7 +92,7 @@ export async function readFileAsBuffer(filePath: string, maxLength: number = con
     }
     return await fs.readFile(filePath);
   } catch (error: any) {
-    if (error instanceof ConduitError) throw error;
+    if (error instanceof ConduitError || (error && typeof error.errorCode === 'string' && Object.values(ErrorCode).includes(error.errorCode as ErrorCode))) throw error;
     if (error.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `File not found: ${filePath}`);
     }
@@ -129,6 +129,9 @@ export async function writeFile(filePath: string, content: string | Buffer, enco
     }
     return bufferContent.length;
   } catch (error: any) {
+    if (error instanceof ConduitError || (error && typeof error.errorCode === 'string' && Object.values(ErrorCode).includes(error.errorCode as ErrorCode))) {
+      throw error;
+    }
     logger.error(`Error writing file ${filePath}: ${error.message}`);
     throw new ConduitError(ErrorCode.ERR_FS_WRITE_FAILED, `Failed to write file: ${filePath}. Error: ${error.message}`);
   }
@@ -166,13 +169,22 @@ export async function deletePath(itemPath: string, recursive: boolean = false): 
       await fs.unlink(itemPath);
     }
   } catch (error: any) {
-    if (error.code === 'ENOENT') { // Path doesn't exist, consider it a success for delete
-      logger.debug(`Path not found for deletion (considered success): ${itemPath}`);
-      return;
+    if (error && typeof error.errorCode === 'string' && error.errorCode === ErrorCode.ERR_FS_NOT_FOUND) {
+        logger.debug(`Path not found for deletion (considered success): ${itemPath}`);
+        return;
+    } else if (error && typeof error.errorCode === 'string') { // Other ConduitError-like errors
+        throw error;
     }
+
+    // Fallback for raw ENOENT (less likely now due to getLstats)
+    if (error.code === 'ENOENT') { 
+        logger.debug(`Path not found for deletion (considered success, raw ENOENT): ${itemPath}`);
+        return;
+    }
+    
     logger.error(`Error deleting path ${itemPath}: ${error.message}`);
     throw new ConduitError(ErrorCode.ERR_FS_DELETE_FAILED, `Failed to delete path: ${itemPath}. Error: ${error.message}`);
-  }
+}
 }
 
 /**
@@ -221,8 +233,18 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
       await fs.cp(sourcePath, finalDest, { recursive: false, force: true }); // Added force: true
     }
   } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Source path not found for copy: ${sourcePath}`);
+    logger.debug(`copyPath caught error. typeof error: ${typeof error}, error: ${JSON.stringify(error)}, errorCode: ${error?.errorCode}, code: ${error?.code}, instanceof ConduitError: ${error instanceof ConduitError}`);
+    // If it's a ConduitError or looks like one (has errorCode property)
+    if (error && typeof error.errorCode === 'string') { 
+      logger.debug(`copyPath re-throwing error with known errorCode: ${error.errorCode}`);
+      throw error; // Re-throw ConduitErrors or errors that look like them
+    }
+
+    // This specific ENOENT check for sourcePath should ideally be caught by the getStats call at the beginning.
+    // If it reaches here with ENOENT, it implies a race condition or an error from fs.cp itself with ENOENT.
+    if (error.code === 'ENOENT') { 
+      logger.warn(`ENOENT received during fs.cp operation for source ${sourcePath} to ${destinationPath}. This might indicate source disappeared post-stat or fs.cp internal issue.`);
+      throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Source path not found or disappeared during copy: ${sourcePath}. Error: ${error.message}`);
     }
     logger.error(`Error copying path ${sourcePath} to ${destinationPath}: ${error.message}`);
     throw new ConduitError(ErrorCode.ERR_FS_COPY_FAILED, `Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
@@ -273,14 +295,20 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
 
     // Ensure the parent directory of the final destination exists
     const finalDestParentDir = path.dirname(finalDestinationPath);
-    if (!(await pathExists(finalDestParentDir))) {
+    if (finalDestParentDir !== finalDestinationPath && !(await pathExists(finalDestParentDir))) {
+        logger.debug(`Parent directory ${finalDestParentDir} for destination ${finalDestinationPath} does not exist. Creating.`);
         await createDirectory(finalDestParentDir, true);
     }
     
     await fs.rename(sourcePath, finalDestinationPath);
   } catch (error: any) {
+    // If it's a ConduitError or looks like one (has errorCode property)
+    if (error && typeof error.errorCode === 'string') { 
+      throw error; // Re-throw ConduitErrors or errors that look like them
+    }
     if (error.code === 'ENOENT') {
-      throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Source path not found for move: ${sourcePath}`);
+      logger.error(`ENOENT during move operation for ${sourcePath} to ${destinationPath}: ${error.message}`);
+      throw new ConduitError(ErrorCode.ERR_FS_MOVE_FAILED, `Move operation failed (ENOENT): ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
     }
     logger.error(`Error moving path ${sourcePath} to ${destinationPath}: ${error.message}`);
     throw new ConduitError(ErrorCode.ERR_FS_MOVE_FAILED, `Failed to move/rename: ${sourcePath} to ${destinationPath}. Error: ${error.message}`);
@@ -345,7 +373,7 @@ export async function createEntryInfo(fullPath: string, statsParam: Stats, name?
       symlink_target: symlinkReadTarget,
     };
   } catch (error: any) {
-    if (error instanceof ConduitError) throw error;
+    if (error instanceof ConduitError || (error && typeof error.errorCode === 'string' && Object.values(ErrorCode).includes(error.errorCode as ErrorCode))) throw error;
     logger.error(`Failed to create entry info for ${fullPath}: ${error.message}`);
     throw new ConduitError(ErrorCode.OPERATION_FAILED, `Could not get entry info for ${fullPath}. Error: ${error.message}`);
   }

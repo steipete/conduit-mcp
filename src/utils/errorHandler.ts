@@ -36,6 +36,7 @@ export function createMCPErrorStatus(errorCode: ErrorCode, message: string): MCP
 export class ConduitError extends Error {
   public readonly errorCode: ErrorCode;
   public readonly MCPPErrorStatus: MCPErrorStatus;
+  public readonly isConduitError = true;
 
   constructor(errorCode: ErrorCode, message?: string) {
     const fullMessage = message || `Conduit operation failed with code: ${errorCode}`;
