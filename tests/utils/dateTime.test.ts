@@ -4,10 +4,9 @@ import { formatToISO8601UTC, getCurrentISO8601UTC } from '@/utils/dateTime';
 describe('dateTime utils', () => {
   describe('formatToISO8601UTC', () => {
     it('should format a Date object to ISO 8601 UTC string', () => {
-      const date = new Date(2023, 0, 15, 10, 30, 0, 123); // January 15, 2023, 10:30:00.123
+      const date = new Date(Date.UTC(2023, 0, 15, 10, 30, 0, 123)); // January 15, 2023, 10:30:00.123 UTC
       // Note: JavaScript Date month is 0-indexed (0 for January)
-      // When creating a date like this, it's in the local timezone.
-      // toISOString() converts it to UTC.
+      // Using Date.UTC to ensure consistent timezone behavior across test environments
       const expectedDate = new Date(Date.UTC(2023, 0, 15, 10, 30, 0, 123));
       expect(formatToISO8601UTC(date)).toBe(expectedDate.toISOString());
     });

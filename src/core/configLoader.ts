@@ -36,7 +36,7 @@ function parseEnvString<T extends string>(
 
 function resolvePath(inputPath: string): string {
   if (inputPath.startsWith('~')) {
-    return path.resolve(os.homedir(), inputPath.substring(1));
+    return path.join(os.homedir(), inputPath.substring(1));
   }
   return path.resolve(inputPath);
 }
@@ -60,7 +60,7 @@ export function loadConfig(): ConduitServerConfig {
     })();
 
   const userDidSpecifyAllowedPaths = 'CONDUIT_ALLOWED_PATHS' in process.env;
-  const rawAllowedPaths = process.env.CONDUIT_ALLOWED_PATHS || '~:/tmp';
+  const rawAllowedPaths = userDidSpecifyAllowedPaths ? process.env.CONDUIT_ALLOWED_PATHS! : '~:/tmp';
   const resolvedAllowedPaths = rawAllowedPaths
     .split(':')
     .map((p) => p.trim())

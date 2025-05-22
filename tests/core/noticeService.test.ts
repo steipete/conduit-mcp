@@ -1,8 +1,3 @@
-import {
-  generateFirstUseNotice,
-  hasFirstUseNoticeBeenSent,
-  markFirstUseNoticeSent,
-} from '@/core/noticeService';
 import os from 'os';
 import path from 'path';
 import { vi, describe, it, expect, beforeEach, afterAll } from 'vitest';
@@ -45,16 +40,20 @@ const originalHomeDir = os.homedir;
 
 describe('noticeService', () => {
   const originalEnv = { ...process.env };
+  let hasFirstUseNoticeBeenSent: any;
+  let markFirstUseNoticeSent: any;
+  let generateFirstUseNotice: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env = { ...originalEnv };
     vi.resetModules();
     vi.clearAllMocks();
-    // mockFsStore = {}; // Removed unused assignment
-
     os.homedir = vi.fn(() => '/mock/home');
 
-    // Mock fs-extra functions
+    const noticeServiceModule = await import('@/core/noticeService');
+    hasFirstUseNoticeBeenSent = noticeServiceModule.hasFirstUseNoticeBeenSent;
+    markFirstUseNoticeSent = noticeServiceModule.markFirstUseNoticeSent;
+    generateFirstUseNotice = noticeServiceModule.generateFirstUseNotice;
   });
 
   afterAll(() => {
@@ -64,10 +63,6 @@ describe('noticeService', () => {
   });
 
   describe('hasFirstUseNoticeBeenSent', () => {
-    beforeEach(async () => {
-      vi.resetModules();
-    });
-
     it('should return false initially', () => {
       expect(hasFirstUseNoticeBeenSent()).toBe(false);
     });
@@ -79,10 +74,6 @@ describe('noticeService', () => {
   });
 
   describe('markFirstUseNoticeSent', () => {
-    beforeEach(async () => {
-      vi.resetModules();
-    });
-
     it('should mark the notice as sent', () => {
       expect(hasFirstUseNoticeBeenSent()).toBe(false);
       markFirstUseNoticeSent();

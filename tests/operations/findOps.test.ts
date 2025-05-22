@@ -1,46 +1,41 @@
 /// <reference types="vitest/globals" />
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { ConduitError, ErrorCode, EntryInfo, ConduitServerConfig } from '@/internal';
 
-vi.mock('@/internal', async (importOriginal) => {
-  const originalModule = await importOriginal<typeof import('@/internal')>();
-  
-  // Create mocks inside the factory to avoid hoisting issues
-  const mockLogger = {
+// Mock the core dependencies
+vi.mock('@/core/fileSystemOps', () => ({
+  pathExists: vi.fn().mockResolvedValue(false),
+  getStats: vi.fn().mockResolvedValue({}),
+  listDirectory: vi.fn().mockResolvedValue([]),
+  getLstats: vi.fn().mockResolvedValue({}),
+  createEntryInfo: vi.fn().mockResolvedValue({}),
+}));
+
+// Mock the logger
+vi.mock('@/utils/logger', () => ({
+  default: {
+    child: vi.fn(() => ({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    })),
     info: vi.fn(),
-    error: vi.fn(),
     warn: vi.fn(),
+    error: vi.fn(),
     debug: vi.fn(),
-    child: vi.fn(),
-  };
-  mockLogger.child.mockReturnValue(mockLogger);
-  
-  return {
-    ...originalModule,
-    logger: mockLogger,
-    fileSystemOps: {
-      pathExists: vi.fn(),
-      getStats: vi.fn(),
-      listDirectory: vi.fn(),
-      getLstats: vi.fn(),
-      createEntryInfo: vi.fn(),
-      readFileAsBuffer: vi.fn(),
-    },
-    getMimeType: vi.fn(),
-    validateAndResolvePath: vi.fn(),
-    conduitConfig: {
-      maxFileReadBytes: 1024 * 1024,
-      maxFileReadBytesFind: 512 * 1024,
-      maxRecursiveDepth: 10,
-      httpTimeoutMs: 5000,
-      workspaceRoot: '/test/workspace',
-      allowedPaths: ['/test'],
-      logLevel: 'ERROR',
-    },
-  };
-});
+  },
+}));
 
-import { ConduitError, ErrorCode, EntryInfo, ConduitServerConfig, fileSystemOps } from '@/internal';
+// Mock getMimeType
+vi.mock('@/core/mimeService', () => ({
+  getMimeType: vi.fn().mockResolvedValue('text/plain'),
+}));
+
+// Import the functions to test after setting up mocks
+import { findEntries, handleFindEntries } from '@/operations/findOps';
+import * as fileSystemOps from '@/core/fileSystemOps';
 
 describe('findOps', () => {
   const defaultTestConfig: ConduitServerConfig = {
@@ -71,8 +66,6 @@ describe('findOps', () => {
 
   describe('handleFindEntries', () => {
     it('should call findEntries and return results for successful find', async () => {
-      const { handleFindEntries } = await import('@/operations/findOps');
-      
       const mockEntries: EntryInfo[] = [
         {
           name: 'file1.txt',
@@ -86,11 +79,12 @@ describe('findOps', () => {
       ];
 
       // Set up mocks
-      (fileSystemOps.pathExists as any).mockResolvedValue(true);
-      (fileSystemOps.getStats as any).mockResolvedValue(createMockStats(false, true));
-      (fileSystemOps.listDirectory as any).mockResolvedValue(['file1.txt']);
-      (fileSystemOps.getLstats as any).mockResolvedValue(createMockStats(true, false));
-      (fileSystemOps.createEntryInfo as any).mockResolvedValue(mockEntries[0]);
+      (fileSystemOps.pathExists as any).mockImplementation(async () => true);
+      (fileSystemOps.getStats as any).mockImplementation(async () => createMockStats(false, true));
+      (fileSystemOps.listDirectory as any).mockImplementation(async () => ['file1.txt']);
+      (fileSystemOps.getLstats as any).mockImplementation(async () => createMockStats(true, false));
+      (fileSystemOps.createEntryInfo as any).mockImplementation(async () => mockEntries[0]);
+      
 
       const params = {
         base_path: '/test/dir',
@@ -103,9 +97,7 @@ describe('findOps', () => {
     });
 
     it('should throw error when findEntries returns ConduitError', async () => {
-      const { handleFindEntries } = await import('@/operations/findOps');
-      
-      // Mock path not existing to trigger an error
+      // Mock path not existing
       (fileSystemOps.pathExists as any).mockResolvedValue(false);
 
       const params = {
@@ -121,8 +113,6 @@ describe('findOps', () => {
 
   describe('findEntries error handling', () => {
     it('should return ConduitError when base path does not exist', async () => {
-      const { findEntries } = await import('@/operations/findOps');
-      
       (fileSystemOps.pathExists as any).mockResolvedValue(false);
 
       const params = {
@@ -141,8 +131,6 @@ describe('findOps', () => {
 
   describe('findEntries with name_pattern', () => {
     it('should find files matching name pattern', async () => {
-      const { findEntries } = await import('@/operations/findOps');
-      
       (fileSystemOps.pathExists as any).mockResolvedValue(true);
       (fileSystemOps.getStats as any).mockResolvedValue(createMockStats(false, true));
       (fileSystemOps.listDirectory as any).mockResolvedValue(['test.txt', 'other.md', 'readme.txt']);

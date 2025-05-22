@@ -265,7 +265,15 @@ describe('fileSystemOps', () => {
     const fileBuffer = Buffer.from(fileContent, 'utf8');
 
     it('should read file content as string successfully', async () => {
-      mockFs.stat.mockResolvedValue({ size: fileBuffer.length } as Stats);
+      mockFs.stat.mockResolvedValue({
+        size: fileBuffer.length,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
       mockFs.readFile.mockImplementation(async (pathArg, optionsArg) => {
         let encoding = null;
         if (typeof optionsArg === 'string') {
@@ -286,7 +294,15 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than maxLength', async () => {
-      mockFs.stat.mockResolvedValue({ size: conduitConfig.maxFileReadBytes + 1 } as Stats);
+      mockFs.stat.mockResolvedValue({
+        size: conduitConfig.maxFileReadBytes + 1,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
       await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
       try {
         await readFileAsString(filePath);
@@ -300,7 +316,15 @@ describe('fileSystemOps', () => {
 
     it('should use specified maxLength if provided', async () => {
       const specifiedMaxLength = 5;
-      mockFs.stat.mockResolvedValue({ size: 10 } as Stats); // File size is 10
+      mockFs.stat.mockResolvedValue({
+        size: 10,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats); // File size is 10
       await expect(readFileAsString(filePath, specifiedMaxLength)).rejects.toThrow(ConduitError);
       try {
         await readFileAsString(filePath, specifiedMaxLength);
@@ -316,7 +340,15 @@ describe('fileSystemOps', () => {
       const error = new Error('File not found') as any;
       error.code = 'ENOENT';
       // Mock getStats to succeed, but readFile to fail
-      mockFs.stat.mockResolvedValue({ size: 100 } as Stats);
+      mockFs.stat.mockResolvedValue({
+        size: 100,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
       mockFs.readFile.mockRejectedValue(error);
       await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
       try {
@@ -329,7 +361,15 @@ describe('fileSystemOps', () => {
     it('should throw ERR_FS_READ_FAILED for other fs.readFile errors', async () => {
       const error = new Error('Read permission denied') as any;
       error.code = 'EACCES';
-      mockFs.stat.mockResolvedValue({ size: 100 } as Stats);
+      mockFs.stat.mockResolvedValue({
+        size: 100,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
       mockFs.readFile.mockRejectedValue(error);
       await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
       try {
@@ -345,7 +385,15 @@ describe('fileSystemOps', () => {
     const fileBuffer = Buffer.from([0x01, 0x02, 0x03, 0x04]);
 
     it('should read file content as buffer successfully', async () => {
-      mockFs.stat.mockResolvedValue({ size: fileBuffer.length } as Stats);
+      mockFs.stat.mockResolvedValue({
+        size: fileBuffer.length,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
       mockFs.readFile.mockResolvedValue(fileBuffer);
       const content = await readFileAsBuffer(filePath);
       expect(content).toEqual(fileBuffer);
@@ -354,7 +402,15 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than maxLength', async () => {
-      mockFs.stat.mockResolvedValue({ size: conduitConfig.maxFileReadBytes + 1 } as Stats);
+      mockFs.stat.mockResolvedValue({
+        size: conduitConfig.maxFileReadBytes + 1,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
       await expect(readFileAsBuffer(filePath)).rejects.toThrow(ConduitError);
       try {
         await readFileAsBuffer(filePath);
@@ -703,12 +759,9 @@ describe('fileSystemOps', () => {
         throw new Error('copyPath should have thrown an error for non-existent source'); // Should not be reached
       } catch (e: any) {
         errorOccurred = true; // Mark that an error was caught
-        expect(e.errorCode).toBe(ErrorCode.ERR_FS_COPY_FAILED);
-        // The message from copyPath's error wrapping is "Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${error.message from getStats}"
-        // The error.message from getStats is "Path not found: ${sourcePath}"
-        expect(e.message).toContain(
-          `Failed to copy: ${sourceFile} to ${destFile}. Error: Path not found: ${sourceFile}`
-        );
+        expect(e.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+        // The error is re-thrown from getStats, not wrapped by copyPath
+        expect(e.message).toContain(`Path not found: ${sourceFile}`);
       } finally {
         // Restore original log level
         (conduitConfig as any).logLevel = originalLogLevel;

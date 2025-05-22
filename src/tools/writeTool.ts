@@ -1,3 +1,4 @@
+import * as path from 'path';
 import {
   WriteTool,
   ArchiveTool,
@@ -59,6 +60,10 @@ export async function writeToolHandler(
             } else {
               fsWriteMode = 'overwrite'; // Default to overwrite if mode is undefined
             }
+
+            // Create parent directories if they don't exist
+            const parentDir = path.dirname(entry.path);
+            await fileSystemOps.createDirectory(parentDir, true);
 
             const bytesWritten = await fileSystemOps.writeFile(
               entry.path,

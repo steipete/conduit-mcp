@@ -7,9 +7,9 @@ import {
   fileSystemOps,
   ConduitError,
   getMimeType,
+  logger,
 } from '@/internal';
 import micromatch from 'micromatch';
-import { logger } from '@/internal';
 
 async function isTextBasedFileForContentSearch(
   filePath: string,

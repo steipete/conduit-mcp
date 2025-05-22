@@ -1,15 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
-import { createTempFileInBase, cleanupAllTemp, getTempBasePath } from './utils/tempFs';
+import { createTempDir, createTempFile, cleanupAllTemp } from './utils/tempFs';
 import path from 'path';
 
 describe('E2E Read Operations', () => {
+  let testWorkspaceDir: string;
+
   beforeEach(() => {
-    cleanupAllTemp();
+    testWorkspaceDir = createTempDir();
   });
 
   afterEach(() => {
-    cleanupAllTemp();
+    // Only cleanup our specific test workspace, not all temp
+    if (testWorkspaceDir) {
+      const fs = require('fs');
+      if (fs.existsSync(testWorkspaceDir)) {
+        fs.rmSync(testWorkspaceDir, { recursive: true, force: true });
+      }
+    }
   });
 
   describe('First Use Informational Notice', () => {
@@ -95,7 +103,6 @@ describe('E2E Read Operations', () => {
     });
 
     it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
-      const tempBase = getTempBasePath();
       const requestPayload = {
         tool_name: 'read',
         params: {
@@ -106,7 +113,7 @@ describe('E2E Read Operations', () => {
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: tempBase
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
       });
 
       if (result.exitCode !== 0) {
@@ -129,8 +136,13 @@ describe('E2E Read Operations', () => {
   describe('Read Content Operations', () => {
     it('should successfully read a text file', async () => {
       const testContent = 'Hello, World!\nThis is a test file.\nLine 3 with special chars: åäö';
-      const testFile = createTempFileInBase('test-read.txt', testContent);
-      const tempBase = getTempBasePath();
+      const testFile = path.join(testWorkspaceDir, 'test-read.txt');
+      // Ensure the file is created synchronously and verify it exists
+      const fs = require('fs');
+      fs.writeFileSync(testFile, testContent, 'utf8');
+      if (!fs.existsSync(testFile)) {
+        throw new Error(`Failed to create test file: ${testFile}`);
+      }
 
       const requestPayload = {
         tool_name: 'read',
@@ -142,7 +154,7 @@ describe('E2E Read Operations', () => {
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: tempBase
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
       });
 
       if (result.exitCode !== 0) {
@@ -157,6 +169,15 @@ describe('E2E Read Operations', () => {
       expect(result.response.results).toHaveLength(1);
       
       const toolResponseItem = result.response.results[0];
+      if (toolResponseItem.status === 'error') {
+        console.error('Read text test failed with error:', {
+          error_code: toolResponseItem.error_code,
+          error_message: toolResponseItem.error_message,
+          source: toolResponseItem.source,
+          testFile: testFile,
+          fileExists: require('fs').existsSync(testFile)
+        });
+      }
       expect(toolResponseItem.status).toBe('success');
       expect(toolResponseItem.content).toBe(testContent);
       expect(toolResponseItem.output_format_used).toBe('text');
@@ -164,8 +185,7 @@ describe('E2E Read Operations', () => {
     });
 
     it('should handle file not found error', async () => {
-      const tempBase = getTempBasePath();
-      const nonExistentFile = path.join(tempBase, 'nonexistent.txt');
+      const nonExistentFile = path.join(testWorkspaceDir, 'nonexistent.txt');
 
       const requestPayload = {
         tool_name: 'read',
@@ -177,7 +197,7 @@ describe('E2E Read Operations', () => {
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: tempBase
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
       });
 
       if (result.exitCode !== 0) {
@@ -253,14 +273,14 @@ describe('E2E Read Operations', () => {
     it('should read binary file with base64 format', async () => {
       // Create a simple binary file (PNG header bytes)
       const binaryContent = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-      const testFile = path.join(getTempBasePath(), 'test.png');
+      const testFile = path.join(testWorkspaceDir, 'test.png');
       
-      // Ensure temp directory exists and write binary file
+      // Write binary file and verify it exists
       const fs = require('fs');
-      fs.mkdirSync(path.dirname(testFile), { recursive: true });
       fs.writeFileSync(testFile, binaryContent);
-      
-      const tempBase = getTempBasePath();
+      if (!fs.existsSync(testFile)) {
+        throw new Error(`Failed to create test file: ${testFile}`);
+      }
 
       const requestPayload = {
         tool_name: 'read',
@@ -272,7 +292,7 @@ describe('E2E Read Operations', () => {
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: tempBase
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
       });
 
       if (result.exitCode !== 0) {
@@ -287,6 +307,15 @@ describe('E2E Read Operations', () => {
       expect(result.response.results).toHaveLength(1);
       
       const toolResponseItem = result.response.results[0];
+      if (toolResponseItem.status === 'error') {
+        console.error('Read binary test failed with error:', {
+          error_code: toolResponseItem.error_code,
+          error_message: toolResponseItem.error_message,
+          source: toolResponseItem.source,
+          testFile: testFile,
+          fileExists: require('fs').existsSync(testFile)
+        });
+      }
       expect(toolResponseItem.status).toBe('success');
       expect(toolResponseItem.output_format_used).toBe('base64');
       expect(toolResponseItem.content).toBe(binaryContent.toString('base64'));

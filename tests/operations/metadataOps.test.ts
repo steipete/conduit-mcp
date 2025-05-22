@@ -27,6 +27,7 @@ vi.mock('@/internal', async (importOriginal) => {
     mimeService: mockDeep<typeof import('@/core/mimeService')>(),
     getMimeType: vi.fn(),
     formatToISO8601UTC: vi.fn(),
+    validateAndResolvePath: vi.fn(),
   };
 });
 
@@ -42,6 +43,7 @@ import {
   formatToISO8601UTC,
   getMimeType,
   conduitConfig,
+  validateAndResolvePath,
 } from '@/internal';
 
 describe('metadataOps', () => {
@@ -54,6 +56,7 @@ describe('metadataOps', () => {
   const mockedMimeService = mimeService as DeepMockProxy<typeof mimeService>;
   const mockedGetMimeType = getMimeType as MockedFunction<typeof getMimeType>;
   const mockedFormatToISO = formatToISO8601UTC as MockedFunction<typeof formatToISO8601UTC>;
+  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<typeof validateAndResolvePath>;
 
   const defaultTestConfig: Partial<ConduitServerConfig> = {
     // Add any specific config defaults needed for metadataOps if any
@@ -72,6 +75,7 @@ describe('metadataOps', () => {
     mockReset(mockedMimeService);
     mockedGetMimeType.mockReset();
     mockedFormatToISO.mockReset();
+    mockedValidateAndResolvePath.mockReset();
 
     // Assign default test config
     Object.assign(mockedConfig, defaultTestConfig);
@@ -80,7 +84,7 @@ describe('metadataOps', () => {
     (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
 
     // Set up default implementations for metadata tests
-    mockedFsOps.getStats.mockResolvedValue({} as fs.Stats);
+    mockedFsOps.getLstats.mockResolvedValue({} as fs.Stats);
     mockedFsOps.createEntryInfo.mockResolvedValue({
       name: '',
       path: '',
@@ -92,7 +96,7 @@ describe('metadataOps', () => {
       permissions_octal: '',
       permissions_string: '',
     });
-    mockedSecurityHandler.validateAndResolvePath.mockResolvedValue('');
+    mockedValidateAndResolvePath.mockResolvedValue('');
     mockedWebFetcher.fetchUrlContent.mockResolvedValue({
       finalUrl: '',
       mimeType: '',
@@ -127,8 +131,11 @@ describe('metadataOps', () => {
         mtimeMs: new Date('2023-01-02T11:00:00Z').getTime(),
         mode: 33188, // Corresponds to -rw-r--r--
       } as fs.Stats;
+      
+      // Mock validateAndResolvePath to return the same path
+      mockedValidateAndResolvePath.mockResolvedValue(testFilePath);
       mockedFsOps.pathExists.mockResolvedValue(true);
-      mockedFsOps.getStats.mockResolvedValue(mockStats);
+      mockedFsOps.getLstats.mockResolvedValue(mockStats);
       mockedFsOps.createEntryInfo.mockResolvedValue({
         name: 'somefile.txt',
         path: testFilePath,
@@ -158,7 +165,11 @@ describe('metadataOps', () => {
       expect(result.metadata.created_at).toBe('2023-01-01T10:00:00.000Z');
       expect(result.metadata.modified_at).toBe('2023-01-02T11:00:00.000Z');
       expect(result.metadata.permissions_string).toBe('-rw-r--r--');
-      expect(mockedFsOps.getStats).toHaveBeenCalledWith(testFilePath);
+      expect(mockedValidateAndResolvePath).toHaveBeenCalledWith(testFilePath, {
+        isExistenceRequired: true,
+        checkAllowed: true,
+      });
+      expect(mockedFsOps.getLstats).toHaveBeenCalledWith(testFilePath);
     });
 
     // More tests for file source: directory, errors (not found, access denied), etc.

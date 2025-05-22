@@ -39,7 +39,12 @@ export class ConduitError extends Error {
   public readonly isConduitError = true;
 
   constructor(errorCode: ErrorCode, message?: string) {
-    const fullMessage = message || `Conduit operation failed with code: ${errorCode}`;
+    let fullMessage: string;
+    if (!message && errorCode === ErrorCode.ERR_INTERNAL_SERVER_ERROR) {
+      fullMessage = 'An internal server error occurred.';
+    } else {
+      fullMessage = message || `Conduit operation failed with code: ${errorCode}`;
+    }
     super(fullMessage);
     this.name = this.constructor.name;
     this.errorCode = errorCode;

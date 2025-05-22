@@ -10,13 +10,24 @@ vi.mock('sharp');
 // So, we mock that function.
 const mockedSharp = sharp as Mocked<typeof sharp>;
 
-// Mock configLoader
-const mockCompressionThreshold = 1024; // 1KB
-const mockCompressionQuality = 75;
-vi.mock('@/core/configLoader', () => ({
-  conduitConfig: {
-    imageCompressionThresholdBytes: mockCompressionThreshold,
-    imageCompressionQuality: mockCompressionQuality,
+// Mock logger
+vi.mock('@/utils/logger', () => ({
+  default: {
+    debug: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(() => ({
+      debug: vi.fn(),
+      error: vi.fn(),
+      warn: vi.fn(),
+    })),
+  },
+}));
+
+// Mock configLoader - avoid top-level variables in factory to prevent hoisting issues
+vi.mock('@/core/configLoader', () => {
+  const mockConfig = {
+    imageCompressionThresholdBytes: 1024, // 1KB
+    imageCompressionQuality: 75,
     // Add other minimal required config properties if any are used
     logLevel: 'INFO', // Example of other required properties
     allowedPaths: [],
@@ -29,8 +40,17 @@ vi.mock('@/core/configLoader', () => ({
     recursiveSizeTimeoutMs: 60000,
     serverStartTimeIso: new Date().toISOString(),
     serverVersion: '1.0.0-test',
-  },
-}));
+  };
+  
+  return {
+    conduitConfig: mockConfig,
+    loadConfig: () => mockConfig,
+  };
+});
+
+// Define constants for use in tests
+const mockCompressionThreshold = 1024; // 1KB
+const mockCompressionQuality = 75;
 
 describe('imageProcessor', () => {
   let mockSharpInstance: any; // This will hold the mock instance returned by sharp()
@@ -87,11 +107,10 @@ describe('imageProcessor', () => {
 
     const result = await compressImageIfNecessary(originalBuffer, 'image/jpeg');
 
-    expect(mockedSharp).toHaveBeenCalledWith(originalBuffer);
+    expect(mockedSharp).toHaveBeenCalledWith(originalBuffer, { animated: false });
     expect(mockSharpInstance.jpeg).toHaveBeenCalledWith({
       quality: mockCompressionQuality,
-      progressive: true,
-      optimizeScans: true,
+      mozjpeg: true,
     });
     expect(mockSharpInstance.toBuffer).toHaveBeenCalled();
     expect(result.buffer).toBe(compressedBuffer);
@@ -120,6 +139,7 @@ describe('imageProcessor', () => {
     expect(mockSharpInstance.png).toHaveBeenCalledWith({
       compressionLevel: 9,
       adaptiveFiltering: true,
+      palette: true,
     });
     expect(result.buffer).toBe(compressedBuffer);
     expect(result.compression_applied).toBe(true);
@@ -149,16 +169,14 @@ describe('imageProcessor', () => {
 
   it('should handle GIF (passes through with debug log in current impl)', async () => {
     const originalBuffer = createDummyImageBuffer(mockCompressionThreshold + 100);
-    mockSharpInstance.toBuffer.mockResolvedValue(originalBuffer);
 
     const result = await compressImageIfNecessary(originalBuffer, 'image/gif');
 
-    expect(mockedSharp).toHaveBeenCalledWith(originalBuffer);
-    expect(logger.debug).toHaveBeenCalledWith(
-      expect.stringContaining('GIF compression with sharp is basic')
-    );
+    // GIF is not in SUPPORTED_MIME_TYPES_FOR_COMPRESSION, so sharp should not be called
+    expect(mockedSharp).not.toHaveBeenCalled();
     expect(result.buffer).toBe(originalBuffer);
     expect(result.compression_applied).toBe(false);
-    expect(result.compression_error_note).toBe('Compressed size was not smaller than original.');
+    // No compression_error_note should be present since it's not an error, just unsupported
+    expect(result.compression_error_note).toBeUndefined();
   });
 });

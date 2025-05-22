@@ -166,6 +166,22 @@ export function cleanHtmlToMarkdown(html: string, baseUrl?: string): string {
 
   const turndownService = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
   // Add any custom Turndown rules if needed, e.g., for tables, specific tags.
-  const markdown = turndownService.turndown(article.content);
+  
+  let markdown: string;
+  try {
+    markdown = turndownService.turndown(article.content);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    operationLogger.error(`Turndown conversion failed: ${errorMessage}`);
+    throw new ConduitError(
+      ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED,
+      `Failed to convert HTML to Markdown: ${errorMessage}`
+    );
+  }
+
+  if (!markdown || (typeof markdown === 'string' && markdown.trim().length === 0)) {
+    operationLogger.warn('Turndown conversion resulted in empty or non-string markdown content.');
+  }
+
   return markdown;
 }
