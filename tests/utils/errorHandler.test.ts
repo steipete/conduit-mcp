@@ -5,13 +5,13 @@ import {
   createMCPErrorStatus,
   ConduitError,
   MCPErrorStatus, // For type checking
-  MCPError // For type checking
+  MCPError, // For type checking
 } from '@/utils/errorHandler';
 
 describe('errorHandler utils', () => {
   describe('createMCPError', () => {
     it('should create an MCPError object with given code and message', () => {
-      const errorCode = ErrorCode.ERR_INVALID_PARAMETER;
+      const errorCode = ErrorCode.INVALID_PARAMETER;
       const errorMessage = 'Test parameter is missing.';
       const errorObj: MCPError = createMCPError(errorCode, errorMessage);
 
@@ -23,7 +23,7 @@ describe('errorHandler utils', () => {
   });
 
   describe('createMCPErrorStatus', () => {
-    it('should create an MCPErrorStatus object with status \'error\' and given code/message', () => {
+    it("should create an MCPErrorStatus object with status 'error' and given code/message", () => {
       const errorCode = ErrorCode.ERR_FS_NOT_FOUND;
       const errorMessage = 'File not found at path.';
       const errorStatusObj: MCPErrorStatus = createMCPErrorStatus(errorCode, errorMessage);
@@ -67,7 +67,7 @@ describe('errorHandler utils', () => {
     });
 
     it('should create and store an MCPPErrorStatus object', () => {
-      const errorCode = ErrorCode.ERR_FS_ACCESS_DENIED;
+      const errorCode = ErrorCode.ACCESS_DENIED;
       const customMessage = 'Access to the path is denied.';
       const conduitError = new ConduitError(errorCode, customMessage);
 
@@ -79,7 +79,7 @@ describe('errorHandler utils', () => {
     });
 
     it('MCPPErrorStatus message should match default message if no custom message provided', () => {
-      const errorCode = ErrorCode.ERR_NOT_IMPLEMENTED;
+      const errorCode = ErrorCode.NOT_IMPLEMENTED;
       const conduitError = new ConduitError(errorCode);
       const expectedMessage = `Conduit operation failed with code: ${errorCode}`;
 
@@ -105,7 +105,7 @@ describe('errorHandler utils', () => {
     });
 
     it('should correctly create an error with a namespaced ErrorCode (ERR_FS_ACCESS_DENIED)', () => {
-      const errorCode = ErrorCode.ERR_FS_ACCESS_DENIED;
+      const errorCode = ErrorCode.ACCESS_DENIED;
       const message = 'File access denied';
       const error = new ConduitError(errorCode, message);
       expect(error.message).toBe(message);
@@ -135,7 +135,6 @@ describe('errorHandler utils', () => {
     });
 
     it('should wrap an original error and retain its stack (INTERNAL_SERVER_ERROR)', () => {
-      const originalError = new Error('Original Coder Oopsie');
       const conduitError = new ConduitError(ErrorCode.ERR_INTERNAL_SERVER_ERROR, 'Wrapper message');
       expect(conduitError.message).toContain('Wrapper message');
       expect(conduitError.stack).toBeDefined();

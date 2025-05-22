@@ -7,7 +7,7 @@ import {
   ConduitError,
   ErrorCode,
   logger as internalLogger,
-  configLoader,
+  conduitConfig,
   fileSystemOps,
   webFetcher,
   ReadTool,
@@ -33,7 +33,7 @@ vi.mock('@/internal', async (importOriginal) => {
     fileSystemOps: mockDeep<typeof originalModule.fileSystemOps>(),
     webFetcher: {
       ...originalModule.webFetcher, // Spread original webFetcher to keep other potential functions
-      fetchUrlContent: vi.fn(),    // Specifically mock fetchUrlContent
+      fetchUrlContent: vi.fn(), // Specifically mock fetchUrlContent
     },
     getMimeType: vi.fn(),
     // ConduitError, ErrorCode, ReadTool etc. will be passed from originalModule
@@ -44,9 +44,11 @@ import { getMimeType as internalGetMimeType, webFetcher as internalWebFetcher } 
 
 describe('diffOps', () => {
   const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
-  const mockedConfig = configLoader.conduitConfig as DeepMockProxy<ConduitServerConfig>;
+  const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
   const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
-  const mockedFetchUrlContent = internalWebFetcher.fetchUrlContent as MockedFunction<typeof internalWebFetcher.fetchUrlContent>;
+  const mockedFetchUrlContent = internalWebFetcher.fetchUrlContent as MockedFunction<
+    typeof internalWebFetcher.fetchUrlContent
+  >;
   const mockedGetMimeType = internalGetMimeType as MockedFunction<typeof internalGetMimeType>;
 
   const defaultTestConfig: Partial<ConduitServerConfig> = {
@@ -67,12 +69,12 @@ describe('diffOps', () => {
     mockReset(mockedLogger);
     // @ts-ignore
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-        // @ts-ignore
-        mockedLogger.child.mockReset();
+      // @ts-ignore
+      mockedLogger.child.mockReset();
     }
     // @ts-ignore
     mockedLogger.child.mockReturnValue(mockedLogger);
-    
+
     mockReset(mockedConfig as any);
     Object.assign(mockedConfig, defaultTestConfig);
     mockedConfig.maxFileReadBytes = defaultTestConfig.maxFileReadBytes!;
@@ -102,17 +104,24 @@ describe('diffOps', () => {
     it('should return a text diff for two different files', async () => {
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
-      mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(Buffer.from('This is file one.\nLine two.\nLine three.'));
-      
+      mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(
+        Buffer.from('This is file one.\nLine two.\nLine three.')
+      );
+
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
-      mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(Buffer.from('This is file two.\nLine two changed.\nLine three.'));
+      mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(
+        Buffer.from('This is file two.\nLine two changed.\nLine three.')
+      );
 
-      const result = await getDiff({
-        ...params,
-        diff_format: 'unified'
-      }, mockedConfig as ConduitServerConfig) as ReadTool.DiffResultSuccess;
-      
+      const result = (await getDiff(
+        {
+          ...params,
+          diff_format: 'unified',
+        },
+        mockedConfig as ConduitServerConfig
+      )) as ReadTool.DiffResultSuccess;
+
       expect(result.status).toBe('success');
       expect(result.sources_compared).toEqual([source1Path, source2Path]);
       expect(result.diff_format_used).toBe('unified');
@@ -124,18 +133,25 @@ describe('diffOps', () => {
     });
 
     it('should return empty diff for identical files', async () => {
-      mockedFsOps.getStats.mockResolvedValue(mockFileStats); 
-      mockedGetMimeType.mockResolvedValue('text/plain'); 
-      mockedFsOps.readFileAsBuffer.mockResolvedValue(Buffer.from('Identical content.\nSecond line.')); 
-      
-      const result = await getDiff({
-        ...params,
-        diff_format: 'unified'
-      }, mockedConfig as ConduitServerConfig) as ReadTool.DiffResultSuccess;
-      
+      mockedFsOps.getStats.mockResolvedValue(mockFileStats);
+      mockedGetMimeType.mockResolvedValue('text/plain');
+      mockedFsOps.readFileAsBuffer.mockResolvedValue(
+        Buffer.from('Identical content.\nSecond line.')
+      );
+
+      const result = (await getDiff(
+        {
+          ...params,
+          diff_format: 'unified',
+        },
+        mockedConfig as ConduitServerConfig
+      )) as ReadTool.DiffResultSuccess;
+
       expect(result.status).toBe('success');
       // Expect the header but no actual diff hunks (e.g., no lines starting with @@)
-      expect(result.diff_content).toContain('===================================================================');
+      expect(result.diff_content).toContain(
+        '==================================================================='
+      );
       expect(result.diff_content).toContain(`--- ${source1Path}`);
       expect(result.diff_content).toContain(`+++ ${source2Path}`);
       expect(result.diff_content).not.toContain('@@');
@@ -155,15 +171,34 @@ describe('diffOps', () => {
       mockedFetchUrlContent
         .mockImplementationOnce(async () => ({
           content: Buffer.from('This is URL one.\nLine two from URL.'),
-          mimeType: 'text/plain', httpStatus: 200, finalUrl: source1Url, error: null, isBinary: false, size: 100, isPartialContent: false, rangeRequestStatus: 'not_requested', headers: {},
+          mimeType: 'text/plain',
+          httpStatus: 200,
+          finalUrl: source1Url,
+          error: null,
+          isBinary: false,
+          size: 100,
+          isPartialContent: false,
+          rangeRequestStatus: 'not_requested',
+          headers: {},
         }))
         .mockImplementationOnce(async () => ({
           content: Buffer.from('This is URL two.\nLine two changed from URL.'),
-          mimeType: 'text/plain', httpStatus: 200, finalUrl: source2Url, error: null, isBinary: false, size: 100, isPartialContent: false, rangeRequestStatus: 'not_requested', headers: {},
+          mimeType: 'text/plain',
+          httpStatus: 200,
+          finalUrl: source2Url,
+          error: null,
+          isBinary: false,
+          size: 100,
+          isPartialContent: false,
+          rangeRequestStatus: 'not_requested',
+          headers: {},
         }));
 
-      const result = await getDiff(params, mockedConfig as ConduitServerConfig) as ReadTool.DiffResultSuccess;
-      
+      const result = (await getDiff(
+        params,
+        mockedConfig as ConduitServerConfig
+      )) as ReadTool.DiffResultSuccess;
+
       expect(result.status).toBe('success');
       expect(result.sources_compared).toEqual([source1Url, source2Url]);
       expect(result.diff_format_used).toBe('unified');
@@ -174,7 +209,7 @@ describe('diffOps', () => {
 
     // Add tests for errors: URL not found, fetch error, oversized content
   });
-  
+
   describe('getDiff - Mixed sources (File and URL)', () => {
     const params: ReadTool.DiffParams = {
       operation: 'diff',
@@ -191,14 +226,25 @@ describe('diffOps', () => {
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
       mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(Buffer.from('File content here.\n'));
-      
+
       // Mock for source2Url (URL)
       mockedFetchUrlContent.mockImplementationOnce(async () => ({
-          content: Buffer.from('URL content here.\n'),
-          mimeType: 'text/plain', httpStatus: 200, finalUrl: source2Url, error: null, isBinary: false, size: 100, isPartialContent: false, rangeRequestStatus: 'not_requested', headers: {},
-        }));
+        content: Buffer.from('URL content here.\n'),
+        mimeType: 'text/plain',
+        httpStatus: 200,
+        finalUrl: source2Url,
+        error: null,
+        isBinary: false,
+        size: 100,
+        isPartialContent: false,
+        rangeRequestStatus: 'not_requested',
+        headers: {},
+      }));
 
-      const result = await getDiff(params, mockedConfig as ConduitServerConfig) as ReadTool.DiffResultSuccess;
+      const result = (await getDiff(
+        params,
+        mockedConfig as ConduitServerConfig
+      )) as ReadTool.DiffResultSuccess;
 
       expect(result.status).toBe('success');
       expect(result.sources_compared).toEqual([source1Path, source2Url]);
@@ -212,4 +258,4 @@ describe('diffOps', () => {
 
   // Add tests for patch format if implemented
   // Add tests for error handling (e.g., one source fails to load)
-}); 
+});

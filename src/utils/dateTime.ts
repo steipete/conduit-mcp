@@ -15,4 +15,4 @@ export function formatToISO8601UTC(date: Date | string | number): string {
  */
 export function getCurrentISO8601UTC(): string {
   return new Date().toISOString();
-} 
+}

@@ -12,15 +12,15 @@ export default defineConfig({
       all: true, // Include all files in coverage, not just tested ones
       include: ['src/**/*.ts'],
       exclude: [
-        'src/types/**/*.ts', 
+        'src/types/**/*.ts',
         'src/server.ts', // Typically E2E tested, or requires complex mocking for unit tests
         '**/*.test.ts',
-        '**/*.spec.ts'
-    ],
+        '**/*.spec.ts',
+      ],
     },
     setupFiles: ['./tests/setupTests.ts'], // Similar to Jest's setupFilesAfterEnv
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
-}); 
+});

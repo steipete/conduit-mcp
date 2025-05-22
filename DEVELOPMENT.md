@@ -4,139 +4,282 @@ This document provides guidelines for developing and contributing to the `condui
 
 ## Project Structure
 
-The project is organized as follows:
+The project follows a typical Node.js/TypeScript server architecture with clear separation of concerns:
 
-```
-conduit-mcp/
-├── dist/                     # Compiled JavaScript output (e.g., after `npm run build`)
-├── src/
-│   ├── server.ts             # Main server entry point, MCP request/response router
-│   ├── tools/                # Implementations for each of the 4 tools (read, write, list, find)
-│   │   ├── readTool.ts
-│   │   ├── writeTool.ts
-│   │   ├── listTool.ts
-│   │   └── findTool.ts
-│   ├── operations/           # Business logic for complex operations (e.g., archive, find criteria)
-│   │   ├── archiveOps.ts
-│   │   └── findOps.ts
-│   │   └── ... (other specific ops like getContent, putContent, etc. might be here or in tools directly)
-│   ├── core/                 # Core functionalities shared across tools
-│   │   ├── securityHandler.ts # Path validation (allowed paths, symlink resolution)
-│   │   ├── fileSystemOps.ts  # Low-level fs promise wrappers, path manipulation
-│   │   ├── webFetcher.ts     # HTTP client wrapper, HTML cleaning pipeline
-│   │   ├── imageProcessor.ts # Image compression logic (Sharp)
-│   │   ├── configLoader.ts   # Environment variable parsing, config object
-│   │   ├── noticeService.ts  # Manages the one-time informational notice
-│   │   └── mimeService.ts    # MIME type detection logic
-│   ├── utils/                # General utility functions
-│   │   ├── logger.ts         # Internal logging setup (Pino)
-│   │   ├── errorHandler.ts   # Standardized error object creation, error codes
-│   │   └── dateTime.ts       # Date/time formatting (ISO 8601 UTC)
-│   └── types/                # TypeScript interface definitions
-│       ├── mcp.ts            # General MCP request/response base structures
-│       ├── tools.ts          # Specific parameter/return types for each tool
-│       ├── config.ts         # Types for the parsed server configuration object
-│       └── common.ts         # Common shared types (e.g., EntryInfo)
-├── package.json
-├── tsconfig.json
-├── .env.example              # Example environment file
-├── start.sh                  # Script to run locally
-├── README.md
-├── DEVELOPMENT.md            # This file
-└── LICENSE
-```
+- **`src/`** - TypeScript source code
+  - **`server.ts`** - Main server entry point and MCP request/response router
+  - **`tools/`** - Tool implementations (`readTool.ts`, `writeTool.ts`, `listTool.ts`, `findTool.ts`, `testTool.ts`)
+  - **`operations/`** - Business logic for complex operations
+    - `getContentOps.ts` - URL fetching, partial reads, content type handling
+    - `putContentOps.ts` - File writing and appending logic
+    - `metadataOps.ts` - Metadata fetching and formatting
+    - `archiveOps.ts` - ZIP/TAR.GZ creation and extraction
+    - `diffOps.ts` - File comparison logic
+    - `findOps.ts` - Core find logic and criteria matching
+  - **`core/`** - Core shared functionalities
+    - `securityHandler.ts` - Path validation and symlink resolution
+    - `fileSystemOps.ts` - Low-level filesystem operations
+    - `webFetcher.ts` - HTTP client and HTML cleaning pipeline
+    - `imageProcessor.ts` - Image compression using Sharp
+    - `configLoader.ts` - Environment variable parsing and configuration
+    - `noticeService.ts` - First-use informational notice management
+    - `mimeService.ts` - MIME type detection
+  - **`utils/`** - General utility functions
+    - `logger.ts` - Internal logging setup (Pino)
+    - `errorHandler.ts` - Standardized error handling and mapping
+    - `dateTime.ts` - ISO 8601 UTC date/time formatting
+  - **`types/`** - TypeScript interface definitions
+    - `mcp.ts` - MCP request/response structures
+    - `tools.ts` - Tool-specific parameter and return types
+    - `config.ts` - Configuration object types
+    - `common.ts` - Shared types (e.g., EntryInfo)
+- **`tests/`** - Test suites mirroring the src structure
+- **`docs/`** - Technical specification and documentation
+- **`dist/`** - Compiled JavaScript output (after `npm run build`)
 
 ## Prerequisites
 
-*   Node.js (version specified in `package.json` engines, e.g., >=18.0.0)
-*   npm (comes with Node.js)
+- **Node.js** - Version 18.x or 20.x LTS (as specified in `package.json` engines field)
+- **npm** - Comes with Node.js installation
 
-## Getting Started (Local Development)
+## Getting Started / Local Setup
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository_url_for_conduit-mcp>
-    cd conduit-mcp
-    ```
+### 1. Clone the Repository
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
+```bash
+git clone <repository-url>
+cd conduit-mcp
+```
 
-3.  **Configure Environment (Optional):**
-    Copy `.env.example` to `.env` and customize variables as needed:
-    ```bash
-    cp .env.example .env
-    # Edit .env with your preferred settings (e.g., CONDUIT_ALLOWED_PATHS)
-    ```
-    If `.env` is not present, the server will use default values or values from the MCP client's environment block.
+### 2. Install Dependencies
 
-4.  **Running the Server for Development:**
-    The `start.sh` script can run the server directly using `tsx` for live reloading of TypeScript code:
-    ```bash
-    ./start.sh 
-    ```
-    Alternatively, you can use the npm script for development with `tsx` which often includes watching for file changes:
-    ```bash
-    npm run dev
-    ```
-    Configure your MCP client to use the local `start.sh` script or the `npm run dev` command if your client supports that directly (less common for MCP). For `start.sh`, an example client configuration is in `README.md`.
+```bash
+npm install
+```
 
-## Building for Production
+### 3. Environment Configuration
 
-To compile the TypeScript code to JavaScript (output to `dist/` directory):
+The server is configured via environment variables with sensible defaults. For local development, you can:
+
+**Option A: Set environment variables directly**
+```bash
+export CONDUIT_ALLOWED_PATHS="~:/tmp:/your/project/path"
+export LOG_LEVEL="DEBUG"
+export CONDUIT_MAX_FILE_READ_BYTES="104857600"
+```
+
+**Option B: Create a `.env` file** (recommended for development)
+
+If an `.env.example` file exists, copy it to `.env` to get started:
+```bash
+# cp .env.example .env (if .env.example exists)
+```
+Then edit `.env` with your preferred settings. Key variables include:
+- `CONDUIT_ALLOWED_PATHS="~:/tmp:/your/development/paths"`
+- `LOG_LEVEL="DEBUG"`
+- `CONDUIT_HTTP_TIMEOUT_MS="30000"`
+
+Refer to `README.md` or `docs/spec.md` for a full list of `CONDUIT_*` environment variables and their descriptions.
+
+**Important Configuration Notes:**
+- **`CONDUIT_ALLOWED_PATHS`**: Colon-separated list of directories the server can access. Defaults to `~:/tmp` if not set. Use `~` for home directory (automatically resolved). Example: `"~/projects:/workspace:/tmp"`.
+- **Security**: Always set `CONDUIT_ALLOWED_PATHS` explicitly for production use.
+- **First-run notice**: If using defaults for allowed paths, the server sends a one-time informational message in the first MCP response.
+
+### 4. Running the Server
+
+**For Development (with hot reload):**
+```bash
+npm run dev
+```
+This typically uses `tsx` to run `src/server.ts` and watches for changes.
+
+**Using the `start.sh` script:**
+```bash
+./start.sh
+```
+This script attempts to run the compiled version from `dist/server.js` first, and falls back to using `tsx` with `src/server.ts` if the compiled version isn't found. It also handles a local `tsx` installation if needed.
+
+**Build for Production:**
 ```bash
 npm run build
 ```
-After building, `start.sh` will automatically prioritize running the compiled version from `dist/server.js`.
+This compiles the TypeScript source to JavaScript in the `dist/` directory.
 
-## Linting and Formatting
+**Run Compiled Production Version:**
+```bash
+node dist/server.js
+```
 
-This project uses ESLint for linting and Prettier for code formatting.
+### 5. Using with an MCP Client
 
-*   **Check for linting errors:**
-    ```bash
-    npm run lint
-    ```
-*   **Automatically fix formatting issues with Prettier:**
-    ```bash
-    npm run format
-    ```
-It's recommended to set up your editor to format on save using Prettier and to show ESLint errors.
+When running the server locally (either via `npm run dev` or `./start.sh`), configure your MCP client (e.g., in its `mcp.json`) to connect to your local instance. If using `./start.sh`, the command would be the absolute path to the script:
 
-## Testing
+```json
+{
+  "mcpServers": {
+    "conduit_mcp_local": {
+      "command": "/absolute/path/to/your/cloned/conduit-mcp/start.sh",
+      "env": {
+        "LOG_LEVEL": "DEBUG",
+        "CONDUIT_ALLOWED_PATHS": "~/your/development/paths:/another/path"
+        // Add other CONDUIT_* variables as needed
+      }
+    }
+  }
+}
+```
+If running directly with `npm run dev`, the client would need to know how to invoke that (which might be more complex if `npm run dev` involves `tsx watch`). Using `start.sh` is generally more straightforward for client configuration pointing to a local dev version.
 
-The project uses Jest for testing. (Test files and more detailed testing strategies will be outlined as per the `TESTING PLAN` in `docs/spec.md`).
+## Building for Production
+
+To compile the TypeScript code to JavaScript for production deployment:
+
+```bash
+npm run build
+```
+
+This command compiles all TypeScript files in the `src/` directory to JavaScript files in the `dist/` directory using the TypeScript compiler (`tsc`). The compiled output (`dist/server.js`) can then be run directly with Node.js:
+
+```bash
+node dist/server.js
+```
+
+The `start.sh` script automatically prioritizes running the compiled version from `dist/server.js` when available, making it suitable for production use.
+
+## Running Tests
+
+The project uses Vitest as the testing framework with comprehensive test coverage goals as specified in `docs/spec.md` Section 8.
 
 *   **Run all tests:**
     ```bash
     npm test
     ```
+
 *   **Run tests in watch mode (reruns on file changes):**
     ```bash
-    npm test -- --watch
-    ```
-*   **Run tests with coverage report:**
-    ```bash
-    npm test -- --coverage
+    npm run test:watch
     ```
 
-Comprehensive tests (unit, integration, E2E) are crucial. Refer to the `Testing Plan` in `docs/spec.md` for the scope of tests to be implemented.
+*   **Run tests with coverage report:**
+    ```bash
+    npm run coverage
+    ```
+
+The test suite includes unit tests, integration tests, and end-to-end testing to ensure reliability and correctness of all functionality. Test files are organized in the `tests/` directory, mirroring the structure of the `src/` directory.
+
+## Linting and Formatting
+
+This project uses ESLint for linting and Prettier for code formatting to maintain consistent code quality and style.
+
+*   **Check for linting errors:**
+    ```bash
+    npm run lint
+    ```
+
+*   **Automatically fix formatting issues with Prettier:**
+    ```bash
+    npm run format
+    ```
+
+The configuration includes TypeScript-specific ESLint rules (`@typescript-eslint/eslint-plugin`) and Prettier integration (`eslint-config-prettier`, `eslint-plugin-prettier`). It's recommended to configure your editor to format on save using Prettier and display ESLint errors inline for the best development experience.
 
 ## Contribution Guidelines
 
-1.  **Branching:** Create a new feature branch from `main` (or the current development branch) for your changes (e.g., `feature/my-new-tool` or `fix/some-bug`).
-2.  **Commits:** Follow Conventional Commits specification (e.g., `feat: add new parameter to read tool`, `fix: resolve issue with path validation`). This helps in automated changelog generation and semantic versioning.
-3.  **Code Style:** Adhere to the existing code style, enforced by ESLint and Prettier. Run `npm run format` and `npm run lint` before committing.
-4.  **Testing:** Add relevant tests for your changes. Ensure all tests pass (`npm test`).
-5.  **Pull Request (PR):**
-    *   Push your feature branch to the remote repository.
-    *   Create a PR against the `main` (or relevant development) branch.
-    *   Provide a clear description of the changes in your PR.
-    *   Ensure any related issues are linked.
-    *   Wait for code review and address any feedback.
-6.  **Merging:** Once approved and CI checks pass, the PR will be merged by a maintainer.
+### General Principles
+
+We welcome contributions to `conduit-mcp`! To ensure a smooth collaboration process:
+
+- **Open communication**: Please open an issue before starting work on significant features or bug fixes to discuss the approach and avoid duplicated effort.
+- **Coding style**: Follow the project's established coding conventions enforced by ESLint and Prettier configurations.
+- **Quality first**: Prioritize clear, maintainable code with appropriate test coverage.
+
+### Branching Strategy
+
+We use a simple branching model centered around the `main` branch:
+
+- **`main`**: Contains stable, production-ready code and serves as the target for releases.
+- **Feature branches**: Create feature branches from `main` using descriptive names:
+  - `feat/new-tool-name` for new features
+  - `fix/issue-description` for bug fixes
+  - `docs/update-readme` for documentation updates
+  - `chore/dependency-updates` for maintenance tasks
+- **Pull requests**: Submit PRs back to `main` branch for review and integration.
+
+### Committing Code
+
+#### Conventional Commits
+
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification. Use these commit prefixes:
+
+- `feat:` for new features
+- `fix:` for bug fixes
+- `docs:` for documentation changes
+- `test:` for adding or updating tests
+- `chore:` for maintenance tasks, dependency updates, or build configuration changes
+- `refactor:` for code restructuring without functional changes
+
+**Examples:**
+```
+feat: add compression support to archive operations
+fix: resolve path traversal vulnerability in file operations
+docs: update API examples in README
+test: add integration tests for web fetcher
+chore: update dependencies to latest versions
+```
+
+**Benefits:** Conventional commits enable automated changelog generation, semantic versioning, and better project history tracking.
+
+#### Commit Message Guidelines
+
+- Write clear, concise commit messages in the imperative mood
+- Keep the first line under 72 characters
+- Provide additional context in the commit body if needed
+- Reference relevant issue numbers (e.g., "Closes #123" or "Fixes #456")
+
+### Pull Requests (PRs)
+
+#### Before Submitting
+
+Ensure your code meets quality standards:
+
+1. **Tests pass**: Run `npm test` and verify all tests pass
+2. **Code is linted**: Run `npm run lint` and fix any issues
+3. **Code is formatted**: Run `npm run format` to ensure consistent styling
+4. **Build succeeds**: Run `npm run build` to verify TypeScript compilation
+
+#### PR Requirements
+
+- **Target branch**: Submit PRs against the `main` branch
+- **Clear description**: Provide a comprehensive description of your changes, including:
+  - What problem the PR solves
+  - How the solution works
+  - Any breaking changes or migration steps
+- **Link issues**: Reference related issues using GitHub's linking syntax (e.g., "Closes #123")
+- **Test coverage**: Include appropriate tests for new functionality or bug fixes
+- **Documentation**: Update relevant documentation if your changes affect the API or usage
+
+#### Code Review Process
+
+- **Peer review**: All PRs require at least one approving review from a project maintainer
+- **Feedback**: Address review feedback promptly and be open to suggestions
+- **CI checks**: Ensure all automated checks (tests, linting, building) pass before requesting review
+- **Merge strategy**: Maintainers will merge approved PRs using squash-and-merge to maintain a clean commit history
+
+### Coding Style
+
+The project maintains consistent code style through automated tooling:
+
+- **ESLint**: Enforces TypeScript-specific linting rules and best practices
+- **Prettier**: Handles code formatting automatically
+- **Configuration files**: `.eslintrc.json` and `.prettierrc` define the project's style rules
+
+**Editor setup**: Configure your editor to:
+- Format on save using Prettier
+- Display ESLint errors inline
+- Use the project's TypeScript configuration for accurate IntelliSense
+
+For the best development experience, run `npm run format` and `npm run lint` regularly during development, and consider setting up pre-commit hooks to automate these checks.
 
 ## Understanding the MCP Protocol
 

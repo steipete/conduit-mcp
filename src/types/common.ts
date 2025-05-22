@@ -2,19 +2,19 @@
  * Represents information about a file or directory entry.
  */
 export interface EntryInfo {
-  name: string;                   // Filename or directory name
-  path: string;                   // Full absolute path to the entry
-  type: 'file' | 'directory' | 'symlink' | 'other';     // Type of the entry, now including symlink and other
-  size_bytes?: number;            // Size of the file. For directories, see specific tool docs.
-  mime_type?: string;             // For type: "file", detected MIME type
-  created_at: string;         // ISO 8601 UTC timestamp of creation (renamed from created_at_iso)
-  modified_at: string;        // ISO 8601 UTC timestamp of last modification (renamed from modified_at_iso)
-  last_accessed_at?: string;      // ISO 8601 UTC timestamp of last access (optional)
-  is_readonly?: boolean;          // True if the file is considered read-only for the server process (optional)
-  symlink_target?: string;        // For type: "symlink", the target path of the symlink (optional)
-  permissions_octal?: string;     // e.g., "0755"
-  permissions_string?: string;    // e.g., "rwxr-xr-x"
-  children?: EntryInfo[];         // For list.entries with recursion
+  name: string; // Filename or directory name
+  path: string; // Full absolute path to the entry
+  type: 'file' | 'directory' | 'symlink' | 'other'; // Type of the entry, now including symlink and other
+  size_bytes?: number; // Size of the file. For directories, see specific tool docs.
+  mime_type?: string; // For type: "file", detected MIME type
+  created_at: string; // ISO 8601 UTC timestamp of creation (renamed from created_at_iso)
+  modified_at: string; // ISO 8601 UTC timestamp of last modification (renamed from modified_at_iso)
+  last_accessed_at?: string; // ISO 8601 UTC timestamp of last access (optional)
+  is_readonly?: boolean; // True if the file is considered read-only for the server process (optional)
+  symlink_target?: string; // For type: "symlink", the target path of the symlink (optional)
+  permissions_octal?: string; // e.g., "0755"
+  permissions_string?: string; // e.g., "rwxr-xr-x"
+  children?: EntryInfo[]; // For list.entries with recursion
   recursive_size_calculation_note?: string; // For list.entries with calculate_recursive_size
   created_at_iso?: string;
   modified_at_iso?: string;
@@ -48,9 +48,9 @@ export interface MCPErrorStatus {
 /**
  * Represents a generic result item in a batch operation or a single operation response.
  */
-export type MCPResult<TSuccessPayload = Record<string, unknown>> = 
-  (MCPSuccess & TSuccessPayload) | MCPErrorStatus;
-
+export type MCPResult<TSuccessPayload = Record<string, unknown>> =
+  | (MCPSuccess & TSuccessPayload)
+  | MCPErrorStatus;
 
 /**
  * Base for tool responses that might be an array of results or a single result object.
@@ -62,8 +62,8 @@ export type MCPToolResponse<T> = T | T[] | [InfoNotice, T] | [InfoNotice, ...T[]
  * Structure for the one-time informational notice.
  */
 export interface InfoNotice {
-  type: "info_notice";
-  notice_code: "DEFAULT_PATHS_USED";
+  type: 'info_notice';
+  notice_code: 'DEFAULT_PATHS_USED';
   message: string;
   details: {
     server_version: string;
@@ -149,7 +149,7 @@ export enum ErrorCode {
   ERR_UNARCHIVE_FAILED = 'ERR_UNARCHIVE_FAILED',
   ERR_COULD_NOT_DETECT_ARCHIVE_FORMAT = 'ERR_COULD_NOT_DETECT_ARCHIVE_FORMAT',
   ERR_ARCHIVE_NOT_FOUND = 'ERR_ARCHIVE_NOT_FOUND',
-  
+
   // Find Specific Errors (Standardized to ERR_ prefix)
   ERR_FIND_INVALID_CRITERIA = 'ERR_FIND_INVALID_CRITERIA',
 
@@ -183,5 +183,28 @@ export enum ErrorCode {
   ERR_UNSUPPORTED_IMAGE_TYPE = 'ERR_UNSUPPORTED_IMAGE_TYPE',
   ERR_INVALID_BASE64 = 'ERR_INVALID_BASE64',
   ERR_UNSUPPORTED_CHECKSUM_ALGORITHM = 'ERR_UNSUPPORTED_CHECKSUM_ALGORITHM',
-  ERR_CHECKSUM_FAILED = 'ERR_CHECKSUM_FAILED'
-} 
+  ERR_CHECKSUM_FAILED = 'ERR_CHECKSUM_FAILED',
+}
+
+/**
+ * Status of range request processing for content fetching operations.
+ */
+export type RangeRequestStatus =
+  | 'native'
+  | 'simulated'
+  | 'full_content_returned'
+  | 'not_supported'
+  | 'not_applicable_offset_oob';
+
+/**
+ * Represents content fetched from a web URL with metadata.
+ */
+export interface FetchedContent {
+  finalUrl: string;
+  httpStatus: number;
+  headers: Record<string, string | string[] | undefined>;
+  mimeType?: string; // From Content-Type header, processed
+  content: Buffer | null; // Raw body as Buffer, or null if metadata request or error
+  range_request_status?: RangeRequestStatus;
+  size_bytes?: number; // Actual size of the content buffer returned
+}

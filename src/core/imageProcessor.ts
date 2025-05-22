@@ -1,110 +1,120 @@
 import sharp from 'sharp';
-import { configLoader, ConduitError, ErrorCode, logger } from '@/internal';
+import { ConduitError, ErrorCode, conduitConfig, logger, ConduitServerConfig } from '@/internal';
+
+const operationLogger = logger.child({ component: 'imageProcessor' });
 
 export interface CompressionResult {
   buffer: Buffer;
-  original_size_bytes: number;
-  compression_applied: boolean;
+  original_size_bytes?: number;
+  compression_applied?: boolean;
   compression_error_note?: string;
 }
 
-/**
- * Compresses an image if it exceeds the configured threshold.
- * @param imageBuffer The raw image buffer.
- * @param mimeType The MIME type of the image (e.g., "image/jpeg").
- * @returns Promise<CompressionResult>
- */
-export async function compressImageIfNecessary(imageBuffer: Buffer, mimeType: string): Promise<CompressionResult> {
-  const originalSizeBytes = imageBuffer.length;
-  let compressionApplied = false;
-  let compressionErrorNote: string | undefined = undefined;
-  let finalBuffer = imageBuffer;
+const SUPPORTED_MIME_TYPES_FOR_COMPRESSION = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  // 'image/tiff', // Sharp can handle tiff, but compression options might vary
+  // 'image/gif',  // Sharp can handle gif, animated gif compression is specific
+  // 'image/avif', // Sharp can handle avif
+];
 
-  if (!mimeType.startsWith('image/')) {
-    return { // Not an image, return original
-      buffer: imageBuffer,
+export async function compressImageIfNecessary(
+  originalBuffer: Buffer,
+  mimeType: string
+  // config: ConduitServerConfig, // Using imported conduitConfig directly for now as per other core modules
+): Promise<CompressionResult> {
+  const { imageCompressionThresholdBytes, imageCompressionQuality, serverVersion } = conduitConfig;
+  const originalSizeBytes = originalBuffer.length;
+
+  if (originalSizeBytes <= imageCompressionThresholdBytes) {
+    operationLogger.debug(
+      `Image size ${originalSizeBytes} bytes is below threshold ${imageCompressionThresholdBytes}, no compression attempted.`
+    );
+    return {
+      buffer: originalBuffer,
       original_size_bytes: originalSizeBytes,
       compression_applied: false,
     };
   }
-  
-  // Check if sharp supports this image type for processing
-  // Sharp typically supports jpeg, png, webp, tiff, gif, avif. Add more if needed based on sharp's capabilities.
-  const supportedForCompression = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff', 'image/gif', 'image/avif'].includes(mimeType.toLowerCase());
 
-  if (supportedForCompression && originalSizeBytes > configLoader.conduitConfig.imageCompressionThresholdBytes) {
-    logger.debug(`Attempting compression for image (${mimeType}, ${originalSizeBytes} bytes) as it exceeds threshold ${configLoader.conduitConfig.imageCompressionThresholdBytes} bytes.`);
-    try {
-      let sharpInstance = sharp(imageBuffer);
-      const quality = configLoader.conduitConfig.imageCompressionQuality;
-
-      switch (mimeType.toLowerCase()) {
-        case 'image/jpeg':
-        case 'image/jpg': // common alias
-          sharpInstance = sharpInstance.jpeg({ quality, progressive: true, optimizeScans: true });
-          break;
-        case 'image/webp':
-          sharpInstance = sharpInstance.webp({ quality });
-          break;
-        case 'image/png':
-          sharpInstance = sharpInstance.png({ compressionLevel: 9, adaptiveFiltering: true }); // Maximize PNG compression
-          break;
-        case 'image/tiff':
-            sharpInstance = sharpInstance.tiff({ quality }); // Sharp supports tiff quality
-            break;
-        case 'image/gif':
-            // GIF compression in sharp might involve converting to animated webp or similar, or simple optimization.
-            // For simplicity, we can try to optimize or just pass through if complex handling is not desired.
-            // sharpInstance = sharpInstance.gif({ optimisationLevel: 3 }); // Example, check sharp docs
-            // For now, let's assume basic optimization or pass-through for GIF if complex settings are not available easily.
-            logger.debug('GIF compression with sharp is basic, may not significantly reduce size or might re-encode.');
-            break;
-        case 'image/avif':
-            sharpInstance = sharpInstance.avif({ quality });
-            break;
-        default:
-          // Should not happen due to supportedForCompression check, but as a safeguard:
-          logger.warn(`Compression requested for ${mimeType}, but no specific sharp parameters defined. Passing through.`);
-          finalBuffer = imageBuffer; // Pass through
-          compressionApplied = false; // Mark as not applied if no specific logic
-          // Return early instead of trying to call .toBuffer() on an unconfigured sharp instance for these types.
-          return {
-            buffer: finalBuffer,
-            original_size_bytes: originalSizeBytes,
-            compression_applied: compressionApplied,
-            compression_error_note: compressionErrorNote
-          };
-      }
-      
-      // Only apply toBuffer if we have a valid sharp operation for the type
-      const compressedBuffer = await sharpInstance.toBuffer();
-      
-      if (compressedBuffer.length < originalSizeBytes) {
-        finalBuffer = compressedBuffer;
-        compressionApplied = true;
-        logger.info(`Image compression successful for ${mimeType}. Original: ${originalSizeBytes} bytes, Compressed: ${finalBuffer.length} bytes.`);
-      } else {
-        logger.info(`Compressed image size (${compressedBuffer.length}) is not smaller than original (${originalSizeBytes}). Using original.`);
-        compressionApplied = false; // Technically applied, but no benefit
-        compressionErrorNote = "Compressed size was not smaller than original.";
-      }
-
-    } catch (error: any) {
-      logger.error(`Image compression failed for ${mimeType} (size: ${originalSizeBytes} bytes): ${error.message}`);
-      compressionApplied = false;
-      compressionErrorNote = `Compression failed: ${error.message}`.substring(0, 200); // Limit error message length
-      finalBuffer = imageBuffer; // Return original on error
-    }
-  } else if (supportedForCompression) {
-    logger.debug(`Image (${mimeType}, ${originalSizeBytes} bytes) does not exceed compression threshold ${configLoader.conduitConfig.imageCompressionThresholdBytes} bytes. No compression applied.`);
-  } else {
-    logger.debug(`Image type ${mimeType} is not configured for compression with sharp. No compression attempted.`);
+  if (!SUPPORTED_MIME_TYPES_FOR_COMPRESSION.includes(mimeType.toLowerCase())) {
+    operationLogger.debug(`MIME type ${mimeType} not configured for compression.`);
+    return {
+      buffer: originalBuffer,
+      original_size_bytes: originalSizeBytes,
+      compression_applied: false,
+    };
   }
 
-  return {
-    buffer: finalBuffer,
-    original_size_bytes: originalSizeBytes,
-    compression_applied: compressionApplied,
-    compression_error_note: compressionErrorNote
-  };
-} 
+  operationLogger.debug(
+    `Attempting compression for ${mimeType}, original size: ${originalSizeBytes} bytes.`
+  );
+
+  try {
+    let sharpInstance = sharp(originalBuffer, {
+      animated: mimeType === 'image/gif' || mimeType === 'image/webp',
+    }); // Enable animated for relevant types
+
+    switch (mimeType.toLowerCase()) {
+      case 'image/jpeg':
+        sharpInstance = sharpInstance.jpeg({ quality: imageCompressionQuality, mozjpeg: true });
+        break;
+      case 'image/png':
+        sharpInstance = sharpInstance.png({
+          compressionLevel: 9,
+          adaptiveFiltering: true,
+          palette: true,
+        }); // Added palette for potential size win
+        break;
+      case 'image/webp':
+        sharpInstance = sharpInstance.webp({ quality: imageCompressionQuality });
+        break;
+      // Add cases for tiff, avif if specific settings are desired, otherwise they might use defaults or fail.
+      default:
+        // Should not be reached if SUPPORTED_MIME_TYPES_FOR_COMPRESSION is accurate
+        operationLogger.warn(
+          `No specific compression logic for MIME type: ${mimeType}. Returning original.`
+        );
+        return {
+          buffer: originalBuffer,
+          original_size_bytes: originalSizeBytes,
+          compression_applied: false,
+        };
+    }
+
+    const compressedBuffer = await sharpInstance.toBuffer();
+    operationLogger.debug(
+      `Compression result for ${mimeType} - Original: ${originalSizeBytes}, Compressed: ${compressedBuffer.length}`
+    );
+
+    if (compressedBuffer.length < originalSizeBytes) {
+      return {
+        buffer: compressedBuffer,
+        original_size_bytes: originalSizeBytes,
+        compression_applied: true,
+      };
+    } else {
+      operationLogger.debug(
+        `Compressed size not smaller than original for ${mimeType}. Returning original.`
+      );
+      return {
+        buffer: originalBuffer,
+        original_size_bytes: originalSizeBytes,
+        compression_applied: false, // Technically attempted, but no benefit
+        compression_error_note: 'Compressed size was not smaller than original.',
+      };
+    }
+  } catch (error: any) {
+    operationLogger.error(
+      `Error during image compression for ${mimeType}: ${error.message}`,
+      error
+    );
+    return {
+      buffer: originalBuffer,
+      original_size_bytes: originalSizeBytes,
+      compression_applied: false,
+      compression_error_note: `Compression failed: ${error.message}`,
+    };
+  }
+}

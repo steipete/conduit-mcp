@@ -26,8 +26,7 @@ import {
 
 // Import dependencies to be mocked or used
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import logger from '@/utils/logger'; // Mocked globally
-import { EntryInfo, formatToISO8601UTC, getMimeType } from '@/internal';
+import { EntryInfo, formatToISO8601UTC, getMimeType, conduitConfig, logger } from '@/internal';
 
 // Mock the entire fs/promises module
 vi.mock('fs/promises', () => {
@@ -46,6 +45,7 @@ vi.mock('fs/promises', () => {
     rename: vi.fn(),
     utimes: vi.fn(),
     readlink: vi.fn(),
+    realpath: vi.fn(), // Added realpath
   };
   return {
     ...fsMockFunctions,
@@ -53,48 +53,46 @@ vi.mock('fs/promises', () => {
   };
 });
 
-// Mock getMimeType as it's used by createEntryInfo
+// Create a more comprehensive mock for @/internal including conduitConfig
 vi.mock('@/internal', async (importOriginal) => {
   const original = await importOriginal<any>();
+
+  // Create a mock config for testing specific to fileSystemOps
+  const mockConduitConfig = {
+    logLevel: 'INFO',
+    allowedPaths: ['/test', '/tmp', '/var/tmp', process.cwd()],
+    workspaceRoot: process.cwd(),
+    httpTimeoutMs: 5000,
+    maxPayloadSizeBytes: 1024 * 1024,
+    maxFileReadBytes: 100, // Small enough for testing limits
+    imageCompressionThresholdBytes: 1024 * 1024,
+    imageCompressionQuality: 75,
+    defaultChecksumAlgorithm: 'sha256',
+    maxRecursiveDepth: 5, // Small enough for testing depth limits
+    recursiveSizeTimeoutMs: 1000, // Small enough for testing timeouts
+    serverStartTimeIso: new Date().toISOString(),
+    serverVersion: '1.0.0-test',
+    maxUrlDownloadSizeBytes: 1024 * 1024,
+    maxFileReadBytesFind: 1024 * 10,
+  };
+
+  // Return modified original with our mock overrides
   return {
     ...original,
-    getMimeType: vi.fn().mockResolvedValue('application/octet-stream'), // Default mock
+    conduitConfig: mockConduitConfig,
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    },
+    getMimeType: vi.fn().mockResolvedValue('application/octet-stream'),
+    formatToISO8601UTC: vi.fn((date) => date.toISOString()),
   };
 });
 
-// Mock @/core/configLoader and define defaultTestConfig INSIDE the factory
-vi.mock('@/core/configLoader', () => {
-  const mockConfig = {
-    logLevel: 'INFO',
-    allowedPaths: ['/test', '/tmp', '/var/tmp', process.cwd()],
-    httpTimeoutMs: 5000,
-    maxFileReadBytes: 1000, 
-    maxPayloadSizeBytes: 1024 * 1024, 
-    maxRecursiveDepth: 5, 
-    recursiveSizeTimeoutMs: 100, 
-    maxStreamChunkSizeBytes: 1024 * 8,
-    maxStreamTotalSizeBytes: 1024 * 100,
-    minFreeDiskSpaceBytes: 1024 * 1024 * 10,
-    tempDir: '/tmp/conduit_mcp_tests',
-    maxTarballSizeBytes: 10 * 1024 * 1024,
-    maxTarballUncompressedEntries: 1000,
-    maxTarballUncompressedEntrySizeBytes: 1024 * 1024,
-    enableImageProcessing: true,
-    maxImageDimension: 1024,
-    imageQuality: 75,
-    maxDiffInputBytes: 10000,
-    maxDiffOutputLines: 1000,
-    enableBase64OutputForSupportedMimes: true,
-    supportedBase64Mimes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-    defaultCompressionFormat: 'zip',
-    // Ensure all ConduitServerConfig fields are present or Partial is used if some are optional
-  };
-  return {
-    conduitConfig: mockConfig,
-    loadConduitConfig: vi.fn(() => Promise.resolve(mockConfig)), // Mock load function too
-    // ensure any other exports from @/core/configLoader are also mocked if used by the test file
-  };
-});
+// We no longer mock @/core/configLoader directly - config comes from @/internal mock
 
 // To access and reset these mocks, we need a reference.
 // We import the mocked module. The functions will be our vi.fn() instances.
@@ -119,19 +117,37 @@ const mockFs = (fsPromisesActual as any).default as {
   rename: MockedFunction<typeof import('fs/promises').rename>;
   utimes: MockedFunction<typeof import('fs/promises').utimes>;
   readlink: MockedFunction<typeof import('fs/promises').readlink>;
+  realpath: MockedFunction<typeof import('fs/promises').realpath>; // Added realpath
 };
 
 describe('fileSystemOps', () => {
   beforeEach(() => {
     vi.clearAllMocks(); // Clears call counts, mock implementations, etc.
+
+    // Provide default implementations for commonly used fs functions
+    mockFs.realpath.mockImplementation(async (p) => p.toString()); // Default pass-through
+    mockFs.access.mockResolvedValue(undefined); // Default: path exists
+    mockFs.stat.mockResolvedValue({ isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false, size: 100, mode: 0o644, mtime: new Date(), birthtime: new Date() } as Stats);
+    mockFs.lstat.mockResolvedValue({ isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false, size: 100, mode: 0o644, mtime: new Date(), birthtime: new Date() } as Stats);
+    mockFs.writeFile.mockResolvedValue(undefined);
+    mockFs.appendFile.mockResolvedValue(undefined);
+    mockFs.mkdir.mockResolvedValue(undefined);
+    mockFs.rm.mockResolvedValue(undefined);
+    mockFs.unlink.mockResolvedValue(undefined);
+    mockFs.readdir.mockResolvedValue([]);
+    mockFs.cp.mockResolvedValue(undefined);
+    mockFs.rename.mockResolvedValue(undefined);
+    mockFs.utimes.mockResolvedValue(undefined);
+    mockFs.readlink.mockResolvedValue('');
+
     // Reset specific mock implementations if they were changed in a test
     // For example, if a test makes mockFs.stat throw an error once:
     // mockFs.stat.mockReset().mockResolvedValue({ isDirectory: () => false, size: 100 } as Stats);
     // Reset fs.stat specifically as it's used by readFileAs*
-    mockFs.stat.mockReset();
-    mockFs.lstat.mockReset(); // Reset lstat as it's used by deletePath
-    mockFs.writeFile.mockReset(); // Reset writeFile
-    mockFs.appendFile.mockReset(); // Reset appendFile
+    // mockFs.stat.mockReset(); // Covered by default mock now
+    // mockFs.lstat.mockReset(); // Covered by default mock now
+    // mockFs.writeFile.mockReset(); // Covered by default mock now
+    // mockFs.appendFile.mockReset(); // Covered by default mock now
   });
 
   describe('pathExists', () => {
@@ -181,7 +197,9 @@ describe('fileSystemOps', () => {
         await getStats('protected/path');
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.OPERATION_FAILED);
-        expect(e.message).toContain('Failed to get stats for path: protected/path. Error: Permission denied');
+        expect(e.message).toContain(
+          'Failed to get stats for path: protected/path. Error: Permission denied'
+        );
       }
     });
   });
@@ -217,7 +235,9 @@ describe('fileSystemOps', () => {
         await getLstats('broken/symlink');
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.OPERATION_FAILED);
-        expect(e.message).toContain('Failed to get lstats for path: broken/symlink. Error: I/O error');
+        expect(e.message).toContain(
+          'Failed to get lstats for path: broken/symlink. Error: I/O error'
+        );
       }
     });
   });
@@ -250,13 +270,15 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than maxLength', async () => {
-      mockFs.stat.mockResolvedValue({ size: defaultTestConfig.maxFileReadBytes + 1 } as Stats);
+      mockFs.stat.mockResolvedValue({ size: conduitConfig.maxFileReadBytes + 1 } as Stats);
       await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
       try {
         await readFileAsString(filePath);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
-        expect(e.message).toContain(`File size ${defaultTestConfig.maxFileReadBytes + 1} bytes exceeds maximum allowed read limit of ${defaultTestConfig.maxFileReadBytes} bytes`);
+        expect(e.message).toContain(
+          `File size ${conduitConfig.maxFileReadBytes + 1} bytes exceeds maximum allowed read limit of ${conduitConfig.maxFileReadBytes} bytes`
+        );
       }
     });
 
@@ -268,25 +290,37 @@ describe('fileSystemOps', () => {
         await readFileAsString(filePath, specifiedMaxLength);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
-        expect(e.message).toContain(`File size 10 bytes exceeds maximum allowed read limit of ${specifiedMaxLength} bytes`);
+        expect(e.message).toContain(
+          `File size 10 bytes exceeds maximum allowed read limit of ${specifiedMaxLength} bytes`
+        );
       }
     });
 
     it('should throw ERR_FS_NOT_FOUND if fs.readFile throws ENOENT', async () => {
-      const error = new Error('File not found') as any; error.code = 'ENOENT';
+      const error = new Error('File not found') as any;
+      error.code = 'ENOENT';
       // Mock getStats to succeed, but readFile to fail
       mockFs.stat.mockResolvedValue({ size: 100 } as Stats);
       mockFs.readFile.mockRejectedValue(error);
       await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
-      try { await readFileAsString(filePath); } catch (e: any) { expect(e.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND); }
+      try {
+        await readFileAsString(filePath);
+      } catch (e: any) {
+        expect(e.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+      }
     });
 
     it('should throw ERR_FS_READ_FAILED for other fs.readFile errors', async () => {
-      const error = new Error('Read permission denied') as any; error.code = 'EACCES';
+      const error = new Error('Read permission denied') as any;
+      error.code = 'EACCES';
       mockFs.stat.mockResolvedValue({ size: 100 } as Stats);
       mockFs.readFile.mockRejectedValue(error);
       await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
-      try { await readFileAsString(filePath); } catch (e: any) { expect(e.errorCode).toBe(ErrorCode.ERR_FS_READ_FAILED); }
+      try {
+        await readFileAsString(filePath);
+      } catch (e: any) {
+        expect(e.errorCode).toBe(ErrorCode.ERR_FS_READ_FAILED);
+      }
     });
   });
 
@@ -304,7 +338,7 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than maxLength', async () => {
-      mockFs.stat.mockResolvedValue({ size: defaultTestConfig.maxFileReadBytes + 1 } as Stats);
+      mockFs.stat.mockResolvedValue({ size: conduitConfig.maxFileReadBytes + 1 } as Stats);
       await expect(readFileAsBuffer(filePath)).rejects.toThrow(ConduitError);
       try {
         await readFileAsBuffer(filePath);
@@ -312,7 +346,7 @@ describe('fileSystemOps', () => {
         expect(e.errorCode).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
       }
     });
-    
+
     // ENOENT and other read errors are covered by similar tests in readFileAsString, assuming shared error handling logic
     // If specific buffer handling differs, add more tests here.
   });
@@ -357,8 +391,8 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if content size is too large', async () => {
-      const largeTextContent = 'a'.repeat(defaultTestConfig.maxFileReadBytes + 1);
-      
+      const largeTextContent = 'a'.repeat(conduitConfig.maxFileReadBytes + 1);
+
       // Ensure underlying fs calls don't interfere if the size check somehow fails
       mockFs.writeFile.mockResolvedValue(undefined);
       mockFs.appendFile.mockResolvedValue(undefined);
@@ -368,14 +402,18 @@ describe('fileSystemOps', () => {
         await writeFile(filePath, largeTextContent);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
-        expect(e.message).toContain(`Content size ${largeTextContent.length} bytes exceeds maximum allowed write limit of ${defaultTestConfig.maxFileReadBytes} bytes`);
+        expect(e.message).toContain(
+          `Content size ${largeTextContent.length} bytes exceeds maximum allowed write limit of ${conduitConfig.maxFileReadBytes} bytes`
+        );
       }
     });
 
     it('should throw ERR_FS_WRITE_FAILED if fs.writeFile fails', async () => {
       const error = new Error('Disk full');
       mockFs.writeFile.mockRejectedValue(error);
-      await expect(writeFile(filePath, textContent, 'text', 'overwrite')).rejects.toThrow(ConduitError);
+      await expect(writeFile(filePath, textContent, 'text', 'overwrite')).rejects.toThrow(
+        ConduitError
+      );
       try {
         await writeFile(filePath, textContent, 'text', 'overwrite');
       } catch (e: any) {
@@ -387,7 +425,9 @@ describe('fileSystemOps', () => {
     it('should throw ERR_FS_WRITE_FAILED if fs.appendFile fails', async () => {
       const error = new Error('Permission issue');
       mockFs.appendFile.mockRejectedValue(error);
-      await expect(writeFile(filePath, textContent, 'text', 'append')).rejects.toThrow(ConduitError);
+      await expect(writeFile(filePath, textContent, 'text', 'append')).rejects.toThrow(
+        ConduitError
+      );
       try {
         await writeFile(filePath, textContent, 'text', 'append');
       } catch (e: any) {
@@ -414,21 +454,27 @@ describe('fileSystemOps', () => {
     });
 
     it('should be idempotent and log debug if directory already exists (EEXIST)', async () => {
-      const error = new Error('Directory exists') as any; error.code = 'EEXIST';
+      const error = new Error('Directory exists') as any;
+      error.code = 'EEXIST';
       mockFs.mkdir.mockRejectedValue(error);
       await expect(createDirectory(dirPath)).resolves.toBeUndefined();
-      expect(logger.debug).toHaveBeenCalledWith(`Directory already exists (idempotent success): ${dirPath}`);
+      expect(logger.debug).toHaveBeenCalledWith(
+        `Directory already exists (idempotent success): ${dirPath}`
+      );
     });
 
     it('should throw ERR_FS_DIR_CREATE_FAILED for other fs.mkdir errors', async () => {
       const dirPath = '/test/new_dir';
-      const error = new Error('Permission denied') as any; error.code = 'EACCES';
+      const error = new Error('Permission denied') as any;
+      error.code = 'EACCES';
       mockFs.mkdir.mockRejectedValue(error);
       try {
         await createDirectory(dirPath);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.ERR_FS_DIR_CREATE_FAILED);
-        expect(e.message).toContain(`Failed to create directory: ${dirPath}. Error: Permission denied`);
+        expect(e.message).toContain(
+          `Failed to create directory: ${dirPath}. Error: Permission denied`
+        );
       }
     });
   });
@@ -469,10 +515,13 @@ describe('fileSystemOps', () => {
 
     it('should be idempotent and log debug if path does not exist (ENOENT on lstat)', async () => {
       // mockFs.lstat is a MockFunction, so mockRejectedValue already handles PathLike correctly
-      const error = new Error('Path does not exist') as any; error.code = 'ENOENT';
+      const error = new Error('Path does not exist') as any;
+      error.code = 'ENOENT';
       mockFs.lstat.mockRejectedValue(error);
       await expect(deletePath(filePath)).resolves.toBeUndefined();
-      expect(logger.debug).toHaveBeenCalledWith(`Path not found for deletion (considered success): ${filePath}`);
+      expect(logger.debug).toHaveBeenCalledWith(
+        `Path not found for deletion (considered success): ${filePath}`
+      );
       expect(mockFs.unlink).not.toHaveBeenCalled();
       expect(mockFs.rm).not.toHaveBeenCalled();
     });
@@ -480,28 +529,34 @@ describe('fileSystemOps', () => {
     it('should throw ERR_FS_DELETE_FAILED if fs.unlink fails for a file', async () => {
       // mockFs.lstat is a MockFunction, so mockResolvedValue already handles PathLike correctly
       mockFs.lstat.mockResolvedValue({ isDirectory: () => false } as Stats);
-      const error = new Error('Cannot delete file') as any; error.code = 'EPERM';
+      const error = new Error('Cannot delete file') as any;
+      error.code = 'EPERM';
       mockFs.unlink.mockRejectedValue(error);
       await expect(deletePath(filePath)).rejects.toThrow(ConduitError);
       try {
         await deletePath(filePath);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.ERR_FS_DELETE_FAILED);
-        expect(e.message).toContain(`Failed to delete path: ${filePath}. Error: Cannot delete file`);
+        expect(e.message).toContain(
+          `Failed to delete path: ${filePath}. Error: Cannot delete file`
+        );
       }
     });
 
     it('should throw ERR_FS_DELETE_FAILED if fs.rm fails for a directory', async () => {
       // mockFs.lstat is a MockFunction, so mockResolvedValue already handles PathLike correctly
       mockFs.lstat.mockResolvedValue({ isDirectory: () => true } as Stats);
-      const error = new Error('Cannot delete directory') as any; error.code = 'EACCES';
+      const error = new Error('Cannot delete directory') as any;
+      error.code = 'EACCES';
       mockFs.rm.mockRejectedValue(error);
       await expect(deletePath(dirPath, true)).rejects.toThrow(ConduitError);
       try {
         await deletePath(dirPath, true);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.ERR_FS_DELETE_FAILED);
-        expect(e.message).toContain(`Failed to delete path: ${dirPath}. Error: Cannot delete directory`);
+        expect(e.message).toContain(
+          `Failed to delete path: ${dirPath}. Error: Cannot delete directory`
+        );
       }
     });
   });
@@ -521,7 +576,8 @@ describe('fileSystemOps', () => {
 
     it('should throw ERR_FS_DIR_NOT_FOUND if directory does not exist (ENOENT)', async () => {
       const dirPath = '/test/non_existent_dir';
-      const error = new Error('Directory not found') as any; error.code = 'ENOENT';
+      const error = new Error('Directory not found') as any;
+      error.code = 'ENOENT';
       mockFs.readdir.mockRejectedValue(error);
       try {
         await listDirectory(dirPath);
@@ -533,7 +589,8 @@ describe('fileSystemOps', () => {
 
     it('should throw ERR_FS_PATH_IS_FILE if path is a file (ENOTDIR)', async () => {
       // mockFs.readdir is a MockFunction, so mockRejectedValue already handles PathLike correctly
-      const error = new Error('Path is a file') as any; error.code = 'ENOTDIR';
+      const error = new Error('Path is a file') as any;
+      error.code = 'ENOTDIR';
       mockFs.readdir.mockRejectedValue(error);
       await expect(listDirectory(dirPath)).rejects.toThrow(ConduitError);
       try {
@@ -546,13 +603,16 @@ describe('fileSystemOps', () => {
 
     it('should throw ERR_FS_DIR_LIST_FAILED for other fs.readdir errors', async () => {
       const dirPath = '/test/some_dir';
-      const error = new Error('Permission denied') as any; error.code = 'EACCES';
+      const error = new Error('Permission denied') as any;
+      error.code = 'EACCES';
       mockFs.readdir.mockRejectedValue(error);
       try {
         await listDirectory(dirPath);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.ERR_FS_DIR_LIST_FAILED);
-        expect(e.message).toContain(`Failed to list directory: ${dirPath}. Error: Permission denied`);
+        expect(e.message).toContain(
+          `Failed to list directory: ${dirPath}. Error: Permission denied`
+        );
       }
     });
   });
@@ -571,20 +631,26 @@ describe('fileSystemOps', () => {
 
       await copyPath(sourceFile, destFile);
       expect(mockFs.stat).toHaveBeenCalledWith(sourceFile); // First call for source
-      expect(mockFs.stat).toHaveBeenCalledWith(destFile);   // Second call for destination
-      expect(mockFs.cp).toHaveBeenCalledWith(sourceFile, destFile, { recursive: false, force: true });
+      expect(mockFs.stat).toHaveBeenCalledWith(destFile); // Second call for destination
+      expect(mockFs.cp).toHaveBeenCalledWith(sourceFile, destFile, {
+        recursive: false,
+        force: true,
+      });
     });
 
     it('should copy a file into an existing directory', async () => {
       mockFs.stat.mockResolvedValueOnce({ isDirectory: () => false } as Stats); // Source is file
-      mockFs.stat.mockResolvedValueOnce({ isDirectory: () => true } as Stats);  // Destination is directory
+      mockFs.stat.mockResolvedValueOnce({ isDirectory: () => true } as Stats); // Destination is directory
       mockFs.cp.mockResolvedValue(undefined);
       const expectedDestPath = path.join(destDir, path.basename(sourceFile));
 
       await copyPath(sourceFile, destDir);
       expect(mockFs.stat).toHaveBeenCalledWith(sourceFile);
       expect(mockFs.stat).toHaveBeenCalledWith(destDir);
-      expect(mockFs.cp).toHaveBeenCalledWith(sourceFile, expectedDestPath, { recursive: false, force: true });
+      expect(mockFs.cp).toHaveBeenCalledWith(sourceFile, expectedDestPath, {
+        recursive: false,
+        force: true,
+      });
     });
 
     it('should copy a directory to a new directory path', async () => {
@@ -600,10 +666,10 @@ describe('fileSystemOps', () => {
     it('should throw ERR_FS_NOT_FOUND if source path does not exist', async () => {
       const sourceFile = '/test/non_existent_source.txt';
       const destFile = '/test/dest.txt';
-      
+
       // conduitConfig is now the mocked object from the factory above
       const originalLogLevel = conduitConfig.logLevel;
-      (conduitConfig as any).logLevel = 'DEBUG'; 
+      (conduitConfig as any).logLevel = 'DEBUG';
       let errorOccurred = false;
 
       try {
@@ -611,23 +677,29 @@ describe('fileSystemOps', () => {
         mockFs.stat.mockImplementation(async (p: any) => {
           if (p === sourceFile) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
           // Provide a default stat for other paths if necessary, e.g., destination or its parent
-          return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats; 
+          return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
         });
 
         // Ensure fs.cp mock is clean for this test if it relies on it
-        mockFs.cp.mockReset(); 
+        mockFs.cp.mockReset();
 
         await copyPath(sourceFile, destFile);
         throw new Error('copyPath should have thrown an error for non-existent source'); // Should not be reached
       } catch (e: any) {
         errorOccurred = true; // Mark that an error was caught
-        expect(e.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
-        expect(e.message).toContain(`Source path not found or disappeared during copy: ${sourceFile}`);
+        expect(e.errorCode).toBe(ErrorCode.ERR_FS_COPY_FAILED);
+        // The message from copyPath's error wrapping is "Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${error.message from getStats}"
+        // The error.message from getStats is "Path not found: ${sourcePath}"
+        expect(e.message).toContain(
+          `Failed to copy: ${sourceFile} to ${destFile}. Error: Path not found: ${sourceFile}`
+        );
       } finally {
         // Restore original log level
         (conduitConfig as any).logLevel = originalLogLevel;
-        if (!errorOccurred && !process.env.VITEST_WORKER_ID) { 
-            console.warn("Test 'copyPath > should throw ERR_FS_NOT_FOUND' did not catch an error as expected for logging path.");
+        if (!errorOccurred && !process.env.VITEST_WORKER_ID) {
+          console.warn(
+            "Test 'copyPath > should throw ERR_FS_NOT_FOUND' did not catch an error as expected for logging path."
+          );
         }
       }
     });
@@ -641,55 +713,77 @@ describe('fileSystemOps', () => {
         await copyPath(sourceFile, destFile);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.ERR_FS_COPY_FAILED);
-        expect(e.message).toContain(`Failed to copy: ${sourceFile} to ${destFile}. Error: Copy failed`);
+        expect(e.message).toContain(
+          `Failed to copy: ${sourceFile} to ${destFile}. Error: Copy failed`
+        );
       }
     });
 
     it('should copy a file to a file, overwriting destination', async () => {
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
         const pathStr = p.toString();
-        if (pathStr === 'source.txt') return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
-        if (pathStr === 'dest.txt') return { isDirectory: () => false, isFile: () => true, size: 200 } as Stats; // Dest exists
+        if (pathStr === 'source.txt')
+          return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
+        if (pathStr === 'dest.txt')
+          return { isDirectory: () => false, isFile: () => true, size: 200 } as Stats; // Dest exists
         throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
       await copyPath('source.txt', 'dest.txt');
-      expect(mockFs.cp).toHaveBeenCalledWith('source.txt', 'dest.txt', { recursive: false, force: true });
+      expect(mockFs.cp).toHaveBeenCalledWith('source.txt', 'dest.txt', {
+        recursive: false,
+        force: true,
+      });
     });
 
     it('should copy a file into a directory', async () => {
       const sourceBasename = path.basename('source.txt');
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
         const pathStr = p.toString();
-        if (pathStr === 'source.txt') return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
-        if (pathStr === 'dest_dir') return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
+        if (pathStr === 'source.txt')
+          return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
+        if (pathStr === 'dest_dir')
+          return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
         throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       });
       await copyPath('source.txt', 'dest_dir');
-      expect(mockFs.cp).toHaveBeenCalledWith('source.txt', path.join('dest_dir', sourceBasename), { recursive: false, force: true });
+      expect(mockFs.cp).toHaveBeenCalledWith('source.txt', path.join('dest_dir', sourceBasename), {
+        recursive: false,
+        force: true,
+      });
     });
 
     it('should copy a directory to a new directory path (destination does not exist)', async () => {
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
         const pathStr = p.toString();
-        if (pathStr === 'source_dir') return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
-        if (pathStr === 'dest_dir_new') throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); // Dest does not exist
+        if (pathStr === 'source_dir')
+          return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
+        if (pathStr === 'dest_dir_new')
+          throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); // Dest does not exist
         return { isDirectory: () => false, isFile: () => false } as Stats; // Default for other paths
       });
       await copyPath('source_dir', 'dest_dir_new');
-      expect(mockFs.cp).toHaveBeenCalledWith('source_dir', 'dest_dir_new', { recursive: true, force: true });
+      expect(mockFs.cp).toHaveBeenCalledWith('source_dir', 'dest_dir_new', {
+        recursive: true,
+        force: true,
+      });
     });
-    
+
     it('should copy a directory into an existing directory (destination is a dir)', async () => {
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
         const pathStr = p.toString();
-        if (pathStr === 'source_dir') return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
-        if (pathStr === 'existing_dest_dir') return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
+        if (pathStr === 'source_dir')
+          return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
+        if (pathStr === 'existing_dest_dir')
+          return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
         return { isDirectory: () => false, isFile: () => false } as Stats; // Default for other paths
       });
       await copyPath('source_dir', 'existing_dest_dir');
       // fs.cp handles copying 'source_dir' *into* 'existing_dest_dir' correctly when dest is a dir.
       // The destination path for fs.cp remains 'existing_dest_dir'.
-      expect(mockFs.cp).toHaveBeenCalledWith('source_dir', 'existing_dest_dir', { recursive: true, force: true });
+      expect(mockFs.cp).toHaveBeenCalledWith('source_dir', 'existing_dest_dir', {
+        recursive: true,
+        force: true,
+      });
     });
   });
 
@@ -713,14 +807,17 @@ describe('fileSystemOps', () => {
 
       mockFs.access.mockImplementation(async (p: any) => {
         if (p === sourcePath) return undefined; // Source exists
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' }); // Dest does not exist
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' }); // Dest does not exist
         if (p === destParentPath) return undefined; // Dest parent exists
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
         if (p === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
@@ -730,7 +827,7 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destPath);
-      
+
       expect(mockFs.unlink).not.toHaveBeenCalled(); // Destination doesn't exist, so no unlink
       expect(mockFs.mkdir).not.toHaveBeenCalled(); // Parent dir exists
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, destPath);
@@ -749,8 +846,10 @@ describe('fileSystemOps', () => {
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-        if (p === destPath) return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Dest is a file
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === destPath)
+          return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Dest is a file
         if (p === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
@@ -760,7 +859,7 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destPath);
-      
+
       expect(mockFs.unlink).toHaveBeenCalledWith(destPath); // Existing file deleted
       expect(mockFs.mkdir).not.toHaveBeenCalled();
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, destPath);
@@ -775,14 +874,17 @@ describe('fileSystemOps', () => {
       mockFs.access.mockImplementation(async (p: any) => {
         if (p === sourcePath) return undefined; // Source exists
         if (p === destDirPath) return undefined; // Dest dir exists
-        if (p === finalDestPath) throw Object.assign(new Error('ENOENT finalDestPath for access'), { code: 'ENOENT' }); // Final dest does not exist
+        if (p === finalDestPath)
+          throw Object.assign(new Error('ENOENT finalDestPath for access'), { code: 'ENOENT' }); // Final dest does not exist
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
         if (p === destDirPath) return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is a directory
-        if (p === finalDestPath) throw Object.assign(new Error('ENOENT finalDestPath for stat'), { code: 'ENOENT' });
+        if (p === finalDestPath)
+          throw Object.assign(new Error('ENOENT finalDestPath for stat'), { code: 'ENOENT' });
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
 
@@ -791,12 +893,12 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destDirPath);
-      
+
       expect(mockFs.unlink).not.toHaveBeenCalled(); // No file to overwrite at final path
       expect(mockFs.mkdir).not.toHaveBeenCalled(); // Dest dir exists
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, finalDestPath);
     });
-    
+
     it('should move a file into an existing directory, overwriting a file of the same name', async () => {
       const sourcePath = 'source_to_overwrite.txt';
       const destDirPath = 'existing_dest_dir_with_conflict';
@@ -811,9 +913,11 @@ describe('fileSystemOps', () => {
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
         if (p === destDirPath) return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is a directory
-        if (p === finalDestPath) return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Final dest is a file
+        if (p === finalDestPath)
+          return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Final dest is a file
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
 
@@ -822,7 +926,7 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destDirPath);
-      
+
       expect(mockFs.unlink).toHaveBeenCalledWith(finalDestPath); // Existing file in dir is deleted
       expect(mockFs.mkdir).not.toHaveBeenCalled();
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, finalDestPath);
@@ -835,16 +939,20 @@ describe('fileSystemOps', () => {
 
       mockFs.access.mockImplementation(async (p: any) => {
         if (p === sourcePath) return undefined; // Source exists
-        if (p === destFilePath) throw Object.assign(new Error('ENOENT destFilePath for access'), { code: 'ENOENT' }); // Dest does not exist
-        if (p === parentOfFinalDest) throw Object.assign(new Error('ENOENT parentOfFinalDest for access'), { code: 'ENOENT' }); // Parent does not exist initially
+        if (p === destFilePath)
+          throw Object.assign(new Error('ENOENT destFilePath for access'), { code: 'ENOENT' }); // Dest does not exist
+        if (p === parentOfFinalDest)
+          throw Object.assign(new Error('ENOENT parentOfFinalDest for access'), { code: 'ENOENT' }); // Parent does not exist initially
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       // We need to track when mkdir is called to update our mocks
       let parentDirCreated = false;
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-        if (p === destFilePath) throw Object.assign(new Error('ENOENT destFilePath for stat'), { code: 'ENOENT' });
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === destFilePath)
+          throw Object.assign(new Error('ENOENT destFilePath for stat'), { code: 'ENOENT' });
         if (p === parentOfFinalDest) {
           if (parentDirCreated) {
             return { isDirectory: () => true, isFile: () => false } as Stats; // After mkdir is called
@@ -865,12 +973,12 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destFilePath);
-      
+
       expect(mockFs.unlink).not.toHaveBeenCalled();
       expect(mockFs.mkdir).toHaveBeenCalledWith(parentOfFinalDest, { recursive: true });
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, destFilePath);
     });
-    
+
     it('should move a directory to a new path', async () => {
       const sourcePath = 'source_dir_to_move';
       const destPath = 'new_dest_dir_path';
@@ -878,14 +986,16 @@ describe('fileSystemOps', () => {
 
       mockFs.access.mockImplementation(async (p: any) => {
         if (p === sourcePath) return undefined; // Source exists
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' }); // Dest does not exist
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' }); // Dest does not exist
         if (p === destParentPath) return undefined; // Dest parent exists
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
         if (p === sourcePath) return { isDirectory: () => true, isFile: () => false } as Stats; // Source is a directory
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
         if (p === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
@@ -895,7 +1005,7 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destPath);
-      
+
       expect(mockFs.unlink).not.toHaveBeenCalled(); // Not overwriting a file
       expect(mockFs.mkdir).not.toHaveBeenCalled(); // Parent dir exists
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, destPath);
@@ -907,22 +1017,28 @@ describe('fileSystemOps', () => {
       const destParentPath = path.dirname(destPath);
 
       mockFs.access.mockImplementation(async (p: any) => {
-        if (p === sourcePath) throw Object.assign(new Error('ENOENT sourcePath for access'), { code: 'ENOENT' });
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' });
+        if (p === sourcePath)
+          throw Object.assign(new Error('ENOENT sourcePath for access'), { code: 'ENOENT' });
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' });
         if (p === destParentPath) return undefined; // Parent of dest exists
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) throw Object.assign(new Error('ENOENT sourcePath for stat'), { code: 'ENOENT' });
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
+        if (p === sourcePath)
+          throw Object.assign(new Error('ENOENT sourcePath for stat'), { code: 'ENOENT' });
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
         if (p === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.unlink.mockReset();
       mockFs.mkdir.mockReset();
-      mockFs.rename.mockRejectedValueOnce(Object.assign(new Error('Source does not exist for rename'), { code: 'ENOENT' }));
+      mockFs.rename.mockRejectedValueOnce(
+        Object.assign(new Error('Source does not exist for rename'), { code: 'ENOENT' })
+      );
 
       // await expect(movePath(sourcePath, destPath)).rejects.toThrow(ConduitError);
       // await expect(movePath(sourcePath, destPath)).rejects.toHaveProperty('errorCode', ErrorCode.ERR_FS_MOVE_FAILED);
@@ -934,7 +1050,6 @@ describe('fileSystemOps', () => {
         expect(e.errorCode).toBe(ErrorCode.ERR_FS_MOVE_FAILED);
         expect(e.message).toContain('Move operation failed (ENOENT)');
       }
-      
     });
 
     it('should throw ConduitError for other fs.rename errors', async () => {
@@ -944,14 +1059,17 @@ describe('fileSystemOps', () => {
 
       mockFs.access.mockImplementation(async (p: any) => {
         if (p === sourcePath) return undefined; // Source exists
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' }); // Dest does not exist
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for access'), { code: 'ENOENT' }); // Dest does not exist
         if (p === destParentPath) return undefined; // Dest parent exists
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-        if (p === destPath) throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === destPath)
+          throw Object.assign(new Error('ENOENT destPath for stat'), { code: 'ENOENT' });
         if (p === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
@@ -960,7 +1078,10 @@ describe('fileSystemOps', () => {
       mockFs.mkdir.mockReset();
       mockFs.rename.mockReset().mockRejectedValue(new Error('FS rename failed'));
 
-      await expect(movePath(sourcePath, destPath)).rejects.toHaveProperty('errorCode', ErrorCode.ERR_FS_MOVE_FAILED);
+      await expect(movePath(sourcePath, destPath)).rejects.toHaveProperty(
+        'errorCode',
+        ErrorCode.ERR_FS_MOVE_FAILED
+      );
     });
 
     it('should not attempt to delete destination if it is a directory (file overwrite only)', async () => {
@@ -971,14 +1092,17 @@ describe('fileSystemOps', () => {
       mockFs.access.mockImplementation(async (p: any) => {
         if (p === sourcePath) return undefined; // Source exists
         if (p === destPath) return undefined; // Dest dir exists
-        if (p === finalDestPath) throw Object.assign(new Error('ENOENT finalDestPath for access'), { code: 'ENOENT' }); // Final file does not exist
+        if (p === finalDestPath)
+          throw Object.assign(new Error('ENOENT finalDestPath for access'), { code: 'ENOENT' }); // Final file does not exist
         throw Object.assign(new Error(`Unexpected access call: ${p}`), { code: 'ENOENT' });
       });
 
       mockFs.stat.mockImplementation(async (p: any) => {
-        if (p === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+        if (p === sourcePath)
+          return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
         if (p === destPath) return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is a directory
-        if (p === finalDestPath) throw Object.assign(new Error('ENOENT finalDestPath for stat'), { code: 'ENOENT' });
+        if (p === finalDestPath)
+          throw Object.assign(new Error('ENOENT finalDestPath for stat'), { code: 'ENOENT' });
         throw Object.assign(new Error(`Unexpected stat call: ${p}`), { code: 'ENOENT' });
       });
 
@@ -987,7 +1111,7 @@ describe('fileSystemOps', () => {
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destPath);
-      
+
       expect(mockFs.unlink).not.toHaveBeenCalled(); // No file deletion needed
       expect(mockFs.rename).toHaveBeenCalledWith(sourcePath, finalDestPath);
     });
@@ -1023,7 +1147,7 @@ describe('fileSystemOps', () => {
       expect(mockFs.access).toHaveBeenCalledWith(filePath, fsConstants.F_OK);
       expect(mockFs.writeFile).not.toHaveBeenCalled();
       expect(mockFs.utimes).toHaveBeenCalledTimes(1);
-      
+
       const utimesArgs = mockFs.utimes.mock.calls[0];
       expect(utimesArgs[0]).toBe(filePath); // PathLike comparison works because we're comparing with the original value
       // Check if the timestamps are Date objects and are recent
@@ -1040,7 +1164,7 @@ describe('fileSystemOps', () => {
       mockFs.access.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const writeError = new Error('Disk quota exceeded');
       mockFs.writeFile.mockRejectedValue(writeError); // writeFile is called internally by the fsOps.writeFile wrapper
-      
+
       // To test the wrapper's error, we need to ensure the mock for fsOps.writeFile (if spied) or the underlying fs.writeFile throws.
       // Since we mock fs.writeFile directly, this is fine.
 
@@ -1069,7 +1193,9 @@ describe('fileSystemOps', () => {
         await touchFile(filePath);
       } catch (e: any) {
         expect(e.errorCode).toBe(ErrorCode.OPERATION_FAILED);
-        expect(e.message).toContain(`Failed to touch file: ${filePath}. Error: ${utimesError.message}`);
+        expect(e.message).toContain(
+          `Failed to touch file: ${filePath}. Error: ${utimesError.message}`
+        );
       }
     });
   });
@@ -1103,17 +1229,17 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o100644, // regular file, rw-r--r--
       } as Stats;
-      
+
       // Mock file-specific operations
       mockFs.lstat.mockResolvedValue(fileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
-      
+
       const entryInfo = await createEntryInfo(filePath, fileStats);
-      
+
       // Verify createEntryInfo called the right functions
       expect(mockFs.lstat).toHaveBeenCalledWith(filePath);
       expect(mockedGetMimeType).toHaveBeenCalledWith(filePath);
-      
+
       // Verify the returned EntryInfo object
       expect(entryInfo).toEqual({
         name: 'file.txt',
@@ -1125,7 +1251,7 @@ describe('fileSystemOps', () => {
         modified_at: formattedDate,
         last_accessed_at: formattedDate,
         is_readonly: false,
-        symlink_target: undefined
+        symlink_target: undefined,
       });
     });
 
@@ -1141,16 +1267,16 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o40755, // directory, rwxr-xr-x
       } as Stats;
-      
+
       // Mock directory-specific operations
       mockFs.lstat.mockResolvedValue(dirStats);
-      
+
       const entryInfo = await createEntryInfo(dirPath, dirStats);
-      
+
       // Verify createEntryInfo called the right functions
       expect(mockFs.lstat).toHaveBeenCalledWith(dirPath);
       expect(mockedGetMimeType).not.toHaveBeenCalled(); // Not called for directories
-      
+
       // Verify the returned EntryInfo object
       expect(entryInfo).toEqual({
         name: 'directory',
@@ -1162,7 +1288,7 @@ describe('fileSystemOps', () => {
         modified_at: formattedDate,
         last_accessed_at: formattedDate,
         is_readonly: false,
-        symlink_target: undefined
+        symlink_target: undefined,
       });
     });
 
@@ -1179,13 +1305,13 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o100444, // r--r--r-- (no write permission)
       } as Stats;
-      
+
       // Mock read-only file operations
       mockFs.lstat.mockResolvedValue(readonlyStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
-      
+
       const entryInfo = await createEntryInfo(filePath, readonlyStats);
-      
+
       // Verify the readonly flag is set correctly
       expect(entryInfo.is_readonly).toBe(true);
       expect(entryInfo.size_bytes).toBe(500);
@@ -1205,7 +1331,7 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o120777, // Symlink mode
       } as Stats;
-      
+
       const targetStats = {
         isFile: () => true,
         isDirectory: () => false,
@@ -1214,22 +1340,22 @@ describe('fileSystemOps', () => {
         birthtime: now,
         mtime: now,
         atime: now,
-        mode: 0o100644, 
+        mode: 0o100644,
       } as Stats;
-      
+
       // Mock symlink-specific operations
       mockFs.lstat.mockResolvedValue(symlinkStats);
       mockFs.readlink.mockResolvedValue(targetPath);
       mockFs.stat.mockResolvedValue(targetStats);
-      
+
       const entryInfo = await createEntryInfo(symlinkPath, targetStats);
-      
+
       // Verify the calls
       expect(mockFs.lstat).toHaveBeenCalledWith(symlinkPath);
       expect(mockFs.readlink).toHaveBeenCalledWith(symlinkPath, { encoding: 'utf8' });
       expect(mockFs.stat).toHaveBeenCalledWith(symlinkPath); // Note: follows the symlink
       expect(mockedGetMimeType).not.toHaveBeenCalled(); // Not called for symlinks
-      
+
       // Verify the returned object
       expect(entryInfo).toEqual({
         name: 'link-to-file.txt',
@@ -1241,7 +1367,7 @@ describe('fileSystemOps', () => {
         modified_at: formattedDate,
         last_accessed_at: formattedDate,
         is_readonly: false,
-        symlink_target: targetPath
+        symlink_target: targetPath,
       });
     });
 
@@ -1258,7 +1384,7 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o120777,
       } as Stats;
-      
+
       // Mock broken symlink operations
       mockFs.lstat.mockResolvedValue(symlinkStats);
       mockFs.readlink.mockResolvedValue(nonExistentTarget);
@@ -1266,15 +1392,15 @@ describe('fileSystemOps', () => {
       const enoentError = new Error('ENOENT: Target not found') as NodeJS.ErrnoException;
       enoentError.code = 'ENOENT';
       mockFs.stat.mockRejectedValue(enoentError);
-      
+
       const entryInfo = await createEntryInfo(brokenLinkPath, symlinkStats);
-      
+
       // Verify the calls
       expect(mockFs.lstat).toHaveBeenCalledWith(brokenLinkPath);
       expect(mockFs.readlink).toHaveBeenCalledWith(brokenLinkPath, { encoding: 'utf8' });
       expect(mockFs.stat).toHaveBeenCalledWith(brokenLinkPath);
       expect(mockedGetMimeType).not.toHaveBeenCalled();
-      
+
       // Verify the returned object - for broken symlinks, we still have type 'symlink' and the target
       expect(entryInfo.type).toBe('symlink');
       expect(entryInfo.symlink_target).toBe(nonExistentTarget);
@@ -1295,16 +1421,16 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o100644,
       } as Stats;
-      
+
       mockFs.lstat.mockResolvedValue(fileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
-      
+
       const entryInfo = await createEntryInfo(filePath, fileStats, nameOverride);
-      
+
       expect(entryInfo.name).toBe(nameOverride);
       expect(entryInfo.path).toBe(filePath);
     });
-    
+
     it('should handle zero-byte files correctly', async () => {
       const filePath = '/test/empty.txt';
       const zeroByteStats = {
@@ -1317,15 +1443,15 @@ describe('fileSystemOps', () => {
         atime: now,
         mode: 0o100644, // rw-r--r--
       } as Stats;
-      
+
       // Mock lstat to return file stats with size 0
       mockFs.lstat.mockResolvedValue(zeroByteStats);
-      
+
       const entryInfo = await createEntryInfo(filePath, zeroByteStats);
-      
+
       // Verify getMimeType is still called for zero-byte files
       expect(mockedGetMimeType).toHaveBeenCalledWith(filePath);
-      
+
       // Verify the returned EntryInfo object
       expect(entryInfo).toEqual({
         name: 'empty.txt',
@@ -1337,7 +1463,7 @@ describe('fileSystemOps', () => {
         modified_at: formattedDate,
         last_accessed_at: formattedDate,
         is_readonly: false,
-        symlink_target: undefined
+        symlink_target: undefined,
       });
     });
   });
@@ -1345,11 +1471,15 @@ describe('fileSystemOps', () => {
   describe('calculateRecursiveDirectorySize', () => {
     const baseDir = '/base';
     let startTime: number;
-    const maxDepth = defaultTestConfig.maxRecursiveDepth; // Use from (mocked) config
-    const timeoutMs = defaultTestConfig.recursiveSizeTimeoutMs; // Use from (mocked) config
+    const maxDepth = conduitConfig.maxRecursiveDepth; // Use from mocked config
+    const timeoutMs = conduitConfig.recursiveSizeTimeoutMs; // Use from mocked config
 
     // Helper to create Dirent-like objects for mockFs.readdir
-    const createDirent = (name: string, isFile: boolean, isDirectory: boolean): Partial<import('fs').Dirent> => ({
+    const createDirent = (
+      name: string,
+      isFile: boolean,
+      isDirectory: boolean
+    ): Partial<import('fs').Dirent> => ({
       name,
       isFile: () => isFile,
       isDirectory: () => isDirectory,
@@ -1373,12 +1503,20 @@ describe('fileSystemOps', () => {
       ] as any);
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
-        if (pathStr === path.join(baseDir, 'file1.txt')) return { size: 100, isFile: () => true, isDirectory: () => false } as Stats;
-        if (pathStr === path.join(baseDir, 'file2.txt')) return { size: 200, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'file1.txt'))
+          return { size: 100, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'file2.txt'))
+          return { size: 200, isFile: () => true, isDirectory: () => false } as Stats;
         return { isFile: () => false, isDirectory: () => true, size: 0 } as Stats;
       });
 
-      const result = await calculateRecursiveDirectorySize(baseDir, 0, maxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        0,
+        maxDepth,
+        timeoutMs,
+        startTime
+      );
       expect(result.size).toBe(300);
       expect(result.note).toBeUndefined();
       expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file1.txt'));
@@ -1394,28 +1532,42 @@ describe('fileSystemOps', () => {
       //       - file3.txt (30)
       //       - sub3 (dir) -> this one is at currentDepth 2, recursion would go to 3 (if maxDepth allows)
       //         - file4.txt (40) -> Should be ignored if maxDepth is 2 for the call to sub2
-      
+
       const testMaxDepth = 2;
 
       mockFs.readdir.mockImplementation(async (p: import('fs').PathLike) => {
         const pathStr = p.toString();
-        if (pathStr === baseDir) return [createDirent('file1.txt', true, false), createDirent('sub1', false, true)] as any;
-        if (pathStr === path.join(baseDir, 'sub1')) return [createDirent('file2.txt', true, false), createDirent('sub2', false, true)] as any;
-        if (pathStr === path.join(baseDir, 'sub1', 'sub2')) return [createDirent('file3.txt', true, false), createDirent('sub3', false, true)] as any;
-        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'sub3')) return [createDirent('file4.txt', true, false)] as any; // Beyond maxDepth for sub2 call
+        if (pathStr === baseDir)
+          return [createDirent('file1.txt', true, false), createDirent('sub1', false, true)] as any;
+        if (pathStr === path.join(baseDir, 'sub1'))
+          return [createDirent('file2.txt', true, false), createDirent('sub2', false, true)] as any;
+        if (pathStr === path.join(baseDir, 'sub1', 'sub2'))
+          return [createDirent('file3.txt', true, false), createDirent('sub3', false, true)] as any;
+        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'sub3'))
+          return [createDirent('file4.txt', true, false)] as any; // Beyond maxDepth for sub2 call
         throw new Error(`Unexpected readdir call: ${pathStr}`);
       });
 
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
-        if (pathStr === path.join(baseDir, 'file1.txt')) return { size: 10, isFile: () => true, isDirectory: () => false } as Stats;
-        if (pathStr === path.join(baseDir, 'sub1', 'file2.txt')) return { size: 20, isFile: () => true, isDirectory: () => false } as Stats;
-        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'file3.txt')) return { size: 30, isFile: () => true, isDirectory: () => false } as Stats;
-        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'sub3', 'file4.txt')) return { size: 40, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'file1.txt'))
+          return { size: 10, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'sub1', 'file2.txt'))
+          return { size: 20, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'file3.txt'))
+          return { size: 30, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'sub3', 'file4.txt'))
+          return { size: 40, isFile: () => true, isDirectory: () => false } as Stats;
         return { isFile: () => false, isDirectory: () => true, size: 0 } as Stats;
       });
 
-      const result = await calculateRecursiveDirectorySize(baseDir, 0, testMaxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        0,
+        testMaxDepth,
+        timeoutMs,
+        startTime
+      );
       // Expected: file1 (10) + file2 (20) + file3 (30) = 60
       // file4 should be skipped due to maxDepth relative to the recursive call for sub2
       expect(result.size).toBe(60);
@@ -1423,7 +1575,13 @@ describe('fileSystemOps', () => {
     });
 
     it('should return note if initial depth exceeds maxDepth', async () => {
-      const result = await calculateRecursiveDirectorySize(baseDir, maxDepth + 1, maxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        maxDepth + 1,
+        maxDepth,
+        timeoutMs,
+        startTime
+      );
       expect(result.size).toBe(0);
       expect(result.note).toBe('Partial size: depth limit reached');
       expect(mockFs.readdir).not.toHaveBeenCalled();
@@ -1440,18 +1598,25 @@ describe('fileSystemOps', () => {
         if (pathStr === path.join(baseDir, 'file1.txt')) {
           // Call vi.advanceTimersByTime WITHIN the file1.txt conditional block
           // This will trigger timeout before file2_timeout.txt's size is added
-          vi.advanceTimersByTime(timeoutMs + 1); 
+          vi.advanceTimersByTime(timeoutMs + 1);
           return { size: 100, isFile: () => true, isDirectory: () => false } as Stats;
         }
         if (pathStr === path.join(baseDir, 'file2_timeout.txt')) {
           // Remove the timeout advancement from here
           return { size: 200, isFile: () => true, isDirectory: () => false } as Stats;
         }
-        if (pathStr === path.join(baseDir, 'file3.txt')) return { size: 300, isFile: () => true, isDirectory: () => false } as Stats; // Should not be reached
+        if (pathStr === path.join(baseDir, 'file3.txt'))
+          return { size: 300, isFile: () => true, isDirectory: () => false } as Stats; // Should not be reached
         return { isFile: () => false, isDirectory: () => true, size: 0 } as Stats;
       });
 
-      const result = await calculateRecursiveDirectorySize(baseDir, 0, maxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        0,
+        maxDepth,
+        timeoutMs,
+        startTime
+      );
       expect(result.size).toBe(100); // Only file1.txt before timeout is hit by checking Date.now() *before* processing file2
       expect(result.note).toBe('Calculation timed out due to server limit');
       expect(mockFs.stat).toHaveBeenCalledTimes(1); // Should only be called for file1.txt
@@ -1467,35 +1632,49 @@ describe('fileSystemOps', () => {
           return [createDirent('inner_file.txt', true, false)] as any;
         }
         if (pathStr === path.join(baseDir, 'sub_causes_timeout', 'inner_file.txt')) {
-             // This stat call would happen *after* the timeout check in the loop for 'inner_file.txt'
-            return { size: 50 } as Stats;
+          // This stat call would happen *after* the timeout check in the loop for 'inner_file.txt'
+          return { size: 50 } as Stats;
         }
         throw new Error(`Unexpected readdir call: ${pathStr}`);
       });
-       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
+      mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
-        if (pathStr === path.join(baseDir, 'sub_causes_timeout', 'inner_file.txt')) { 
-            // The loop for sub_causes_timeout will check timeout *before* processing inner_file.txt
-            // So the call to calculateRecursiveDirectorySize for sub_causes_timeout will get entries,
-            // then for 'inner_file.txt', it will check Date.now() - startTime > timeoutMs. If it is, note set.
-            return { size: 50, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'sub_causes_timeout', 'inner_file.txt')) {
+          // The loop for sub_causes_timeout will check timeout *before* processing inner_file.txt
+          // So the call to calculateRecursiveDirectorySize for sub_causes_timeout will get entries,
+          // then for 'inner_file.txt', it will check Date.now() - startTime > timeoutMs. If it is, note set.
+          return { size: 50, isFile: () => true, isDirectory: () => false } as Stats;
         }
         return { isFile: () => false, isDirectory: () => true, size: 0 } as Stats;
-       });
+      });
 
       // Test: Timeout occurs *while processing* sub_causes_timeout entries
       // So, the recursive call for sub_causes_timeout will return with a timeout note.
-      const result = await calculateRecursiveDirectorySize(baseDir, 0, maxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        0,
+        maxDepth,
+        timeoutMs,
+        startTime
+      );
       expect(result.size).toBe(0); // Size from sub_causes_timeout not added as it timed out internally
       expect(result.note).toBe('Calculation timed out due to server limit');
     });
 
     it('should handle fs.readdir error gracefully', async () => {
       mockFs.readdir.mockRejectedValueOnce(new Error('Read dir permission denied'));
-      const result = await calculateRecursiveDirectorySize(baseDir, 0, maxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        0,
+        maxDepth,
+        timeoutMs,
+        startTime
+      );
       expect(result.size).toBe(0);
       expect(result.note).toBe('Error during size calculation');
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(`Error reading directory ${baseDir}`));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(`Error reading directory ${baseDir}`)
+      );
     });
 
     it('should handle fs.stat error for a file gracefully and continue', async () => {
@@ -1506,16 +1685,27 @@ describe('fileSystemOps', () => {
       ] as any);
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
-        if (pathStr === path.join(baseDir, 'file_ok.txt')) return { size: 70, isFile: () => true, isDirectory: () => false } as Stats;
-        if (pathStr === path.join(baseDir, 'file_stat_error.txt')) throw new Error('Stat failed for this file');
-        if (pathStr === path.join(baseDir, 'file_after_error.txt')) return { size: 30, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'file_ok.txt'))
+          return { size: 70, isFile: () => true, isDirectory: () => false } as Stats;
+        if (pathStr === path.join(baseDir, 'file_stat_error.txt'))
+          throw new Error('Stat failed for this file');
+        if (pathStr === path.join(baseDir, 'file_after_error.txt'))
+          return { size: 30, isFile: () => true, isDirectory: () => false } as Stats;
         return { isFile: () => false, isDirectory: () => true, size: 0 } as Stats;
       });
 
-      const result = await calculateRecursiveDirectorySize(baseDir, 0, maxDepth, timeoutMs, startTime);
+      const result = await calculateRecursiveDirectorySize(
+        baseDir,
+        0,
+        maxDepth,
+        timeoutMs,
+        startTime
+      );
       expect(result.size).toBe(100); // 70 + 30, file_stat_error.txt is skipped
       expect(result.note).toBeUndefined(); // No overall error note, just a warning
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(`Could not stat file ${path.join(baseDir, 'file_stat_error.txt')}`));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(`Could not stat file ${path.join(baseDir, 'file_stat_error.txt')}`)
+      );
       expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file_ok.txt'));
       expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file_stat_error.txt'));
       expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file_after_error.txt'));

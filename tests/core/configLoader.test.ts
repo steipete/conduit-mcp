@@ -5,12 +5,14 @@ import { ConduitServerConfig } from '@/types/config'; // Assuming this is the pa
 import { loadConfig } from '@/core/configLoader';
 import logger from '@/utils/logger'; // Leverages the global mock from setupTests
 
-// Mock os.homedir
+const MOCK_HOME_DIR_FOR_TESTS = '/mock/home/user';
+
+// Mock os module specifically for homedir
 vi.mock('os', async (importOriginal) => {
   const originalOS = await importOriginal<typeof os>();
   return {
-    ...originalOS,
-    homedir: vi.fn(),
+    ...originalOS, // Spread original os module
+    homedir: vi.fn(() => MOCK_HOME_DIR_FOR_TESTS), // Mock homedir to return a predefined path
   };
 });
 
@@ -20,29 +22,27 @@ vi.mock('../../package.json', () => ({
 }));
 
 describe('configLoader', () => {
-  const originalEnv = { ...process.env };
-  const mockHomeDir = '/mock/home/user';
+  let originalEnv = { ...process.env };
+  const mockHomeDir = MOCK_HOME_DIR_FOR_TESTS; // Consistent with the mock
   const mockCwd = '/mock/workspace';
 
   beforeEach(() => {
-    // Reset process.env to a clean state for each test
-    process.env = { ...originalEnv };
-    // Clear all mocks
-    vi.clearAllMocks();
+    originalEnv = { ...process.env };
+    vi.resetModules();
 
-    // Setup mocks for os.homedir and process.cwd
-    vi.mocked(os.homedir).mockReturnValue(mockHomeDir);
+    // os.homedir is now globally mocked by vi.mock above.
+    // If a test needs to assert calls to os.homedir, it can spy on it:
+    // vi.spyOn(os, 'homedir');
+    // Or if it needs to change return value for a specific test:
+    // vi.mocked(os.homedir).mockReturnValueOnce('/different/home');
+
     vi.spyOn(process, 'cwd').mockReturnValue(mockCwd);
-
-    // Ensure logger methods are fresh spies for each test if checking calls
-    // This is generally handled by resetAllMocks if logger itself is a mock module
-    // or by the global setup (vi.resetAllMocks() in setupTests.ts)
+    vi.clearAllMocks(); // Clears call history for spies, etc.
   });
 
   afterEach(() => {
-    // Restore original process.env
     process.env = { ...originalEnv };
-    vi.restoreAllMocks(); // Restore original implementations where spied
+    vi.restoreAllMocks();
   });
 
   describe('loadConfig', () => {
@@ -50,7 +50,8 @@ describe('configLoader', () => {
       const config = loadConfig();
 
       expect(config.logLevel).toBe('INFO');
-      expect(config.allowedPaths).toEqual([path.join(mockHomeDir), '/tmp']); // Default 'allowedPaths' behavior
+      // Check with the mocked homedir
+      expect(config.allowedPaths).toEqual([path.join(mockHomeDir, ''), '/tmp']);
       expect(config.httpTimeoutMs).toBe(30000);
       expect(config.maxPayloadSizeBytes).toBe(10485760);
       expect(config.maxFileReadBytes).toBe(52428800);
@@ -61,14 +62,16 @@ describe('configLoader', () => {
       expect(config.defaultChecksumAlgorithm).toBe('sha256');
       expect(config.maxRecursiveDepth).toBe(10);
       expect(config.recursiveSizeTimeoutMs).toBe(60000);
-      expect(config.serverVersion).toBe('test-version-1.2.3');
+      expect(config.serverVersion).toBe('test-version-1.2.3'); // From package.json mock
       expect(config.workspaceRoot).toBe(mockCwd);
       expect(typeof config.serverStartTimeIso).toBe('string');
-      expect(config.serverStartTimeIso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // Expect ISO string with milliseconds
+      expect(config.serverStartTimeIso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 
-      // Check logger calls for default loading messages
       expect(logger.info).toHaveBeenCalledWith('Server configuration loaded successfully.');
-      expect(logger.debug).toHaveBeenCalledWith({ config: expect.any(Object) }, 'Active server configuration');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { config: expect.any(Object) },
+        'Active server configuration'
+      );
     });
 
     // Test cases for LOG_LEVEL
@@ -82,7 +85,9 @@ describe('configLoader', () => {
       process.env.LOG_LEVEL = 'INVALID';
       const config = loadConfig();
       expect(config.logLevel).toBe('INFO');
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid value for env var. Received "INVALID"'));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid value for env var. Received "INVALID"')
+      );
     });
 
     it('should handle lowercase logLevel from env', () => {
@@ -96,17 +101,17 @@ describe('configLoader', () => {
       process.env.CONDUIT_ALLOWED_PATHS = '~/data:/another/path:/usr/local/bin';
       const config = loadConfig();
       expect(config.allowedPaths).toEqual([
-        path.join(mockHomeDir, 'data'),
+        path.join(mockHomeDir, 'data'), // Should use mocked homedir
         path.resolve('/another/path'),
         path.resolve('/usr/local/bin'),
       ]);
     });
 
     it('should handle empty segments and trim whitespace in CONDUIT_ALLOWED_PATHS', () => {
-      process.env.CONDUIT_ALLOWED_PATHS = ' ~/docs :: /tmp/logs '; // Double colon for empty segment
+      process.env.CONDUIT_ALLOWED_PATHS = ' ~/docs :: /tmp/logs ';
       const config = loadConfig();
       expect(config.allowedPaths).toEqual([
-        path.join(mockHomeDir, 'docs'),
+        path.join(mockHomeDir, 'docs'), // Should use mocked homedir
         path.resolve('/tmp/logs'),
       ]);
     });
@@ -114,28 +119,79 @@ describe('configLoader', () => {
     it('should log error if CONDUIT_ALLOWED_PATHS is empty string resulting in no paths', () => {
       process.env.CONDUIT_ALLOWED_PATHS = '';
       const config = loadConfig();
+      // When CONDUIT_ALLOWED_PATHS is empty, it should result in an empty array for allowedPaths
+      // and not fall back to the default, because an explicit (empty) value was provided.
       expect(config.allowedPaths).toEqual([]);
-      expect(logger.error).toHaveBeenCalledWith('CONDUIT_ALLOWED_PATHS resolved to an empty list. This is a critical misconfiguration.');
+      expect(logger.error).toHaveBeenCalledWith(
+        'CONDUIT_ALLOWED_PATHS resolved to an empty list. This is a critical misconfiguration.'
+      );
     });
 
     it('should log error if CONDUIT_ALLOWED_PATHS contains only delimiters resulting in no paths', () => {
       process.env.CONDUIT_ALLOWED_PATHS = ' : : ';
       const config = loadConfig();
       expect(config.allowedPaths).toEqual([]);
-      expect(logger.error).toHaveBeenCalledWith('CONDUIT_ALLOWED_PATHS resolved to an empty list. This is a critical misconfiguration.');
+      expect(logger.error).toHaveBeenCalledWith(
+        'CONDUIT_ALLOWED_PATHS resolved to an empty list. This is a critical misconfiguration.'
+      );
     });
 
     // Test cases for various integer parsed values
     const intTestCases = [
-      { envVar: 'CONDUIT_HTTP_TIMEOUT_MS', prop: 'httpTimeoutMs', defaultValue: 30000, testValue: '15000' },
-      { envVar: 'CONDUIT_MAX_PAYLOAD_SIZE_BYTES', prop: 'maxPayloadSizeBytes', defaultValue: 10485760, testValue: '500000' },
-      { envVar: 'CONDUIT_MAX_FILE_READ_BYTES', prop: 'maxFileReadBytes', defaultValue: 52428800, testValue: '1000000' },
-      { envVar: 'CONDUIT_MAX_FILE_READ_BYTES_FIND', prop: 'maxFileReadBytesFind', defaultValue: 524288, testValue: '200000' },
-      { envVar: 'CONDUIT_MAX_URL_DOWNLOAD_SIZE_BYTES', prop: 'maxUrlDownloadSizeBytes', defaultValue: 20971520, testValue: '10000000' },
-      { envVar: 'CONDUIT_IMAGE_COMPRESSION_THRESHOLD_BYTES', prop: 'imageCompressionThresholdBytes', defaultValue: 1048576, testValue: '500000' },
-      { envVar: 'CONDUIT_IMAGE_COMPRESSION_QUALITY', prop: 'imageCompressionQuality', defaultValue: 75, testValue: '60' },
-      { envVar: 'CONDUIT_MAX_RECURSIVE_DEPTH', prop: 'maxRecursiveDepth', defaultValue: 10, testValue: '5' },
-      { envVar: 'CONDUIT_RECURSIVE_SIZE_TIMEOUT_MS', prop: 'recursiveSizeTimeoutMs', defaultValue: 60000, testValue: '45000' },
+      {
+        envVar: 'CONDUIT_HTTP_TIMEOUT_MS',
+        prop: 'httpTimeoutMs',
+        defaultValue: 30000,
+        testValue: '15000',
+      },
+      {
+        envVar: 'CONDUIT_MAX_PAYLOAD_SIZE_BYTES',
+        prop: 'maxPayloadSizeBytes',
+        defaultValue: 10485760,
+        testValue: '500000',
+      },
+      {
+        envVar: 'CONDUIT_MAX_FILE_READ_BYTES',
+        prop: 'maxFileReadBytes',
+        defaultValue: 52428800,
+        testValue: '1000000',
+      },
+      {
+        envVar: 'CONDUIT_MAX_FILE_READ_BYTES_FIND',
+        prop: 'maxFileReadBytesFind',
+        defaultValue: 524288,
+        testValue: '200000',
+      },
+      {
+        envVar: 'CONDUIT_MAX_URL_DOWNLOAD_SIZE_BYTES',
+        prop: 'maxUrlDownloadSizeBytes',
+        defaultValue: 20971520,
+        testValue: '10000000',
+      },
+      {
+        envVar: 'CONDUIT_IMAGE_COMPRESSION_THRESHOLD_BYTES',
+        prop: 'imageCompressionThresholdBytes',
+        defaultValue: 1048576,
+        testValue: '500000',
+      },
+      {
+        envVar: 'CONDUIT_IMAGE_COMPRESSION_QUALITY',
+        prop: 'imageCompressionQuality',
+        defaultValue: 75,
+        testValue: '60',
+      },
+      {
+        envVar: 'CONDUIT_MAX_RECURSIVE_DEPTH',
+        prop: 'maxRecursiveDepth',
+        defaultValue: 10,
+        testValue: '5',
+      },
+      {
+        envVar: 'CONDUIT_RECURSIVE_SIZE_TIMEOUT_MS',
+        prop: 'recursiveSizeTimeoutMs',
+        defaultValue: 60000,
+        testValue: '45000',
+      },
     ] as const;
 
     intTestCases.forEach(({ envVar, prop, defaultValue, testValue }) => {
@@ -149,7 +205,11 @@ describe('configLoader', () => {
         process.env[envVar] = 'not-an-integer';
         const config = loadConfig();
         expect(config[prop]).toBe(defaultValue);
-        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(`Invalid integer value for env var. Using default: ${defaultValue}`))
+        expect(logger.warn).toHaveBeenCalledWith(
+          expect.stringContaining(
+            `Invalid integer value for env var. Using default: ${defaultValue}`
+          )
+        );
       });
 
       it(`should use default ${prop} for empty string ${envVar}`, () => {
@@ -165,19 +225,25 @@ describe('configLoader', () => {
       process.env.CONDUIT_IMAGE_COMPRESSION_QUALITY = '150';
       let config = loadConfig();
       expect(config.imageCompressionQuality).toBe(75); // Clamps to default as per code
-      expect(logger.warn).toHaveBeenCalledWith('CONDUIT_IMAGE_COMPRESSION_QUALITY (150) out of range (1-100). Clamping to 75.');
-      
+      expect(logger.warn).toHaveBeenCalledWith(
+        'CONDUIT_IMAGE_COMPRESSION_QUALITY (150) out of range (1-100). Clamping to 75.'
+      );
+
       vi.mocked(logger.warn).mockClear(); // Clear mock for next check
       process.env.CONDUIT_IMAGE_COMPRESSION_QUALITY = '0';
       config = loadConfig();
       expect(config.imageCompressionQuality).toBe(75);
-      expect(logger.warn).toHaveBeenCalledWith('CONDUIT_IMAGE_COMPRESSION_QUALITY (0) out of range (1-100). Clamping to 75.');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'CONDUIT_IMAGE_COMPRESSION_QUALITY (0) out of range (1-100). Clamping to 75.'
+      );
 
       vi.mocked(logger.warn).mockClear();
       process.env.CONDUIT_IMAGE_COMPRESSION_QUALITY = '-10';
       config = loadConfig();
       expect(config.imageCompressionQuality).toBe(75);
-      expect(logger.warn).toHaveBeenCalledWith('CONDUIT_IMAGE_COMPRESSION_QUALITY (-10) out of range (1-100). Clamping to 75.');
+      expect(logger.warn).toHaveBeenCalledWith(
+        'CONDUIT_IMAGE_COMPRESSION_QUALITY (-10) out of range (1-100). Clamping to 75.'
+      );
     });
 
     it('should override defaultChecksumAlgorithm with valid CONDUIT_DEFAULT_CHECKSUM_ALGORITHM', () => {
@@ -190,7 +256,9 @@ describe('configLoader', () => {
       process.env.CONDUIT_DEFAULT_CHECKSUM_ALGORITHM = 'md4';
       const config = loadConfig();
       expect(config.defaultChecksumAlgorithm).toBe('sha256');
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Invalid value for env var. Received "md4"'));
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid value for env var. Received "md4"')
+      );
     });
   });
-}); 
+});

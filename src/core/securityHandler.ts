@@ -1,133 +1,143 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { configLoader, ConduitError, ErrorCode } from '@/internal';
-import logger from '@/utils/logger';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs/promises'; // Using fs.promises for lstat, readlink
+import {
+  ConduitError,
+  ErrorCode,
+  ResolvedPath,
+  conduitConfig,
+  logger,
+  fileSystemOps,
+} from '@/internal';
+
+const MAX_SYMLINK_DEPTH = 10; // Max number of symlinks to resolve in a path
 
 /**
- * Resolves a given user path to its absolute, real path, checking for symlinks.
- * @param userPath The path provided by the user.
- * @returns The absolute, real path.
- * @throws ConduitError if path resolution fails or symlink resolution fails.
+ * Checks if a given resolved path is within the list of allowed path prefixes.
  */
-async function resolveToRealPath(userPath: string): Promise<string> {
-  try {
-    let resolvedPath = path.resolve(userPath);
-    // Check for symlinks iteratively to handle nested symlinks.
-    // Max iterations to prevent infinite loops with circular symlinks (though fs.realpath should handle this).
-    for (let i = 0; i < 10; i++) { 
-      const stats = await fs.lstat(resolvedPath);
-      if (stats.isSymbolicLink()) {
-        const linkTarget = await fs.readlink(resolvedPath);
-        resolvedPath = path.resolve(path.dirname(resolvedPath), linkTarget);
-      } else {
-        // Not a symlink, or fs.realpath will handle it from here
-        break;
-      }
-    }
-    // Final resolution with fs.realpath to get the canonical path
-    return await fs.realpath(resolvedPath);
-  } catch (err: any) {
-    logger.debug(`Path resolution or realpath failed for ${userPath}: ${err.message}`);
-    if (err.code === 'ENOENT') {
-      // If the error is ENOENT, it means some part of the path doesn't exist.
-      // We might still want to proceed with the initial absolute resolution for validation if the operation
-      // is one that creates files/dirs (e.g. write, mkdir). The checkAccess function will handle this.
-      // For now, we throw an error indicating resolution failure, as fs.realpath requires path existence.
-      // The caller (validateAndResolvePath) can decide if a non-existent path is permissible for certain ops.
-      throw new ConduitError(ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED, `Failed to resolve path to its real form: ${userPath}. Path or component may not exist.`);
-    }
-    throw new ConduitError(ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED, `Failed to resolve path to its real form: ${userPath}. Error: ${err.message}`);
+export function isPathAllowed(resolvedPath: string, allowedPaths: string[]): boolean {
+  if (!allowedPaths || allowedPaths.length === 0) {
+    return false; // No paths are allowed if the list is empty or undefined
   }
+  for (const allowedPrefix of allowedPaths) {
+    // Ensure both paths are consistently formatted (e.g., trailing slashes) for comparison if necessary,
+    // but startsWith should handle it if allowedPrefix is a directory prefix.
+    // Make sure comparison is case-sensitive or insensitive based on OS norms if critical, though absolute paths usually are specific.
+    if (resolvedPath.startsWith(allowedPrefix)) {
+      if (allowedPrefix.length === resolvedPath.length) return true; // Exact match
+      if (resolvedPath[allowedPrefix.length] === path.sep) return true; // Subpath match
+    }
+  }
+  return false;
 }
 
 /**
- * Checks if a given absolute, real path is within any of the configured allowed directories.
- * @param realPath The absolute, real path to check.
- * @returns True if the path is within allowed directories, false otherwise.
- */
-function isPathWithinAllowedDirs(realPath: string): boolean {
-  if (configLoader.conduitConfig.allowedPaths.length === 0) {
-    logger.warn('No allowed paths configured. Denying all filesystem access.');
-    return false;
-  }
-  return configLoader.conduitConfig.allowedPaths.some(allowedDir => {
-    const relative = path.relative(allowedDir, realPath);
-    return !relative.startsWith('..') && !path.isAbsolute(relative);
-  });
-}
-
-/**
- * Validates a user-provided path against allowed directories and resolves symlinks.
- * Throws an error if access is denied.
- * @param userPath The path provided by the user.
- * @param Ctx Additional context, e.g. if the path is expected to exist or not.
- *            `isExistenceRequired`: if true, will throw ERR_FS_NOT_FOUND if path doesn't resolve to an existing entity.
- *                                   if false, resolution will try its best, and then permission check is based on this resolved path.
- *                                   Useful for write operations where the file might not exist yet.
- * @returns The validated, absolute, real path if access is permitted and path exists (if required).
- *          Or the absolute path (not necessarily real path if not existent) if access is permitted and existence is not required.
- * @throws ConduitError if path is outside allowed scope or resolution fails when existence is required.
- */
-export async function validateAndResolvePath(userPath: string, { isExistenceRequired = true }: { isExistenceRequired?: boolean } = {}): Promise<string> {
-  if (typeof userPath !== 'string' || userPath.trim() === '') {
-    throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.');
-  }
-
-  let resolvedPathForCheck: string;
-  let realPath: string | undefined = undefined;
-
-  try {
-    realPath = await resolveToRealPath(userPath);
-    resolvedPathForCheck = realPath;
-  } catch (error: any) {
-    if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED) {
-      if (isExistenceRequired) {
-        // If existence is required and resolveToRealPath failed (e.g. ENOENT), rethrow.
-        throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found or could not be resolved: ${userPath}`);
-      }
-      // If not required to exist, try to get an absolute path for permission check, even if not fully real.
-      // This is for cases like writing to a new file in an allowed directory.
-      resolvedPathForCheck = path.resolve(userPath);
-      logger.debug(`Path ${userPath} does not exist, but existence not required. Validating access for its resolved form: ${resolvedPathForCheck}`);
-    } else {
-      // Some other error during resolveToRealPath
-      throw error;
-    }
-  }
-
-  if (!isPathWithinAllowedDirs(resolvedPathForCheck)) {
-    logger.warn(`Access denied for path: ${userPath} (resolved to: ${resolvedPathForCheck}). Not within allowed paths: ${configLoader.conduitConfig.allowedPaths.join(', ')}`);
-    throw new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path '${userPath}' is denied. It is outside the configured allowed directories.`);
-  }
-  
-  logger.debug(`Path validation successful for: ${userPath} (resolved to: ${resolvedPathForCheck})`);
-  // If existence was required, realPath must be defined here from the successful try block.
-  // If not required, return the checked path (which might be just resolved, not real if new).
-  return realPath || resolvedPathForCheck; 
-}
-
-/**
- * A simpler validation function that ensures a path, once resolved to its absolute form
- * (without necessarily requiring it to exist or fully resolving symlinks if not existing),
- * falls within the allowed directories. This is useful for operations that might create
- * the target, like `write.put` or `mkdir`, where the final segment might not exist yet.
+ * Resolves a given file path, including tilde (~) expansion and symbolic link resolution,
+ * and optionally checks if it exists and is within allowed paths.
  *
- * @param userPath The path provided by the user.
- * @returns The absolute path if validation passes.
- * @throws ConduitError if the path is outside the allowed scope.
+ * @param ursprünglicherPfad The initial path string from user input.
+ * @param options Options for validation:
+ *   - isExistenceRequired: If true, throws ERR_FS_NOT_FOUND if path doesn't exist.
+ *   - checkAllowed: If true (default), checks if the final real path is within conduitConfig.resolvedAllowedPaths.
+ * @returns The fully resolved, absolute, real path.
+ * @throws ConduitError for access denied, path not found, or too many symlinks.
  */
-export function validatePathForCreation(userPath: string): string {
-    if (typeof userPath !== 'string' || userPath.trim() === '') {
-        throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.');
-    }
+export async function validateAndResolvePath(
+  originalPath: string,
+  options: { isExistenceRequired?: boolean; checkAllowed?: boolean } = {}
+): Promise<string> {
+  const { isExistenceRequired = false, checkAllowed = true } = options;
+  let currentPath = originalPath;
 
-    const absolutePath = path.resolve(userPath);
-
-    if (!isPathWithinAllowedDirs(absolutePath)) {
-        logger.warn(`Access denied for creation path: ${userPath} (resolved to: ${absolutePath}). Not within allowed paths: ${configLoader.conduitConfig.allowedPaths.join(', ')}`);
-        throw new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path '${userPath}' for creation is denied. It is outside the configured allowed directories.`);
+  // 1. Tilde expansion
+  if (currentPath.startsWith('~')) {
+    if (conduitConfig.allowTildeExpansion !== true) {
+        throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Tilde (~) expansion is not allowed by server configuration.");
     }
-    
-    logger.debug(`Path validation for creation successful for: ${userPath} (resolved to: ${absolutePath})`);
-    return absolutePath;
-} 
+    currentPath = path.join(os.homedir(), currentPath.substring(1));
+  }
+
+  // 2. Resolve to absolute path (preliminary)
+  // Note: path.resolve can handle a lot, but symlinks need specific handling later.
+  // We use workspaceRoot as the base for resolving relative paths if originalPath is not absolute.
+  // If originalPath IS absolute, path.resolve(config.workspaceRoot, originalPath) might behave unexpectedly if originalPath is like /foo.
+  // path.resolve will process segments from right to left. If an absolute path is encountered (like originalPath), it stops processing further left.
+  // If originalPath is relative, it prepends current working dir. For server context, better to use workspaceRoot explicitly.
+  if (!path.isAbsolute(currentPath)) {
+    currentPath = path.resolve(conduitConfig.workspaceRoot, currentPath);
+  } else {
+    currentPath = path.resolve(currentPath); // Normalizes an already absolute path (e.g. removes trailing slashes)
+  }
+
+  // 3. Symlink resolution and canonicalization to a real path
+  let realPath = currentPath;
+  try {
+    // Before checking existence or symlinks, normalize to catch `.` `..` etc.
+    realPath = await fs.realpath(currentPath);
+  } catch (e: any) {
+    // fs.realpath throws ENOENT if any part of the path doesn't exist.
+    if (e.code === 'ENOENT') {
+      if (isExistenceRequired) {
+        logger.warn(`[securityHandler] Path not found (realpath check): ${currentPath}`);
+        throw new ConduitError(
+          ErrorCode.ERR_FS_NOT_FOUND,
+          `Path not found: ${originalPath} (resolved to ${currentPath})`
+        );
+      }
+      // If existence is not required, we use the path.resolve() version and proceed to allowance check if enabled.
+      // This covers cases like writing to a new file in an allowed directory.
+      // However, the allowance check should ideally be on a path that *could* exist.
+      // For creating new files, parent directory must be allowed. fs.realpath fails here.
+      // If realpath fails due to non-existence, and existence is NOT required (e.g. writeFile target):
+      // We must still check the *intended* absolute path against allowed paths.
+      // realPath here is the path.resolve() version. We continue with this for the checkAllowed logic.
+      // If we are *creating* something, the realpath up to the parent should exist and be allowed.
+      // This simple `realPath = currentPath` after ENOENT from `fs.realpath` is okay if `checkAllowed` uses `currentPath`.
+    } else if (e.code === 'ELOOP') {
+        logger.error(`[securityHandler] Too many symbolic links for ${currentPath}: ${e.message}`);
+        throw new ConduitError(
+            ErrorCode.ERR_FS_INVALID_PATH,
+            `Too many symbolic links encountered while resolving path: ${originalPath}.`
+        );
+    } else {
+      logger.error(`[securityHandler] Error during fs.realpath for ${currentPath}: ${e.message}`);
+      throw new ConduitError(
+        ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED,
+        `Failed to resolve real path for: ${originalPath}. ${e.message}`
+      );
+    }
+    // If realpath succeeded, realPath is now the canonical, absolute path with symlinks resolved.
+  }
+
+  // 4. Check if allowed (if checkAllowed is true)
+  if (checkAllowed) {
+    // If realpath failed due to ENOENT and existence wasn't required, we check the path.resolved `currentPath`.
+    // Otherwise, we check the `realPath` obtained from `fs.realpath()`.
+    const pathToVerify = (await fs.stat(realPath).catch(() => null)) ? realPath : currentPath;
+
+    if (!isPathAllowed(pathToVerify, conduitConfig.resolvedAllowedPaths)) {
+      logger.warn(
+        `[securityHandler] Access denied for path: ${originalPath} (resolved to ${pathToVerify})`
+      );
+      throw new ConduitError(
+        ErrorCode.ERR_FS_PERMISSION_DENIED,
+        `Access to path is denied: ${originalPath}`
+      );
+    }
+  }
+
+  // 5. Final existence check if required (and not already thrown by fs.realpath)
+  // This is somewhat redundant if fs.realpath succeeded, as that implies existence.
+  // But if fs.realpath threw ENOENT and isExistenceRequired was false, we might reach here.
+  // However, current logic means if isExistenceRequired is true and realpath threw ENOENT, we've already thrown.
+  // This check is more for the case where realpath didn't run (e.g. future modification) or to be absolutely sure.
+  if (isExistenceRequired && !(await fileSystemOps.pathExists(realPath))) {
+    logger.warn(`[securityHandler] Path not found (final check): ${realPath}`);
+    throw new ConduitError(
+      ErrorCode.ERR_FS_NOT_FOUND,
+      `Path not found: ${originalPath} (resolved to ${realPath})`
+    );
+  }
+
+  return realPath; // Return the canonical, absolute, real path
+}

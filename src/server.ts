@@ -1,102 +1,138 @@
-import readline from 'readline';
+import readline from 'node:readline';
 import {
-    MCPRequest,
-    MCPResponse,
-    configLoader,
-    handleReadTool,
-    handleWriteTool,
-    handleListTool,
-    handleFindTool,
-    ConduitError,
-    ErrorCode,
-    createMCPErrorStatus,
-    logger,
-    prependInfoNoticeIfApplicable,
+  logger,
+  conduitConfig,
+  loadConduitConfig,
+  ReadTool,
+  WriteTool,
+  ListTool,
+  FindTool,
+  ArchiveTool,
+  TestTool,
+  ErrorCode,
+  createErrorResponse,
 } from '@/internal';
+import { readToolHandler } from '@/tools/readTool';
+import { writeToolHandler } from '@/tools/writeTool';
+import { listToolHandler } from '@/tools/listTool';
+import { findToolHandler } from '@/tools/findTool';
+import { archiveToolHandler } from '@/operations/archiveOps';
+import { testToolHandler } from '@/tools/testTool';
+import * as noticeService from '@/core/noticeService';
+import { MCPErrorStatus, InfoNotice } from '@/types/common';
 
-logger.info(`conduit-mcp server v${configLoader.conduitConfig.serverVersion} starting... Log level: ${configLoader.conduitConfig.logLevel}`);
-logger.info(`Allowed paths: ${configLoader.conduitConfig.allowedPaths.join(', ')}`);
-logger.info(`Default checksum algorithm: ${configLoader.conduitConfig.defaultChecksumAlgorithm}`);
-logger.debug('Full configuration:', configLoader.conduitConfig); 
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  terminal: false // Ensure it works with piped input
-});
-
-async function processRequest(line: string): Promise<void> {
-  let request: MCPRequest;
-  let responsePayload: any;
-
-  try {
-    if (line.length > configLoader.conduitConfig.maxPayloadSizeBytes) {
-        throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `Incoming MCP request payload size (${line.length} bytes) exceeds CONDUIT_MAX_PAYLOAD_SIZE_BYTES (${configLoader.conduitConfig.maxPayloadSizeBytes} bytes).`);
-    }
-    request = JSON.parse(line) as MCPRequest;
-    logger.debug(`Received MCP Request (ID: ${request.requestId}): Tool='${request.toolName}', Params='${JSON.stringify(request.parameters).substring(0,200)}...'`);
-
-    switch (request.toolName) {
-      case 'read':
-        responsePayload = await handleReadTool(request.parameters as any);
-        break;
-      case 'write':
-        responsePayload = await handleWriteTool(request.parameters as any);
-        break;
-      case 'list':
-        responsePayload = await handleListTool(request.parameters as any);
-        break;
-      case 'find':
-        responsePayload = await handleFindTool(request.parameters as any);
-        break;
-      default:
-        throw new ConduitError(ErrorCode.ERR_UNKNOWN_TOOL, `Unknown tool name: ${request.toolName}`);
-    }
-    
-    // Prepend info notice if applicable. This modifies responsePayload.
-    responsePayload = prependInfoNoticeIfApplicable(responsePayload);
-
-  } catch (error: any) {
-    const mcpError = error instanceof ConduitError ? error.MCPPErrorStatus : createMCPErrorStatus(ErrorCode.ERR_MCP_INVALID_REQUEST, error.message);
-    responsePayload = mcpError; // For single errors, response becomes the error object directly
-    // If the error occurred before request parsing, requestId might be undefined
-    const reqId = typeof request! !== 'undefined' && request!?.requestId ? request!.requestId : undefined;
-    logger.error(`Error processing MCP Request (ID: ${reqId}): ${error.message}`, error.stack);
-  }
-  
-  const mcpResponse: MCPResponse = {
-    requestId: typeof request! !== 'undefined' && request!?.requestId ? request!.requestId : undefined,
-    response: responsePayload
-  };
-
-  const responseString = JSON.stringify(mcpResponse);
-  process.stdout.write(responseString + '\n');
-  logger.debug(`Sent MCP Response (ID: ${mcpResponse.requestId}): '${responseString.substring(0,300)}...'`);
+function sendErrorResponse(errorCode: ErrorCode, message: string, details?: string) {
+  const finalMessage = details ? `${message} ${details}` : message;
+  const errorRes = createErrorResponse(errorCode, finalMessage);
+  process.stdout.write(JSON.stringify(errorRes) + '\n');
 }
 
-rl.on('line', (line) => {
-  if (line.trim() === '') return; // Ignore empty lines
-  processRequest(line).catch(err => {
-    // This catch is for unhandled promise rejections within processRequest itself, though most errors should be caught internally.
-    const errorResponse: MCPResponse = {
-      response: createMCPErrorStatus(ErrorCode.ERR_INTERNAL_SERVER_ERROR, `Critical unhandled error: ${err.message}`)
-    };
-    process.stdout.write(JSON.stringify(errorResponse) + '\n');
-    logger.fatal('Critical unhandled error in processRequest:', err);
+(async () => {
+  try {
+    await loadConduitConfig();
+  } catch (error) {
+    console.error(
+      `Critical config error: ${error instanceof Error ? error.message : String(error)}`
+    );
+    process.exit(1);
+  }
+
+  logger.info(
+    `Conduit-MCP Server v${conduitConfig.serverVersion} started at ${conduitConfig.serverStartTimeIso}. PID: ${process.pid}. Allowed paths: ${JSON.stringify(conduitConfig.resolvedAllowedPaths)}. Max payload: ${conduitConfig.maxPayloadSizeBytes} bytes.`
+  );
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false,
   });
-});
 
-rl.on('close', () => {
-  logger.info('Input stream closed. Server shutting down.');
-  process.exit(0);
-});
+  rl.on('line', async (line) => {
+    try {
+      if (line.length > conduitConfig.maxPayloadSizeBytes) {
+        sendErrorResponse(
+          ErrorCode.RESOURCE_LIMIT_EXCEEDED,
+          'Request payload exceeds maximum allowed size.'
+        );
+        return;
+      }
 
-process.on('SIGINT', () => {
-    logger.info('Received SIGINT. Shutting down...');
-    process.exit(0);
-});
+      let request: any;
+      try {
+        request = JSON.parse(line);
+      } catch (parseError) {
+        sendErrorResponse(ErrorCode.ERR_MCP_INVALID_REQUEST, 'Malformed MCP request JSON.');
+        return;
+      }
 
-process.on('SIGTERM', () => {
-    logger.info('Received SIGTERM. Shutting down...');
-    process.exit(0);
-}); 
+      if (!request.tool_name || !request.params) {
+        sendErrorResponse(
+          ErrorCode.INVALID_PARAMETER,
+          'Invalid request structure: missing tool_name or params.'
+        );
+        return;
+      }
+
+      let toolResponse: any;
+      switch (request.tool_name) {
+        case 'read':
+          toolResponse = await readToolHandler(request.params, conduitConfig);
+          break;
+        case 'write':
+          toolResponse = await writeToolHandler(request.params, conduitConfig);
+          break;
+        case 'list':
+          toolResponse = await listToolHandler(request.params, conduitConfig);
+          break;
+        case 'find':
+          toolResponse = await findToolHandler(request.params, conduitConfig);
+          break;
+        case 'ArchiveTool':
+          toolResponse = await archiveToolHandler(request.params, conduitConfig);
+          break;
+        case 'test':
+          toolResponse = await testToolHandler(request.params, conduitConfig);
+          break;
+        default:
+          sendErrorResponse(ErrorCode.ERR_UNKNOWN_TOOL, `Unknown tool: ${request.tool_name}`);
+          return;
+      }
+
+      if (
+        toolResponse &&
+        !(toolResponse as MCPErrorStatus).error_code &&
+        !noticeService.hasFirstUseNoticeBeenSent()
+      ) {
+        const notice = noticeService.generateFirstUseNotice(conduitConfig);
+        if (notice) {
+          if (toolResponse.results && Array.isArray(toolResponse.results)) {
+            toolResponse.results.unshift(notice);
+          } else if (toolResponse.results) {
+            toolResponse.results = [notice, toolResponse.results];
+          } else {
+            toolResponse.results = [notice, toolResponse.results];
+          }
+          noticeService.markFirstUseNoticeSent();
+        }
+      }
+
+      process.stdout.write(JSON.stringify(toolResponse) + '\n');
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      sendErrorResponse(
+        ErrorCode.INTERNAL_ERROR,
+        `Internal server error: ${error.message}`,
+        error.stack
+      );
+    }
+  });
+
+  rl.on('close', () => {
+    logger.info('Conduit-MCP Server shutting down.');
+  });
+})();
+
+process.on('uncaughtException', (error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});

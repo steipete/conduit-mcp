@@ -7,6 +7,6 @@ export interface MCPRequest {
 export interface MCPResponse {
   requestId?: string; // Should mirror the request's ID if provided
   response: any; // This will be specific to the tool's response structure
-                 // e.g., ReadTool.Response, PutTool.Response etc.
-                 // Or an MCPErrorStatus object.
+  // e.g., ReadTool.Response, PutTool.Response etc.
+  // Or an MCPErrorStatus object.
 }

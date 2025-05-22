@@ -1,4 +1,12 @@
-import { EntryInfo, MCPResult, InfoNotice, MCPToolResponse, MCPErrorStatus, MCPSuccess } from './common';
+import {
+  EntryInfo,
+  MCPResult,
+  InfoNotice,
+  MCPToolResponse,
+  MCPErrorStatus,
+  MCPSuccess,
+  RangeRequestStatus,
+} from './common.js';
 import { ErrorCode } from '@/internal';
 
 // This file will be expanded with specific request and response types for each tool
@@ -32,7 +40,6 @@ export namespace ReadTool {
   export type ContentFormat = 'text' | 'base64' | 'markdown' | 'checksum';
   export type ChecksumAlgorithm = 'md5' | 'sha1' | 'sha256' | 'sha512';
   export type DiffFormat = 'unified';
-  export type RangeRequestStatus = 'native' | 'simulated' | 'full_content_returned' | 'not_supported' | 'not_applicable_offset_oob';
 
   export interface BaseParams {
     sources: string[];
@@ -81,16 +88,20 @@ export namespace ReadTool {
     markdown_conversion_skipped_reason?: string;
   }
   export type ContentResultItem = ContentResultSuccess | (MCPErrorStatus & BaseResult);
-  export type ContentResponse = MCPToolResponse<ContentResultItem[]>;
 
+  export interface DefinedContentResponse {
+    tool_name: 'read';
+    results: ContentResultItem[];
+    info_notices?: InfoNotice[];
+  }
 
   export interface Metadata {
     name: string;
-    entry_type: 'file' | 'directory' | 'url';
+    entry_type: 'file' | 'directory' | 'symlink' | 'other' | 'url' | 'special';
     size_bytes?: number;
     mime_type?: string;
-    created_at_iso?: string;
-    modified_at_iso?: string;
+    created_at?: string;
+    modified_at?: string;
     permissions_octal?: string;
     permissions_string?: string;
     http_headers?: Record<string, string | string[] | undefined>;
@@ -101,8 +112,12 @@ export namespace ReadTool {
     final_url?: string; // The final URL after any redirects
   }
   export type MetadataResultItem = MetadataResultSuccess | (MCPErrorStatus & BaseResult);
-  export type MetadataResponse = MCPToolResponse<MetadataResultItem[]>;
 
+  export interface DefinedMetadataResponse {
+    tool_name: 'read';
+    results: MetadataResultItem[];
+    info_notices?: InfoNotice[];
+  }
 
   export interface DiffResultSuccess extends MCPSuccess {
     sources_compared: [string, string];
@@ -110,12 +125,24 @@ export namespace ReadTool {
     diff_content: string;
   }
   export type DiffResult = DiffResultSuccess | MCPErrorStatus;
-  export type DiffResponse = MCPToolResponse<DiffResult>; // Single object response for diff
 
+  export interface DefinedDiffResponse {
+    tool_name: 'read';
+    results: DiffResult; // Singular
+    info_notices?: InfoNotice[];
+  }
 }
 
 export namespace WriteTool {
-  export type WriteAction = 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch' | 'archive' | 'unarchive';
+  export type WriteAction =
+    | 'put'
+    | 'mkdir'
+    | 'copy'
+    | 'move'
+    | 'delete'
+    | 'touch'
+    | 'archive'
+    | 'unarchive';
   export type InputEncoding = 'text' | 'base64';
   export type WriteMode = 'overwrite' | 'append' | 'error_if_exists';
   export type ArchiveFormat = 'zip' | 'tar.gz' | 'tgz';
@@ -195,7 +222,15 @@ export namespace WriteTool {
     format?: ArchiveFormat | string;
   }
 
-  export type Parameters = PutParams | MkdirParams | CopyParams | MoveParams | DeleteParams | TouchParams | ArchiveParams | UnarchiveParams;
+  export type Parameters =
+    | PutParams
+    | MkdirParams
+    | CopyParams
+    | MoveParams
+    | DeleteParams
+    | TouchParams
+    | ArchiveParams
+    | UnarchiveParams;
 
   // --- Result Types ---
   interface BaseResult {
@@ -204,7 +239,7 @@ export namespace WriteTool {
     source_path?: string; // For copy, move
     destination_path?: string; // For copy, move, unarchive dest
   }
-  
+
   export interface WriteResultSuccess extends MCPSuccess, BaseResult {
     bytes_written?: number; // For put
     checksum?: string;
@@ -215,10 +250,20 @@ export namespace WriteTool {
   }
 
   export type WriteResultItem = WriteResultSuccess | (MCPErrorStatus & BaseResult);
-  export type BatchResponse = MCPToolResponse<WriteResultItem[]>; // For put, mkdir, copy, move, delete, touch
-  export type ArchiveActionResult = WriteResultSuccess | MCPErrorStatus; // For single archive/unarchive
-  export type ArchiveActionResponse = MCPToolResponse<ArchiveActionResult>; 
 
+  export interface DefinedBatchResponse {
+    tool_name: 'write';
+    results: WriteResultItem[];
+    info_notices?: InfoNotice[];
+  }
+
+  export type ArchiveActionResult = WriteResultSuccess | MCPErrorStatus; // For single archive/unarchive
+
+  export interface DefinedArchiveResponse {
+    tool_name: 'write';
+    results: ArchiveTool.ArchiveResultItem[];
+    info_notices?: InfoNotice[];
+  }
 }
 
 export namespace ListTool {
@@ -248,7 +293,11 @@ export namespace ListTool {
   // EntryInfo is already defined in common.ts and re-exported by tools.ts top level
   // export { EntryInfo } from '../common'; // No, it's directly available
 
-  export type EntriesResponse = MCPToolResponse<EntryInfo[]>;
+  export interface DefinedEntriesResponse {
+    tool_name: 'list';
+    results: EntryInfo[];
+    info_notices?: InfoNotice[];
+  }
 
   export interface ServerCapabilities {
     server_version: string;
@@ -258,7 +307,12 @@ export namespace ListTool {
     default_checksum_algorithm: string;
     max_recursive_depth: number;
   }
-  export type ServerCapabilitiesResponse = MCPToolResponse<ServerCapabilities>;
+
+  export interface DefinedServerCapabilitiesResponse {
+    tool_name: 'list';
+    results: ServerCapabilities; // Singular
+    info_notices?: InfoNotice[];
+  }
 
   export interface FilesystemStats {
     path_queried: string;
@@ -274,8 +328,12 @@ export namespace ListTool {
     server_start_time_iso: string;
     configured_allowed_paths: string[];
   }
-  export type FilesystemStatsResponse = MCPToolResponse<FilesystemStats | FilesystemStatsNoPath>;
 
+  export interface DefinedFilesystemStatsResponse {
+    tool_name: 'list';
+    results: FilesystemStats | FilesystemStatsNoPath; // Singular, union type
+    info_notices?: InfoNotice[];
+  }
 }
 
 export namespace FindTool {
@@ -292,8 +350,20 @@ export namespace FindTool {
     file_types_to_search?: string[]; // e.g., [".txt", ".log"]
   }
 
-  export type MetadataAttribute = 'name' | 'size_bytes' | 'created_at_iso' | 'modified_at_iso' | 'entry_type' | 'mime_type';
-  export type StringOperator = 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'ends_with' | 'matches_regex';
+  export type MetadataAttribute =
+    | 'name'
+    | 'size_bytes'
+    | 'created_at'
+    | 'modified_at'
+    | 'entry_type'
+    | 'mime_type';
+  export type StringOperator =
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'starts_with'
+    | 'ends_with'
+    | 'matches_regex';
   export type NumericOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
   export type DateOperator = 'before' | 'after' | 'on_date';
 
@@ -305,7 +375,10 @@ export namespace FindTool {
     case_sensitive?: boolean; // For string operators
   }
 
-  export type MatchCriterion = NamePatternCriterion | ContentPatternCriterion | MetadataFilterCriterion;
+  export type MatchCriterion =
+    | NamePatternCriterion
+    | ContentPatternCriterion
+    | MetadataFilterCriterion;
 
   export interface Parameters {
     base_path: string;
@@ -316,7 +389,11 @@ export namespace FindTool {
 
   // Response is an array of EntryInfo objects, similar to list.entries
   // EntryInfo is already available from common types.
-  export type FindResponse = MCPToolResponse<EntryInfo[]>;
+  export interface DefinedFindResponse {
+    tool_name: 'find';
+    results: EntryInfo[];
+    info_notices?: InfoNotice[];
+  }
 }
 
 // Namespace for the TestTool (New)
@@ -341,7 +418,11 @@ export namespace TestTool {
   // For generate_error, the result IS an error, so it will conform to MCPErrorStatus directly.
   // No specific success type for generate_error.
 
-  export type EchoResponse = MCPToolResponse<EchoResultSuccess>;
+  export interface DefinedEchoResponse {
+    tool_name: 'test';
+    results: EchoResultSuccess; // Singular
+    info_notices?: InfoNotice[];
+  }
   // Response for generate_error will be MCPErrorStatus, handled by the main MCPToolResponse structure.
 }
 
@@ -404,7 +485,6 @@ export namespace ArchiveTool {
     format_used: string; // e.g., 'zip', 'tar', 'tar.gz'
     entries_extracted: number; // Number of entries extracted, -1 if not easily countable
     options_applied?: ArchiveOptions;
-    extracted_files_count?: number;
     message?: string;
   }
 
@@ -424,5 +504,4 @@ export namespace ArchiveTool {
   // The provided MCPToolResponse<T> = T | T[] | [InfoNotice, T] | [InfoNotice, ...T[]] definition
   // might be too broad or misinterpreted by the linter in this context.
   // Let's redefine Response to be the object structure expected by the handler
-
-} 
+}

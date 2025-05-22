@@ -14,12 +14,13 @@ import {
   configLoader,
   fileSystemOps as internalFileSystemOps,
   ConduitError,
+  conduitConfig,
 } from '@/internal';
 
 // Mock @/internal essentials using the robust spread pattern
 vi.mock('@/internal', async (importOriginal) => {
   const originalModule = await importOriginal<typeof import('@/internal')>();
-  
+
   const loggerMock = mockDeep<import('pino').Logger<string>>();
   loggerMock.child.mockReturnValue(loggerMock);
 
@@ -42,7 +43,7 @@ vi.mock('@/internal', async (importOriginal) => {
 
 describe('mkdirOps', () => {
   const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
-  const mockedConfig = configLoader.conduitConfig as DeepMockProxy<ConduitServerConfig>;
+  const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
   const mockedFsOps = internalFileSystemOps as DeepMockProxy<typeof internalFileSystemOps>;
 
   const defaultTestConfig: Partial<ConduitServerConfig> = {
@@ -53,13 +54,10 @@ describe('mkdirOps', () => {
 
   beforeEach(() => {
     mockReset(mockedLogger);
-     // @ts-ignore
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-        // @ts-ignore
-        mockedLogger.child.mockReset();
+      mockedLogger.child.mockReset();
     }
-    // @ts-ignore
-    mockedLogger.child.mockReturnValue(mockedLogger); // Ensure child() returns the mock post-reset
+    mockedLogger.child.mockReturnValue(mockedLogger as any); // Ensure child() returns the mock post-reset
 
     mockReset(mockedConfig as any);
     Object.assign(mockedConfig, defaultTestConfig);
@@ -98,7 +96,9 @@ describe('mkdirOps', () => {
     expect(mockedFsOps.ensureDirectoryExists).toHaveBeenCalledWith(absoluteTestDirPath);
     expect(result.status).toBe('success');
     const successResult = result as WriteTool.WriteResultSuccess;
-    expect(successResult.message).toContain('Directory and any necessary parent directories created');
+    expect(successResult.message).toContain(
+      'Directory and any necessary parent directories created'
+    );
   });
 
   it('should return success if directory already exists', async () => {
@@ -129,8 +129,7 @@ describe('mkdirOps', () => {
 
   it('should return error on permission denied (EACCES)', async () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
-    const permissionError = new Error('Permission denied');
-    // @ts-ignore
+    const permissionError: any = new Error('Permission denied');
     permissionError.code = 'EACCES';
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(permissionError);
 
@@ -145,8 +144,7 @@ describe('mkdirOps', () => {
 
   it('should return error on invalid path component (ENOTDIR)', async () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
-    const notDirError = new Error('Not a directory');
-    // @ts-ignore
+    const notDirError: any = new Error('Not a directory');
     notDirError.code = 'ENOTDIR';
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(notDirError);
 
@@ -183,7 +181,7 @@ describe('mkdirOps', () => {
     }
   });
 
-   it('should return error if path is undefined', async () => {
+  it('should return error if path is undefined', async () => {
     const entry: WriteTool.MkdirEntry = { path: undefined as any }; // Test with undefined path
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
@@ -194,9 +192,11 @@ describe('mkdirOps', () => {
     }
   });
 
-   it('should correctly handle ConduitError thrown by underlying operations', async () => {
-    mockedFsOps.pathExists.mockRejectedValue(new ConduitError(ErrorCode.ACCESS_DENIED, 'Conduit access denied'));
-    
+  it('should correctly handle ConduitError thrown by underlying operations', async () => {
+    mockedFsOps.pathExists.mockRejectedValue(
+      new ConduitError(ErrorCode.ACCESS_DENIED, 'Conduit access denied')
+    );
+
     const entry: WriteTool.MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
@@ -206,4 +206,4 @@ describe('mkdirOps', () => {
       expect(result.error_message).toBe(`Permission denied for path: ${testDirPath}`);
     }
   });
-}); 
+});

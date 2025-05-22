@@ -9,7 +9,7 @@ if (typeof global.TextEncoder === 'undefined') {
   global.TextEncoder = TextEncoder;
 }
 if (typeof global.TextDecoder === 'undefined') {
-  // @ts-ignore
+  // @ts-expect-error: Polyfilling TextDecoder for test environment if not present
   global.TextDecoder = TextDecoder;
 }
 
@@ -36,7 +36,11 @@ vi.mock('@/utils/logger', () => {
     warn: vi.fn(),
     error: vi.fn(),
     fatal: vi.fn(),
+    child: vi.fn(),
   };
+
+  // Make child return the mockLogger itself to allow chaining and prevent 'is not a function' errors
+  mockLogger.child.mockReturnValue(mockLogger);
 
   // Return the mock both as named exports *and* as the default export.
   return {
@@ -65,8 +69,6 @@ vi.mock('@/utils/logger', () => {
 // NOTE: Only the APIs that are currently used in the codebase are mapped. If
 // additional Jest helpers are required in the future they can be added here.
 // -----------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore – we deliberately attach to the global object
 if (!(globalThis as any).jest) {
   (globalThis as any).jest = {
     mock: vi.mock,
@@ -79,4 +81,4 @@ if (!(globalThis as any).jest) {
     useFakeTimers: vi.useFakeTimers,
     advanceTimersByTime: vi.advanceTimersByTime,
   } as unknown;
-} 
+}

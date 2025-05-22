@@ -1,8 +1,5 @@
 import { vi, Mocked } from 'vitest';
-import {
-  compressImageIfNecessary,
-  CompressionResult
-} from '@/core/imageProcessor';
+import { compressImageIfNecessary, CompressionResult } from '@/core/imageProcessor';
 // import { conduitConfig } from '@/core/configLoader'; // Mocked
 import sharp from 'sharp';
 import logger from '@/utils/logger';
@@ -11,7 +8,7 @@ import logger from '@/utils/logger';
 vi.mock('sharp');
 // The default export of 'sharp' is a function that returns a Sharp instance.
 // So, we mock that function.
-const mockedSharp = sharp as Mocked<typeof sharp>; 
+const mockedSharp = sharp as Mocked<typeof sharp>;
 
 // Mock configLoader
 const mockCompressionThreshold = 1024; // 1KB
@@ -54,12 +51,13 @@ describe('imageProcessor', () => {
     (mockedSharp as unknown as import('vitest').Mock).mockReturnValue(mockSharpInstance as any); // Use `as any` to satisfy complex Sharp type if needed for mock
   });
 
-  const createDummyImageBuffer = (size: number, content: string = 'a') => Buffer.alloc(size, content);
+  const createDummyImageBuffer = (size: number, content: string = 'a') =>
+    Buffer.alloc(size, content);
 
   it('should not compress if image size is below threshold', async () => {
     const imageBuffer = createDummyImageBuffer(mockCompressionThreshold - 1);
     const result = await compressImageIfNecessary(imageBuffer, 'image/jpeg');
-    
+
     expect(result.buffer).toBe(imageBuffer);
     expect(result.compression_applied).toBe(false);
     expect(result.original_size_bytes).toBe(imageBuffer.length);
@@ -90,7 +88,11 @@ describe('imageProcessor', () => {
     const result = await compressImageIfNecessary(originalBuffer, 'image/jpeg');
 
     expect(mockedSharp).toHaveBeenCalledWith(originalBuffer);
-    expect(mockSharpInstance.jpeg).toHaveBeenCalledWith({ quality: mockCompressionQuality, progressive: true, optimizeScans: true });
+    expect(mockSharpInstance.jpeg).toHaveBeenCalledWith({
+      quality: mockCompressionQuality,
+      progressive: true,
+      optimizeScans: true,
+    });
     expect(mockSharpInstance.toBuffer).toHaveBeenCalled();
     expect(result.buffer).toBe(compressedBuffer);
     expect(result.compression_applied).toBe(true);
@@ -99,7 +101,9 @@ describe('imageProcessor', () => {
 
   it('should use original image if compression does not reduce size for JPEG', async () => {
     const originalBuffer = createDummyImageBuffer(mockCompressionThreshold + 100);
-    mockSharpInstance.toBuffer.mockResolvedValue(createDummyImageBuffer(originalBuffer.length, 'b')); 
+    mockSharpInstance.toBuffer.mockResolvedValue(
+      createDummyImageBuffer(originalBuffer.length, 'b')
+    );
 
     const result = await compressImageIfNecessary(originalBuffer, 'image/jpeg');
     expect(result.buffer).toBe(originalBuffer);
@@ -111,18 +115,21 @@ describe('imageProcessor', () => {
     const originalBuffer = createDummyImageBuffer(mockCompressionThreshold + 100);
     const compressedBuffer = createDummyImageBuffer(mockCompressionThreshold - 50, 'c');
     mockSharpInstance.toBuffer.mockResolvedValue(compressedBuffer);
-    
+
     const result = await compressImageIfNecessary(originalBuffer, 'image/png');
-    expect(mockSharpInstance.png).toHaveBeenCalledWith({ compressionLevel: 9, adaptiveFiltering: true });
+    expect(mockSharpInstance.png).toHaveBeenCalledWith({
+      compressionLevel: 9,
+      adaptiveFiltering: true,
+    });
     expect(result.buffer).toBe(compressedBuffer);
     expect(result.compression_applied).toBe(true);
   });
 
-   it('should compress WebP correctly', async () => {
+  it('should compress WebP correctly', async () => {
     const originalBuffer = createDummyImageBuffer(mockCompressionThreshold + 100);
     const compressedBuffer = createDummyImageBuffer(mockCompressionThreshold - 50, 'd');
     mockSharpInstance.toBuffer.mockResolvedValue(compressedBuffer);
-    
+
     const result = await compressImageIfNecessary(originalBuffer, 'image/webp');
     expect(mockSharpInstance.webp).toHaveBeenCalledWith({ quality: mockCompressionQuality });
     expect(result.buffer).toBe(compressedBuffer);
@@ -140,16 +147,18 @@ describe('imageProcessor', () => {
     expect(result.compression_error_note).toBe(`Compression failed: ${error.message}`);
   });
 
-   it('should handle GIF (passes through with debug log in current impl)', async () => {
+  it('should handle GIF (passes through with debug log in current impl)', async () => {
     const originalBuffer = createDummyImageBuffer(mockCompressionThreshold + 100);
-    mockSharpInstance.toBuffer.mockResolvedValue(originalBuffer); 
+    mockSharpInstance.toBuffer.mockResolvedValue(originalBuffer);
 
     const result = await compressImageIfNecessary(originalBuffer, 'image/gif');
-    
+
     expect(mockedSharp).toHaveBeenCalledWith(originalBuffer);
-    expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining('GIF compression with sharp is basic'));
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('GIF compression with sharp is basic')
+    );
     expect(result.buffer).toBe(originalBuffer);
     expect(result.compression_applied).toBe(false);
     expect(result.compression_error_note).toBe('Compressed size was not smaller than original.');
   });
-}); 
+});

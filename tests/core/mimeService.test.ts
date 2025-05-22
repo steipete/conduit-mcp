@@ -21,10 +21,10 @@ describe('mimeService', () => {
 
     beforeEach(async () => {
       vi.resetModules();
-      
+
       // Ensure mockFileTypeFromFile is initialized before trying to clear it
       if (mockFileTypeFromFile) {
-         mockFileTypeFromFile.mockClear();
+        mockFileTypeFromFile.mockClear();
       }
       process.env = { ...originalEnv };
     });
@@ -65,18 +65,21 @@ describe('mimeService', () => {
         throw new Error('Simulated module load failure');
       });
 
-      const { getMimeType: getMimeTypeAfterFail } = await import('@/core/mimeService?bustCache=' + Date.now());
-      
+      const { getMimeType: getMimeTypeAfterFail } = await import(
+        '@/core/mimeService?bustCache=' + Date.now()
+      );
+
       const filePath = 'any.file';
       const mimeType = await getMimeTypeAfterFail(filePath);
       expect(mimeType).toBeUndefined();
-      
-      // mockFileTypeFromFile might be undefined if the vi.mock factory for 'file-type' itself doesn't run 
+
+      // mockFileTypeFromFile might be undefined if the vi.mock factory for 'file-type' itself doesn't run
       // due to the vi.doMock throwing an error before it. Or if the test setup has issues.
       // So, we only check its call count if it's defined.
-      if (mockFileTypeFromFile) { // This check is crucial
+      if (mockFileTypeFromFile) {
+        // This check is crucial
         expect(mockFileTypeFromFile).not.toHaveBeenCalled();
       }
     });
   });
-}); 
+});

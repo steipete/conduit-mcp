@@ -1,7 +1,9 @@
 import logger from '@/utils/logger';
 
 // file-type is an ES module, so we need to use dynamic import in a CommonJS environment.
-let fileTypeFromFile: ((filePath: string) => Promise<({ readonly ext: string; readonly mime: string; } | undefined)>) | undefined;
+let fileTypeFromFile:
+  | ((filePath: string) => Promise<{ readonly ext: string; readonly mime: string } | undefined>)
+  | undefined;
 
 async function loadFileTypeModule() {
   if (!fileTypeFromFile) {
@@ -34,4 +36,4 @@ export async function getMimeType(filePath: string): Promise<string | undefined>
     logger.warn(`Could not determine MIME type for ${filePath} using file-type: ${error.message}`);
     return undefined;
   }
-} 
+}

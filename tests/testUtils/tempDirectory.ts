@@ -24,4 +24,4 @@ export async function cleanupTemporaryDirectory(directoryPath: string): Promise<
     console.warn(`Failed to cleanup temporary directory ${directoryPath}:`, error);
     // Depending on strictness, you might want to re-throw or handle more gracefully
   }
-} 
+}

@@ -48,4 +48,14 @@ export class ConduitError extends Error {
   }
 }
 
-export { MCPErrorStatus, MCPError }; 
+/**
+ * Creates a standardized error response for tool handlers.
+ * @param errorCode The unique error code.
+ * @param message A descriptive human-readable error message.
+ * @returns MCPErrorStatus object.
+ */
+export function createErrorResponse(errorCode: ErrorCode, message: string): MCPErrorStatus {
+  return createMCPErrorStatus(errorCode, message);
+}
+
+export { MCPErrorStatus, MCPError };

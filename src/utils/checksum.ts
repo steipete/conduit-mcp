@@ -7,10 +7,10 @@ import crypto from 'crypto';
  * @returns A Promise that resolves to the hex-encoded checksum string.
  */
 export async function calculateChecksum(
-    content: Buffer | string,
-    algorithm: string = 'sha256' 
+  content: Buffer | string,
+  algorithm: string = 'sha256'
 ): Promise<string> {
-    const hash = crypto.createHash(algorithm);
-    hash.update(content);
-    return hash.digest('hex');
-} 
+  const hash = crypto.createHash(algorithm);
+  hash.update(content);
+  return hash.digest('hex');
+}

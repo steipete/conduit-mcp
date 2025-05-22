@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import type { Stats } from 'fs';
 import path from 'path';
 import { constants as fsConstants } from 'fs';
-import { configLoader, ConduitError, ErrorCode, createMCPErrorStatus, logger, EntryInfo, formatToISO8601UTC, getMimeType } from '@/internal';
+import { conduitConfig, ConduitError, ErrorCode, createMCPErrorStatus, logger, EntryInfo, formatToISO8601UTC, getMimeType } from '@/internal';
 import * as fsExtra from 'fs-extra';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
@@ -60,9 +60,12 @@ export async function getLstats(filePath: string): Promise<Stats> {
  * @returns File content as string.
  * @throws ConduitError on failure (e.g., not found, access denied, exceeds limit).
  */
-export async function readFileAsString(filePath: string, maxLength: number = configLoader.conduitConfig.maxFileReadBytes): Promise<string> {
+export async function readFileAsString(filePath: string, maxLength: number = conduitConfig.maxFileReadBytes): Promise<string> {
   try {
     const stats = await getStats(filePath);
+    if (stats.isDirectory()) {
+      throw new ConduitError(ErrorCode.ERR_FS_PATH_IS_DIR, `Expected a file but found a directory at ${filePath}`);
+    }
     if (stats.size > maxLength) {
       throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `File size ${stats.size} bytes exceeds maximum allowed read limit of ${maxLength} bytes for ${filePath}.`);
     }
@@ -84,9 +87,12 @@ export async function readFileAsString(filePath: string, maxLength: number = con
  * @returns File content as Buffer.
  * @throws ConduitError on failure.
  */
-export async function readFileAsBuffer(filePath: string, maxLength: number = configLoader.conduitConfig.maxFileReadBytes): Promise<Buffer> {
+export async function readFileAsBuffer(filePath: string, maxLength: number = conduitConfig.maxFileReadBytes): Promise<Buffer> {
   try {
     const stats = await getStats(filePath);
+    if (stats.isDirectory()) {
+      throw new ConduitError(ErrorCode.ERR_FS_PATH_IS_DIR, `Expected a file but found a directory at ${filePath}`);
+    }
     if (stats.size > maxLength) {
       throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `File size ${stats.size} bytes exceeds maximum allowed read limit of ${maxLength} bytes for ${filePath}.`);
     }
@@ -118,8 +124,8 @@ export async function writeFile(filePath: string, content: string | Buffer, enco
       bufferContent = content;
     }
 
-    if (bufferContent.length > configLoader.conduitConfig.maxFileReadBytes) { // Using maxFileReadBytes as a proxy for max write size
-        throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `Content size ${bufferContent.length} bytes exceeds maximum allowed write limit of ${configLoader.conduitConfig.maxFileReadBytes} bytes for ${filePath}.`);
+    if (bufferContent.length > conduitConfig.maxFileReadBytes) { // Using maxFileReadBytes as a proxy for max write size
+        throw new ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED, `Content size ${bufferContent.length} bytes exceeds maximum allowed write limit of ${conduitConfig.maxFileReadBytes} bytes for ${filePath}.`);
     }
 
     if (mode === 'append') {
@@ -373,9 +379,13 @@ export async function createEntryInfo(fullPath: string, statsParam: Stats, name?
       symlink_target: symlinkReadTarget,
     };
   } catch (error: any) {
-    if (error instanceof ConduitError || (error && typeof error.errorCode === 'string' && Object.values(ErrorCode).includes(error.errorCode as ErrorCode))) throw error;
-    logger.error(`Failed to create entry info for ${fullPath}: ${error.message}`);
-    throw new ConduitError(ErrorCode.OPERATION_FAILED, `Could not get entry info for ${fullPath}. Error: ${error.message}`);
+    logger.error(`[createEntryInfo] Caught error for path '${fullPath}'. Type: ${typeof error}, Is ConduitError: ${error instanceof ConduitError}, Code: ${error?.code}, Message: ${error?.message}, Stack: ${error?.stack}`);
+    if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
+      throw error;
+    }
+    const errorMessage = String(error?.message || 'Unknown error during entry info creation');
+    logger.error(`Failed to create entry info for ${fullPath}: ${errorMessage}`);
+    throw new ConduitError(ErrorCode.OPERATION_FAILED, `Could not get entry info for ${fullPath}. Error: ${errorMessage}`);
   }
 }
 

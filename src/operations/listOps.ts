@@ -1,236 +1,151 @@
 import * as path from 'path';
-import { ConduitServerConfig, EntryInfo, ErrorCode, ListTool, logger, fileSystemOps, ConduitError } from '@/internal';
-import checkDiskSpace from 'check-disk-space'; // Import for use in getSystemInfo
+import * as fs from 'fs/promises'; // For direct readdir if needed, though fileSystemOps should cover
+import {
+  ListTool,
+  ConduitServerConfig,
+  EntryInfo,
+  ConduitError,
+  ErrorCode,
+  fileSystemOps,
+  validateAndResolvePath,
+  logger,
+  conduitConfig, // To access maxRecursiveDepth and recursiveDirSizeTimeoutMs
+} from '@/internal';
 
-async function listDirectoryEntriesRecursive(
-    currentPath: string,
-    basePath: string, // The original path requested by the user, for relative path calculations in EntryInfo if needed
-    currentDepth: number,
-    params: ListTool.EntriesParams,
-    config: ConduitServerConfig
+const operationLogger = logger.child({ component: 'listOps' });
+
+async function listDirectoryRecursive(
+  currentPath: string,
+  basePath: string, // The initial path from the request, for relative calculations if any
+  currentDepth: number,
+  params: ListTool.EntriesParams
+  // config: ConduitServerConfig // Using global conduitConfig
 ): Promise<EntryInfo[]> {
-    const operationLogger = logger.child({ component: 'listOps' });
-    const entries: EntryInfo[] = [];
-    if (currentDepth > (params.recursive_depth ?? 0) && params.recursive_depth !== -1) { // -1 means unlimited within server max
-        return entries;
-    }
-    // Respect server's max depth
-    const maxAllowedDepth = config.maxRecursiveDepth === -1 ? Infinity : config.maxRecursiveDepth;
-    if (currentDepth > maxAllowedDepth) {
-        // This case should ideally be prevented by the initial depth check against config.maxRecursiveDepth
-        // but serves as a safeguard.
-        operationLogger.warn(`Recursive listing for ${currentPath} exceeded server max depth ${maxAllowedDepth}.`);
-        // TODO: How to signal this to the parent? Maybe a special marker or note?
-        // For now, just stop recursing for this branch. The top-level might need a general note.
-        return entries;
-    }
+  const entries: EntryInfo[] = [];
+  const effectiveMaxDepth = Math.min(params.recursive_depth ?? 0, conduitConfig.maxRecursiveDepth);
 
-    let dirContents: string[];
+  if (currentDepth > effectiveMaxDepth) {
+    return entries; // Depth limit reached
+  }
+
+  let dirents: string[];
+  try {
+    // fileSystemOps.listDirectory is expected to return just names.
+    // We need to validate currentPath before listing.
+    // validateAndResolvePath should have been called on the initial basePath.
+    // For recursive calls, currentPath is constructed and should be safe if parent was.
+    dirents = await fileSystemOps.listDirectory(currentPath);
+  } catch (error: any) {
+    // Log and skip this directory if it's not readable, but don't fail the whole operation.
+    // Parent operation should still return successfully with what it could list.
+    // However, if the *initial* path fails, that's an error handled by handleListEntries.
+    operationLogger.warn(
+      `Error listing directory ${currentPath}: ${error.message}. Skipping this directory.`
+    );
+    return entries; // Return empty for this problematic path
+  }
+
+  for (const name of dirents) {
+    const entryPath = path.join(currentPath, name);
+    let stats;
     try {
-        dirContents = await fileSystemOps.listDirectory(currentPath);
-    } catch (error: any) {
-        operationLogger.error(`Error listing directory ${currentPath}: ${error.message}`);
-        // If the current path itself is inaccessible, we can't list its children.
-        // This error should ideally be caught for the parent EntryInfo if this is a recursive call.
-        // For the top-level call, listEntries will handle it.
-        throw error; // Re-throw to be handled by the caller, or for the specific entry.
+      // Use lstat to get info about symlinks themselves if not following them for basic type.
+      // fileSystemOps.createEntryInfo handles symlink resolution internally for its target info.
+      stats = await fileSystemOps.getLstats(entryPath);
+    } catch (statError: any) {
+      operationLogger.warn(`Could not stat ${entryPath}: ${statError.message}. Skipping entry.`);
+      continue;
     }
 
-    for (const entryName of dirContents) {
-        const entryAbsolutePath = path.join(currentPath, entryName);
+    // Create basic EntryInfo. fileSystemOps.createEntryInfo will handle symlink details.
+    const entryInfoPartial = await fileSystemOps.createEntryInfo(entryPath, stats, name);
+    const entry: EntryInfo = {
+      ...entryInfoPartial,
+      // children and recursive_size_calculation_note will be added below
+    };
+
+    if (entry.type === 'directory') {
+      if (params.calculate_recursive_size) {
         try {
-            const stats = await fileSystemOps.getLstats(entryAbsolutePath); // Use lstat to avoid following symlinks for basic info
-            
-            // Create base EntryInfo (without children or recursive size yet)
-            const entryInfoBase = await fileSystemOps.createEntryInfo(entryAbsolutePath, stats, entryName);
-            let entry: EntryInfo = { ...entryInfoBase };
-
-            if (stats.isDirectory()) {
-                let recursiveSize: number | undefined = undefined;
-                let sizeNote: string | undefined = undefined;
-
-                if (params.calculate_recursive_size) {
-                    const sizeResult = await fileSystemOps.calculateRecursiveDirectorySize(
-                        entryAbsolutePath,
-                        0, // depth for size calculation starts from 0 for the directory itself
-                        params.recursive_depth === -1 ? maxAllowedDepth : Math.min(params.recursive_depth ?? 0, maxAllowedDepth) - currentDepth, // Adjust depth for size calculation
-                        config.recursiveSizeTimeoutMs,
-                        Date.now()
-                    );
-                    recursiveSize = sizeResult.size;
-                    sizeNote = sizeResult.note;
-                }
-                entry.size_bytes = recursiveSize ?? entry.size_bytes; // Use recursive if calculated, else OS size
-                if (sizeNote) {
-                    entry.recursive_size_calculation_note = sizeNote;
-                }
-
-                // Handle children if recursive depth allows
-                const effectiveRecursiveDepth = params.recursive_depth === -1 ? maxAllowedDepth : (params.recursive_depth ?? 0);
-                if (currentDepth < effectiveRecursiveDepth) {
-                    entry.children = await listDirectoryEntriesRecursive(
-                        entryAbsolutePath,
-                        basePath,
-                        currentDepth + 1,
-                        params,
-                        config
-                    );
-                }
-            }
-            entries.push(entry);
-        } catch (statError: any) {
-            operationLogger.warn(`Could not stat or process entry ${entryAbsolutePath}: ${statError.message}. Skipping this entry.`);
-            // Optionally, create an error entry or log, but spec implies skipping non-readable items.
-            // For now, we just skip.
+          const sizeInfo = await fileSystemOps.calculateRecursiveDirectorySize(
+            entryPath,
+            0, // Start depth 0 for this specific directory's recursive size calculation
+            conduitConfig.maxRecursiveDepth, // Max depth for size calculation
+            conduitConfig.recursiveSizeTimeoutMs,
+            Date.now()
+          );
+          entry.size_bytes = sizeInfo.size;
+          if (sizeInfo.note) {
+            entry.recursive_size_calculation_note = sizeInfo.note;
+          }
+        } catch (sizeError: any) {
+          operationLogger.warn(
+            `Error calculating recursive size for ${entryPath}: ${sizeError.message}`
+          );
+          entry.recursive_size_calculation_note = 'Error during size calculation';
         }
+      }
+      // Recursive call for children if depth allows
+      if (currentDepth < effectiveMaxDepth) {
+        entry.children = await listDirectoryRecursive(
+          entryPath,
+          basePath,
+          currentDepth + 1,
+          params
+          // config
+        );
+      }
     }
-    return entries;
+    // If not a directory, createEntryInfo already got file size if applicable.
+    // For files, size_bytes is already set by createEntryInfo if it's a file.
+    // For symlinks, createEntryInfo sets size_bytes based on the target if it's a file.
+
+    entries.push(entry);
+  }
+  return entries;
 }
 
+export async function handleListEntries(
+  params: ListTool.EntriesParams
+  // config: ConduitServerConfig // using global conduitConfig
+): Promise<EntryInfo[]> {
+  operationLogger.info(
+    `Handling list.entries for path: ${params.path}, depth: ${params.recursive_depth}, calc_size: ${params.calculate_recursive_size}`
+  );
 
-export async function listEntries(
-    params: ListTool.EntriesParams,
-    config: ConduitServerConfig
-): Promise<EntryInfo[] | ConduitError> { // Return ConduitError to be handled by tool handler
-    const operationLogger = logger.child({ component: 'listOps' });
-    operationLogger.info(`Processing listEntries for path: ${params.path}, depth: ${params.recursive_depth}, calc_size: ${params.calculate_recursive_size}`);
+  const resolvedBasePath = await validateAndResolvePath(params.path, {
+    isExistenceRequired: true,
+    checkAllowed: true,
+  });
+  const baseStats = await fileSystemOps.getStats(resolvedBasePath); // Get stats for the base path itself
 
-    const absoluteBasePath = path.resolve(config.workspaceRoot, params.path);
+  if (!baseStats.isDirectory()) {
+    throw new ConduitError(
+      ErrorCode.ERR_FS_PATH_IS_FILE,
+      `Provided path is a file, not a directory: ${resolvedBasePath}`
+    );
+  }
 
-    // Validate base path
-    if (!await fileSystemOps.pathExists(absoluteBasePath)) {
-        return new ConduitError(ErrorCode.RESOURCE_NOT_FOUND, `Base path not found: ${params.path}`);
-    }
-    const baseStats = await fileSystemOps.getStats(absoluteBasePath);
-    if (!baseStats.isDirectory()) {
-        return new ConduitError(ErrorCode.ERR_FS_PATH_IS_DIR, `Base path is a file, not a directory: ${params.path}`);
-    }
+  // If not recursive (depth 0) and not calculating recursive size for the top-level dir,
+  // we can use a slightly simpler path for the main directory info, but still need children.
+  // The recursive function handles depth 0 correctly by listing immediate children.
 
-    // Cap recursive_depth by server's maxRecursiveDepth
-    let requestedDepth = params.recursive_depth ?? 0;
-    if (config.maxRecursiveDepth !== -1 && (requestedDepth === -1 || requestedDepth > config.maxRecursiveDepth)) {
-        operationLogger.info(`Requested recursive_depth ${requestedDepth} capped to server max ${config.maxRecursiveDepth} for path ${params.path}`);
-        requestedDepth = config.maxRecursiveDepth;
-    }
-    const effectiveParams = { ...params, recursive_depth: requestedDepth };
+  // The root of the listing is the directory itself. We represent its children.
+  // The spec implies the response is an array of EntryInfo for items *within* path,
+  // not the path itself as a single EntryInfo wrapping children, unless recursive_depth is 0 and path is a file (which is an error).
+  // If recursive_depth is 0, listDirectoryRecursive lists immediate children.
+  // If recursive_depth > 0, it lists children and their children up to depth.
 
-    // If non-recursive (depth 0) and path is a directory, list its contents.
-    // If path is a file (already checked it's a dir), listEntriesRecursive handles entries.
-    try {
-        // If depth is 0, we list the contents of the directory.
-        // If depth > 0, listDirectoryEntriesRecursive will be called on children.
-        // The initial call to listDirectoryEntriesRecursive will handle the items *inside* absoluteBasePath.
-        // If we need to return the base path itself as an EntryInfo, that's a different structure.
-        // The spec: "Returns: For operation: "entries": An array of EntryInfo objects." - implying contents.
+  const results = await listDirectoryRecursive(
+    resolvedBasePath,
+    resolvedBasePath, // Base path for reference
+    0, // Initial depth
+    params
+    // config
+  );
 
-        if (requestedDepth === 0) { // Non-recursive, list immediate children
-            const dirContentsNames = await fileSystemOps.listDirectory(absoluteBasePath);
-            const topLevelEntries: EntryInfo[] = [];
-            for (const name of dirContentsNames) {
-                const entryPath = path.join(absoluteBasePath, name);
-                try {
-                    const stats = await fileSystemOps.getLstats(entryPath);
-                    const entryInfoBase = await fileSystemOps.createEntryInfo(entryPath, stats, name);
-                    let entry: EntryInfo = { ...entryInfoBase };
-
-                    if (stats.isDirectory() && params.calculate_recursive_size) {
-                         // For depth 0, recursive size means size of the directory itself (its direct files)
-                        const sizeResult = await fileSystemOps.calculateRecursiveDirectorySize(
-                            entryPath, 
-                            0, // Depth for this dir is 0
-                            0, // Max depth for its contents is 0
-                            config.recursiveSizeTimeoutMs,
-                            Date.now()
-                        );
-                        entry.size_bytes = sizeResult.size;
-                        if (sizeResult.note) entry.recursive_size_calculation_note = sizeResult.note;
-                    }
-                    topLevelEntries.push(entry);
-                } catch (statError: any) {
-                    operationLogger.warn(`Could not stat or process entry ${entryPath} in non-recursive list: ${statError.message}. Skipping.`);
-                }
-            }
-            return topLevelEntries;
-
-        } else { // Recursive listing (requestedDepth > 0 or -1 for unlimited up to server max)
-            return await listDirectoryEntriesRecursive(absoluteBasePath, absoluteBasePath, 0, effectiveParams, config);
-        }
-
-    } catch (error: any) {
-        operationLogger.error(`Failed to list entries for ${params.path}: ${error.message}`);
-        if (error instanceof ConduitError) return error;
-        return new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to list entries for path ${params.path}: ${error.message || 'Unknown error'}`);
-    }
+  operationLogger.debug(
+    `list.entries for ${params.path} found ${results.length} top-level entries.`
+  );
+  return results;
 }
-
-export async function getSystemInfo(
-    params: ListTool.SystemInfoParams,
-    config: ConduitServerConfig
-): Promise<ListTool.ServerCapabilities | ListTool.FilesystemStats | ListTool.FilesystemStatsNoPath | ConduitError> {
-    const operationLogger = logger.child({ component: 'listOps', operation: 'getSystemInfo' });
-    operationLogger.info(`Processing getSystemInfo for type: ${params.info_type}`);
-
-    try {
-        if (params.info_type === 'server_capabilities') {
-            const capabilities: ListTool.ServerCapabilities = {
-                server_version: config.serverVersion,
-                active_configuration: { // Exposing a subset of config, not all of it for security/relevance
-                    workspaceRoot: config.workspaceRoot,
-                    allowedPaths: config.allowedPaths,
-                    httpTimeoutMs: config.httpTimeoutMs,
-                    maxPayloadSizeBytes: config.maxPayloadSizeBytes,
-                    maxFileReadBytes: config.maxFileReadBytes,
-                    maxFileReadBytesFind: config.maxFileReadBytesFind,
-                    maxUrlDownloadSizeBytes: config.maxUrlDownloadSizeBytes,
-                    imageCompressionThresholdBytes: config.imageCompressionThresholdBytes,
-                    imageCompressionQuality: config.imageCompressionQuality,
-                    defaultChecksumAlgorithm: config.defaultChecksumAlgorithm,
-                    maxRecursiveDepth: config.maxRecursiveDepth,
-                    recursiveSizeTimeoutMs: config.recursiveSizeTimeoutMs,
-                },
-                supported_checksum_algorithms: ['md5', 'sha1', 'sha256', 'sha512'], // Could be from config if dynamic
-                supported_archive_formats: ['zip', 'tar.gz', 'tgz'], // Could be from config
-                default_checksum_algorithm: config.defaultChecksumAlgorithm,
-                max_recursive_depth: config.maxRecursiveDepth,
-            };
-            return capabilities;
-        } else if (params.info_type === 'filesystem_stats') {
-            if (params.path) {
-                const absolutePath = path.resolve(config.workspaceRoot, params.path);
-                // Ensure path is within allowed workspace or configured allowed paths
-                // This check should ideally be in a security handler or fileSystemOps itself
-                // For now, assume path is valid if it resolves correctly for the purpose of this op.
-                // fileSystemOps.getFilesystemStats should handle errors like path not found or not accessible.
-                
-                // This function is assumed to exist in fileSystemOps and use check-disk-space
-                const stats = await fileSystemOps.getFilesystemStats(absolutePath);
-                return {
-                    path_queried: params.path, // Return relative path as queried
-                    ...stats, // Spread total_bytes, free_bytes, available_bytes, used_bytes from getFilesystemStats
-                } as ListTool.FilesystemStats;
-            } else {
-                // Return general info about allowed paths if no specific path is given
-                return {
-                    info_type_requested: 'filesystem_stats',
-                    status_message: 'Filesystem stats require a specific path. Returning server-wide path information instead.',
-                    server_version: config.serverVersion,
-                    server_start_time_iso: config.serverStartTimeIso,
-                    configured_allowed_paths: config.allowedPaths,
-                } as ListTool.FilesystemStatsNoPath;
-            }
-        } else {
-            // Should not happen if types are correct, but as a safeguard
-            const exhaustiveCheck: never = params.info_type;
-            operationLogger.warn(`Unknown system_info type: ${exhaustiveCheck}`);
-            return new ConduitError(ErrorCode.INVALID_PARAMETER, `Unknown system_info type: ${(params as any).info_type}`);
-        }
-    } catch (error: any) {
-        operationLogger.error(`Error in getSystemInfo for type ${params.info_type}: ${error.message}`);
-        if (error instanceof ConduitError) return error;
-        // Map specific errors from check-disk-space if necessary, otherwise generic
-        if (error.code === 'ENOENT') { // Example if check-disk-space throws this for bad path
-             return new ConduitError(ErrorCode.RESOURCE_NOT_FOUND, `Path not found for filesystem_stats: ${params.path}`);
-        }
-        return new ConduitError(ErrorCode.OPERATION_FAILED, `Failed to get system info: ${error.message || 'Unknown error'}`);
-    }
-} 

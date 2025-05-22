@@ -59,8 +59,7 @@ describe('checksum utils', () => {
       // The underlying crypto.createHash will throw an error.
       // We want to ensure our function propagates this or handles it as expected.
       // Vitest's toThrowError can check for the error message or type.
-      await expect(calculateChecksum(testString, 'unsupportedAlgorithm123'))
-        .rejects.toThrowError(); // Or more specific error like /Algorithm not supported/ or Error instance
+      await expect(calculateChecksum(testString, 'unsupportedAlgorithm123')).rejects.toThrowError(); // Or more specific error like /Algorithm not supported/ or Error instance
     });
   });
-}); 
+});

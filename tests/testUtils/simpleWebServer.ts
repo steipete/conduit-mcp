@@ -1,5 +1,4 @@
 import * as http from 'http';
-import { AddressInfo } from 'net';
 
 interface MockContent {
   body: string | Buffer;
@@ -19,7 +18,7 @@ export class ቀላልWebServer {
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
     const routeKey = `${req.method?.toUpperCase() || 'GET'}${req.url || '/'}`;
-    const mock = this.routes.get(req.url || '/') || this.routes.get(routeKey) ;
+    const mock = this.routes.get(req.url || '/') || this.routes.get(routeKey);
 
     if (mock) {
       const headers = {
@@ -36,16 +35,24 @@ export class ቀላልWebServer {
     }
   }
 
-  public setContent(urlPath: string, body: string | Buffer, contentType: string, method: string = 'GET', headers?: Record<string, string>, statusCode: number = 200): void {
+  public setContent(
+    urlPath: string,
+    body: string | Buffer,
+    contentType: string,
+    method: string = 'GET',
+    headers?: Record<string, string>,
+    statusCode: number = 200
+  ): void {
     const routeKey = `${method.toUpperCase()}${urlPath}`;
     this.routes.set(routeKey, { body, contentType, headers, statusCode });
     // For simplicity, also set for just the path if method is GET (common case)
     if (method.toUpperCase() === 'GET') {
-        this.routes.set(urlPath, { body, contentType, headers, statusCode });
+      this.routes.set(urlPath, { body, contentType, headers, statusCode });
     }
   }
 
-  public start(port: number = 0): Promise<void> { // port = 0 means random available port
+  public start(port: number = 0): Promise<void> {
+    // port = 0 means random available port
     return new Promise((resolve, reject) => {
       if (this.server?.listening) {
         resolve();
@@ -90,11 +97,11 @@ export class ቀላልWebServer {
   }
 
   public getBaseUrl(): string | null {
-      if (!this.port) return null;
-      return `http://localhost:${this.port}`;
+    if (!this.port) return null;
+    return `http://localhost:${this.port}`;
   }
 
   public clearRoutes(): void {
     this.routes.clear();
   }
-} 
+}

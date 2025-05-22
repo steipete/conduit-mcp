@@ -51,4 +51,4 @@ describe('dateTime utils', () => {
       expect(isoString).toMatch(iso8601Regex);
     });
   });
-}); 
+});
