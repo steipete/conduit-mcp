@@ -1,10 +1,12 @@
 import { listToolHandler } from '@/tools/listTool';
 import { ListTool } from '@/types/tools';
-import { conduitConfig, ErrorCode } from '@/internal';
+import { conduitConfig, ErrorCode, EntryInfo } from '@/internal';
 import { ConduitServerConfig } from '@/internal';
 import { ConduitError } from '@/utils/errorHandler';
 import { vi, Mocked } from 'vitest';
 import * as listOps from '@/operations/listOps';
+import * as securityHandler from '@/core/securityHandler';
+import * as fileSystemOps from '@/core/fileSystemOps';
 
 // Mocks
 vi.mock('@/internal', async (importOriginal) => {
@@ -33,17 +35,42 @@ vi.mock('@/internal', async (importOriginal) => {
   };
 });
 vi.mock('@/operations/listOps');
+vi.mock('@/core/securityHandler');
+vi.mock('@/core/fileSystemOps');
 
 // Typed Mocks
 const mockedConduitConfig = conduitConfig as Mocked<ConduitServerConfig>;
 const mockedListOps = listOps as Mocked<typeof listOps>;
+const mockedSecurityHandler = securityHandler as Mocked<typeof securityHandler>;
+const mockedFileSystemOps = fileSystemOps as Mocked<typeof fileSystemOps>;
 
 describe('ListTool', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // Setup default successful mocks
+    if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      mockedSecurityHandler.validateAndResolvePath.mockResolvedValue('/resolved/path');
+    }
+
+    if (mockedFileSystemOps && typeof mockedFileSystemOps.getStats === 'function') {
+      mockedFileSystemOps.getStats.mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+      } as any);
+    }
+
     if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
       mockedListOps.handleListEntries.mockResolvedValue([]);
+    }
+
+    if (mockedFileSystemOps && typeof mockedFileSystemOps.getFilesystemStats === 'function') {
+      mockedFileSystemOps.getFilesystemStats.mockResolvedValue({
+        total_bytes: 1000000,
+        free_bytes: 500000,
+        available_bytes: 500000,
+        used_bytes: 500000,
+      });
     }
   });
 
@@ -71,6 +98,10 @@ describe('ListTool', () => {
           permissions_string: 'rwxr-xr-x',
         },
       ] as EntryInfo[];
+
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/testdir');
+      }
 
       if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
         mockedListOps.handleListEntries.mockResolvedValueOnce(mockEntries);
@@ -113,6 +144,10 @@ describe('ListTool', () => {
         },
       ] as EntryInfo[];
 
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/testdir');
+      }
+
       if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
         mockedListOps.handleListEntries.mockResolvedValueOnce(mockEntries);
       }
@@ -147,6 +182,10 @@ describe('ListTool', () => {
         },
       ] as EntryInfo[];
 
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/testdir');
+      }
+
       if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
         mockedListOps.handleListEntries.mockResolvedValueOnce(mockEntries);
       }
@@ -158,44 +197,82 @@ describe('ListTool', () => {
       };
       const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
 
-      // Add assertion to verify the function was called and response is valid
-      expect(mockedListOps.handleListEntries).toHaveBeenCalledWith(
-        '/testdir',
-        mockedConduitConfig,
-        true
-      );
+      // Verify the function was called and response is valid
+      expect(mockedListOps.handleListEntries).toHaveBeenCalledWith(params);
       expect(response).toBeDefined();
     });
 
-    it('should throw error if path is not a directory', async () => {
-      const params: ListTool.EntriesParams = { operation: 'entries', path: '/notadir' };
-
-      if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
-        mockedListOps.handleListEntries.mockRejectedValueOnce(
-          new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE)
+    it('should return error status object when path validation fails', async () => {
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockRejectedValueOnce(
+          new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, 'Path not allowed')
         );
       }
 
-      await expect(
-        listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
-      ).rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE));
+      const params: ListTool.EntriesParams = { operation: 'entries', path: '/notallowed' };
+      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+
+      expect(response).toMatchObject({
+        status: 'error',
+        error_code: ErrorCode.ERR_FS_PERMISSION_DENIED,
+        error_message: 'Path not allowed',
+      });
     });
 
-    // Test case: path is a file, not a directory
-    it('should return ERR_FS_PATH_IS_FILE if base path is a file', async () => {
-      const params: ListTool.Parameters = { operation: 'entries', path: '/test/file.txt' };
+    it('should return error status object when path is a file', async () => {
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/test/file.txt');
+      }
 
-      if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
-        mockedListOps.handleListEntries.mockRejectedValueOnce(
-          new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE, 'Path is a file, not a directory')
+      if (mockedFileSystemOps && typeof mockedFileSystemOps.getStats === 'function') {
+        mockedFileSystemOps.getStats.mockResolvedValueOnce({
+          isDirectory: () => false,
+          isFile: () => true,
+        } as any);
+      }
+
+      const params: ListTool.EntriesParams = { operation: 'entries', path: '/test/file.txt' };
+      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+
+      expect(response).toMatchObject({
+        status: 'error',
+        error_code: ErrorCode.ERR_FS_PATH_IS_FILE,
+        error_message: 'Provided path is a file, not a directory: /test/file.txt',
+      });
+    });
+
+    it('should return error status object when path does not exist', async () => {
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockRejectedValueOnce(
+          new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, 'Path does not exist')
         );
       }
 
-      await expect(
-        listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
-      ).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE, 'Path is a file, not a directory')
-      );
+      const params: ListTool.EntriesParams = { operation: 'entries', path: '/nonexistent' };
+      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+
+      expect(response).toMatchObject({
+        status: 'error',
+        error_code: ErrorCode.ERR_FS_NOT_FOUND,
+        error_message: 'Path does not exist',
+      });
+    });
+
+    it('should return error status object for unexpected validation errors', async () => {
+      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+        mockedSecurityHandler.validateAndResolvePath.mockRejectedValueOnce(
+          new Error('Unexpected filesystem error')
+        );
+      }
+
+      const params: ListTool.EntriesParams = { operation: 'entries', path: '/testdir' };
+      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+
+      expect(response).toMatchObject({
+        status: 'error',
+        error_code: ErrorCode.INTERNAL_ERROR,
+        error_message: 'Path validation failed: Unexpected filesystem error',
+      });
     });
   });
 
@@ -264,10 +341,14 @@ describe('ListTool', () => {
     });
   });
 
-  it('should throw error for invalid operation', async () => {
+  it('should return error status object for invalid operation', async () => {
     const params = { operation: 'invalid_op' } as unknown;
-    await expect(
-      listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
-    ).rejects.toThrow(new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION));
+    const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+    
+    expect(response).toMatchObject({
+      status: 'error',
+      error_code: ErrorCode.INVALID_PARAMETER,
+      error_message: 'Unknown operation: invalid_op',
+    });
   });
 });

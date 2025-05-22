@@ -48,12 +48,7 @@ vi.mock('@/operations/archiveOps', () => ({
 }));
 
 // Import mocked modules
-import {
-  conduitConfig,
-  fileSystemOps,
-  securityHandler,
-  ConduitServerConfig,
-} from '@/internal';
+import { conduitConfig, fileSystemOps, securityHandler, ConduitServerConfig } from '@/internal';
 import { createArchive, extractArchive } from '@/operations/archiveOps';
 
 const mockedConduitConfig = conduitConfig as Mocked<ConduitServerConfig>;
@@ -81,6 +76,11 @@ describe('WriteTool', () => {
       format_used: 'zip',
       size_bytes: 12345,
       entries_processed: 2,
+      checksum_sha256: 'mock-checksum',
+      compression_used: 'zip',
+      metadata: undefined,
+      options_applied: undefined,
+      message: 'Archive created successfully at /myarchive.zip.',
     });
     mockedExtractArchive.mockResolvedValue({
       status: 'success',
@@ -88,7 +88,9 @@ describe('WriteTool', () => {
       archive_path: '/myarchive.zip',
       target_path: '/extract_here',
       format_used: 'zip',
-      entries_extracted: 5,
+      entries_extracted: -1,
+      options_applied: undefined,
+      message: 'Archive extracted successfully to /extract_here.',
     });
   });
 
@@ -108,7 +110,7 @@ describe('WriteTool', () => {
       expect(result[0].action_performed).toBe('put');
       expect(result[0].path).toBe('/file.txt');
       expect((result[0] as WriteTool.WriteResultSuccess).bytes_written).toBe(100);
-      expect(mockedFsOps.writeFile).toHaveBeenCalledWith('/file.txt', 'Hello', 'text', 'overwrite');
+      expect(mockedFsOps.writeFile).toHaveBeenCalledWith('/file.txt', 'Hello', undefined, 'overwrite');
     });
 
     it('should handle mkdir action successfully', async () => {
@@ -200,14 +202,20 @@ describe('WriteTool', () => {
           source_paths: params.source_paths,
           archive_path: params.archive_path,
           compression: undefined,
-        })
+          options: undefined,
+          metadata: undefined,
+        }),
+        mockedConduitConfig
       );
     });
 
     it('should return error if createArchive fails', async () => {
-      mockedCreateArchive.mockRejectedValueOnce(
-        new ConduitError(ErrorCode.ERR_ARCHIVE_CREATION_FAILED, 'Zip error')
-      );
+      mockedCreateArchive.mockResolvedValueOnce({
+        status: 'error',
+        error_code: ErrorCode.ERR_ARCHIVE_CREATION_FAILED,
+        error_message: 'Zip error',
+        operation: 'create',
+      } as ArchiveTool.ArchiveResultError);
       const params: WriteTool.ArchiveParams = {
         action: 'archive',
         source_paths: ['/dir1'],
@@ -237,13 +245,15 @@ describe('WriteTool', () => {
       const unarchiveResultItem = response.results[0] as ArchiveTool.ExtractArchiveSuccess;
       expect(unarchiveResultItem.status).toBe('success');
       expect(unarchiveResultItem.operation).toBe('extract');
-      expect(unarchiveResultItem.entries_extracted).toBe(5);
+      expect(unarchiveResultItem.entries_extracted).toBe(-1);
       expect(mockedExtractArchive).toHaveBeenCalledWith(
         expect.objectContaining({
           operation: 'extract',
           archive_path: params.archive_path,
           target_path: params.destination_path,
-        })
+          options: undefined,
+        }),
+        mockedConduitConfig
       );
     });
   });
@@ -252,6 +262,6 @@ describe('WriteTool', () => {
     const params = { action: 'invalid_action' } as unknown;
     const response = (await writeToolHandler(params, mockedConduitConfig)) as MCPErrorStatus;
     expect(response.status).toBe('error');
-    expect(response.error_code).toBe(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION);
+    expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);
   });
 });

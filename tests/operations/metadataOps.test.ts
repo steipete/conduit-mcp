@@ -32,15 +32,12 @@ vi.mock('@/internal', async (importOriginal) => {
 
 // Import mocked items from @/internal
 import {
-  ConduitError,
-  ErrorCode,
   logger,
   fileSystemOps,
   securityHandler,
   webFetcher,
   mimeService,
   ReadTool,
-  MCPErrorStatus,
   ConduitServerConfig,
   formatToISO8601UTC,
   getMimeType,

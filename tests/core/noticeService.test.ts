@@ -50,7 +50,7 @@ describe('noticeService', () => {
     process.env = { ...originalEnv };
     vi.resetModules();
     vi.clearAllMocks();
-    mockFsStore = {};
+    // mockFsStore = {}; // Removed unused assignment
 
     os.homedir = vi.fn(() => '/mock/home');
 

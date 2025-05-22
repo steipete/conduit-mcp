@@ -7,9 +7,11 @@ import {
   MCPErrorStatus,
   fileSystemOps,
   conduitConfig,
+  validateAndResolvePath,
+  createMCPErrorStatus,
 } from '@/internal';
 import { createErrorResponse } from '@/utils/errorHandler';
-import { handleListEntries } from '@/operations/listOps'; // Add this import
+import { handleListEntries } from '@/operations/listOps';
 import path from 'path';
 
 export async function listToolHandler(
@@ -26,8 +28,31 @@ export async function listToolHandler(
       case 'entries': {
         // Type guard params to ListTool.EntriesParams is still good practice
         if (params.operation === 'entries') {
-          const entries = await handleListEntries(params /*, config */); // Call the new op handler
-          return { tool_name: 'list', results: entries };
+          try {
+            const resolvedPath = await validateAndResolvePath(params.path, {
+              isExistenceRequired: true,
+              checkAllowed: true,
+            });
+
+            const baseStats = await fileSystemOps.getStats(resolvedPath);
+            if (!baseStats.isDirectory()) {
+              return createMCPErrorStatus(
+                ErrorCode.ERR_FS_PATH_IS_FILE,
+                `Provided path is a file, not a directory: ${resolvedPath}`
+              );
+            }
+
+            const entries = await handleListEntries(params /*, config */); // Call the new op handler
+            return { tool_name: 'list', results: entries };
+          } catch (error) {
+            if (error instanceof ConduitError) {
+              return createMCPErrorStatus(error.errorCode, error.message);
+            }
+            return createMCPErrorStatus(
+              ErrorCode.INTERNAL_ERROR,
+              `Path validation failed: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
         }
         // Fallback, though type guard should prevent this
         return createErrorResponse(ErrorCode.INTERNAL_ERROR, 'Type guard failed for list.entries');

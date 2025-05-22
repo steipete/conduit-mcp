@@ -12,14 +12,9 @@ import {
 
 const operationLogger = logger.child({ component: 'readOpsHandler' });
 
-// Common error creation function for read operations
+// Common error creation types for read operations - keeping for reference
 // Note: This is similar to the one in metadataOps and getContentOps.
 // Consider centralizing if they are identical or making them specific if they diverge.
-interface BaseResultForError {
-  source: string;
-  source_type: 'file' | 'url'; // Ensure this is always one of the two
-  http_status_code?: number;
-}
 
 // Utility function to check if a source is a URL
 function isUrl(source: string): boolean {

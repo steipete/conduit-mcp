@@ -343,7 +343,8 @@ export async function findEntries(
     `Processing findEntries in base_path: ${params.base_path} with criteria: ${JSON.stringify(params.match_criteria)}`
   );
 
-  const absoluteBasePath = path.resolve(config.workspaceRoot, params.base_path);
+  // params.base_path should already be validated and resolved by the tool handler
+  const absoluteBasePath = params.base_path;
 
   if (!(await fileSystemOps.pathExists(absoluteBasePath))) {
     return new ConduitError(

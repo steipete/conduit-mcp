@@ -55,7 +55,7 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
       let request: any;
       try {
         request = JSON.parse(line);
-      } catch {
+      } catch (parseError) {
         sendErrorResponse(ErrorCode.ERR_MCP_INVALID_REQUEST, 'Malformed MCP request JSON.');
         return;
       }
@@ -100,8 +100,8 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
       ) {
         const notice = noticeService.generateFirstUseNotice(conduitConfig);
         if (notice) {
-          if (toolResponse.results && Array.isArray(toolResponse.results)) {
-            toolResponse.results.unshift(notice);
+          if (Array.isArray(toolResponse)) {
+            toolResponse.unshift(notice);
           } else {
             toolResponse = [notice, toolResponse];
           }

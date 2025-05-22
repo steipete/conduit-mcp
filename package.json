@@ -2,7 +2,6 @@
   "name": "conduit-mcp",
   "version": "1.0.0",
   "description": "MCP server for rich file system ops, web content fetching (HTML/Markdown), image processing, search, diff & archives, via concise tools.",
-  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
@@ -10,6 +9,7 @@
     "dev": "tsx watch src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier --write ."

@@ -6,6 +6,8 @@ import fsPromises from 'fs/promises'; // Import fs/promises as a namespace
 import type { Stats, PathLike } from 'fs'; // Import types from 'fs'
 import path from 'path';
 import os from 'os'; // Import os
+import { fileSystemOps } from '@/internal';
+import { conduitConfig } from '@/internal';
 
 // Mock fs/promises
 vi.mock('fs/promises');
@@ -15,35 +17,55 @@ const mockFs = fsPromises as import('vitest').Mocked<typeof fsPromises>; // Type
 vi.mock('os');
 const mockOs = os as import('vitest').Mocked<typeof os>;
 
-// Mock configLoader.conduitConfig
-const mockConduitConfig = {
-  allowedPaths: [path.resolve('/allowed/path1'), path.resolve('/allowed/path2/sub')],
-  // Add other necessary config properties if securityHandler uses them directly
-  // For now, only allowedPaths is critical for these tests.
-  logLevel: 'INFO',
-  httpTimeoutMs: 30000,
-  maxPayloadSizeBytes: 1024,
-  maxFileReadBytes: 1024,
-  maxUrlDownloadBytes: 1024,
-  imageCompressionThresholdBytes: 1024,
-  imageCompressionQuality: 75,
-  defaultChecksumAlgorithm: 'sha256',
-  maxRecursiveDepth: 10,
-  recursiveSizeTimeoutMs: 60000,
-  serverStartTimeIso: new Date().toISOString(),
-  serverVersion: '1.0.0-test',
-};
-vi.mock('@/core/configLoader', () => ({
-  get conduitConfig() {
-    return mockConduitConfig;
-  },
+// Mock fileSystemOps
+vi.mock('@/core/fileSystemOps', () => ({
+  pathExists: vi.fn(),
 }));
+
+// Mock configLoader.conduitConfig
+vi.mock('@/core/configLoader', () => {
+  const mockConfig = {
+    allowedPaths: ['/allowed/path1', '/allowed/path2/sub'],
+    resolvedAllowedPaths: ['/allowed/path1', '/allowed/path2/sub'],
+    workspaceRoot: '/workspace',
+    allowTildeExpansion: true,
+    logLevel: 'INFO',
+    httpTimeoutMs: 30000,
+    maxPayloadSizeBytes: 1024,
+    maxFileReadBytes: 1024,
+    maxUrlDownloadBytes: 1024,
+    imageCompressionThresholdBytes: 1024,
+    imageCompressionQuality: 75,
+    defaultChecksumAlgorithm: 'sha256',
+    maxRecursiveDepth: 10,
+    recursiveSizeTimeoutMs: 60000,
+    serverStartTimeIso: new Date().toISOString(),
+    serverVersion: '1.0.0-test',
+  };
+  return {
+    loadConfig: () => mockConfig,
+    get conduitConfig() {
+      return mockConfig;
+    },
+  };
+});
+
+// Type the imported conduitConfig as mutable for tests
+const mockConduitConfig = conduitConfig as typeof conduitConfig & {
+  allowedPaths: string[];
+  resolvedAllowedPaths: string[];
+};
 
 describe('securityHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Mock os.homedir()
     mockOs.homedir.mockReturnValue('/mock/home');
+
+    // Mock fileSystemOps.pathExists
+    vi.mocked(fileSystemOps.pathExists).mockImplementation(async (p: string) => {
+      return !p.includes('nonexistent');
+    });
 
     // Default mock implementations for fs operations
     mockFs.lstat.mockImplementation(async (p: PathLike) => {
@@ -96,6 +118,15 @@ describe('securityHandler', () => {
       if (pStr.includes('nonexistent')) throw { code: 'ENOENT' };
       return path.resolve(pStr); // Default realpath mock
     });
+    mockFs.stat.mockImplementation(async (p: PathLike) => {
+      const pStr = p.toString();
+      if (pStr.includes('nonexistent')) throw { code: 'ENOENT' };
+      return {
+        isFile: () => true,
+        isDirectory: () => false,
+        // Add other fs.Stats properties as needed
+      } as Stats;
+    });
   });
 
   describe('validateAndResolvePath', () => {
@@ -114,14 +145,14 @@ describe('securityHandler', () => {
     it('should deny access to a path outside allowed directories', async () => {
       const userPath = '/disallowed/path/somefile.txt';
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ACCESS_DENIED, `Access to path '${userPath}' is denied.`)
+        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
       );
     });
 
     it('should deny access using path traversal like ..', async () => {
       const userPath = '/allowed/path1/../../disallowed/file.txt';
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ACCESS_DENIED, expect.stringContaining('Access to path'))
+        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
       );
     });
 
@@ -142,7 +173,7 @@ describe('securityHandler', () => {
       // Let's refine mocks for symlink tests if current ones are insufficient.
       mockFs.realpath.mockResolvedValueOnce(path.resolve('/disallowed/file.txt'));
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ACCESS_DENIED, expect.stringContaining('Access to path'))
+        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
       );
     });
 
@@ -167,7 +198,7 @@ describe('securityHandler', () => {
       mockFs.realpath.mockResolvedValueOnce(path.resolve('/outside/file.txt'));
 
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ACCESS_DENIED)
+        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
       );
     });
 
@@ -177,7 +208,7 @@ describe('securityHandler', () => {
       await expect(validateAndResolvePath(userPath, { isExistenceRequired: true })).rejects.toThrow(
         new ConduitError(
           ErrorCode.ERR_FS_NOT_FOUND,
-          `Path not found or could not be resolved: ${userPath}`
+          `Path not found: ${userPath} (resolved to ${userPath})`
         )
       );
     });
@@ -196,7 +227,7 @@ describe('securityHandler', () => {
       mockFs.realpath.mockRejectedValueOnce({ code: 'ENOENT' });
       await expect(
         validateAndResolvePath(userPath, { isExistenceRequired: false })
-      ).rejects.toThrow(new ConduitError(ErrorCode.ACCESS_DENIED));
+      ).rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`));
     });
 
     it('should throw ERR_FS_BAD_PATH_INPUT for empty or whitespace path', async () => {
@@ -213,6 +244,7 @@ describe('securityHandler', () => {
       const expectedPath = path.resolve('/mock/home/allowed_in_home/file.txt');
       // Adjust mockConduitConfig.allowedPaths to include a path within /mock/home for this test
       mockConduitConfig.allowedPaths = [path.resolve('/mock/home/allowed_in_home')];
+      mockConduitConfig.resolvedAllowedPaths = [path.resolve('/mock/home/allowed_in_home')];
       mockFs.realpath.mockResolvedValueOnce(expectedPath);
 
       const resolved = await validateAndResolvePath(userPath);
@@ -225,6 +257,10 @@ describe('securityHandler', () => {
         path.resolve('/allowed/path1'),
         path.resolve('/allowed/path2/sub'),
       ];
+      mockConduitConfig.resolvedAllowedPaths = [
+        path.resolve('/allowed/path1'),
+        path.resolve('/allowed/path2/sub'),
+      ];
     });
 
     it('should resolve tilde (~) and deny if resulting path is outside allowed paths', async () => {
@@ -232,16 +268,21 @@ describe('securityHandler', () => {
       const resolvedUserPath = path.resolve('/mock/home/disallowed_in_home/file.txt');
       // Ensure default allowedPaths do not include /mock/home/disallowed_in_home
       mockConduitConfig.allowedPaths = [path.resolve('/allowed/path1')];
+      mockConduitConfig.resolvedAllowedPaths = [path.resolve('/allowed/path1')];
       mockFs.realpath.mockResolvedValueOnce(resolvedUserPath);
 
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
         new ConduitError(
-          ErrorCode.ACCESS_DENIED,
-          `Access to path '${userPath}' (resolved to ${resolvedUserPath}) is denied.`
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to path is denied: ${userPath}`
         )
       );
       // Restore allowedPaths
       mockConduitConfig.allowedPaths = [
+        path.resolve('/allowed/path1'),
+        path.resolve('/allowed/path2/sub'),
+      ];
+      mockConduitConfig.resolvedAllowedPaths = [
         path.resolve('/allowed/path1'),
         path.resolve('/allowed/path2/sub'),
       ];
@@ -254,6 +295,7 @@ describe('securityHandler', () => {
       const expectedResolvedPath = path.join(homeDir, 'file.txt');
 
       mockConduitConfig.allowedPaths = [homeDir]; // Allow the home directory
+      mockConduitConfig.resolvedAllowedPaths = [homeDir]; // Allow the home directory
       mockFs.realpath.mockResolvedValue(expectedResolvedPath); // Simulate file exists at the resolved path
 
       const resolved = await validateAndResolvePath(userPath, { isExistenceRequired: true });
@@ -262,6 +304,10 @@ describe('securityHandler', () => {
 
       // Restore original allowedPaths for other tests
       mockConduitConfig.allowedPaths = [
+        path.resolve('/allowed/path1'),
+        path.resolve('/allowed/path2/sub'),
+      ];
+      mockConduitConfig.resolvedAllowedPaths = [
         path.resolve('/allowed/path1'),
         path.resolve('/allowed/path2/sub'),
       ];
@@ -274,6 +320,7 @@ describe('securityHandler', () => {
       const expectedResolvedPath = path.join(homeDir, 'new_file.txt');
 
       mockConduitConfig.allowedPaths = [homeDir]; // Allow the home directory
+      mockConduitConfig.resolvedAllowedPaths = [homeDir]; // Allow the home directory
       // Simulate realpath throwing ENOENT because new_file.txt doesn't exist
       mockFs.realpath.mockRejectedValue({ code: 'ENOENT' });
 
@@ -284,10 +331,97 @@ describe('securityHandler', () => {
       expect(resolved).toBe(path.resolve(expectedResolvedPath)); // path.resolve() on the tilde-expanded path
 
       // Restore original allowedPaths
-      mockConduitConfig.allowedPaths = [
-        path.resolve('/allowed/path1'),
-        path.resolve('/allowed/path2/sub'),
-      ];
+      mockConduitConfig.allowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+      mockConduitConfig.resolvedAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+    });
+
+    // Tests for the new forCreation option
+    describe('forCreation option', () => {
+      it('should validate parent directory for creation and return target path', async () => {
+        const userPath = '/allowed/path1/newfile.txt';
+        // Mock parent directory exists
+        mockFs.realpath.mockImplementation(async (p: PathLike) => {
+          const pStr = p.toString();
+          if (pStr === '/allowed/path1') return '/allowed/path1'; // Parent exists
+          throw { code: 'ENOENT' }; // File doesn't exist
+        });
+
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve(userPath));
+        expect(mockFs.realpath).toHaveBeenCalledWith('/allowed/path1');
+      });
+
+      it('should throw ERR_FS_DIR_NOT_FOUND if parent directory does not exist', async () => {
+        const userPath = '/allowed/path1/subdir/newfile.txt';
+        // Mock parent directory doesn't exist
+        mockFs.realpath.mockRejectedValue({ code: 'ENOENT' });
+
+        await expect(validateAndResolvePath(userPath, { forCreation: true })).rejects.toThrow(
+          new ConduitError(
+            ErrorCode.ERR_FS_DIR_NOT_FOUND,
+            `Parent directory not found for creation: ${userPath} (parent: /allowed/path1/subdir)`
+          )
+        );
+      });
+
+      it('should throw ERR_FS_PERMISSION_DENIED if parent directory is not allowed', async () => {
+        const userPath = '/disallowed/newfile.txt';
+        // Mock parent directory exists but is not allowed
+        mockFs.realpath.mockResolvedValue('/disallowed');
+
+        await expect(validateAndResolvePath(userPath, { forCreation: true })).rejects.toThrow(
+          new ConduitError(
+            ErrorCode.ERR_FS_PERMISSION_DENIED,
+            `Parent directory access denied for creation: ${userPath}`
+          )
+        );
+      });
+
+      it('should handle tilde expansion in creation mode', async () => {
+        // Change mock to allow /mock/home temporarily
+        const originalAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+        const originalResolvedAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+
+        // Update the config in the mock factory dynamically
+        const userPath = '~/subdir/newfile.txt';
+        // Mock tilde expansion to resolve to an already allowed path
+        const expandedPath = '/allowed/path1/subdir/newfile.txt';
+
+        // Mock parent directory exists and resolves correctly
+        mockFs.realpath.mockImplementation(async (p: PathLike) => {
+          const pStr = p.toString();
+          if (pStr === '/allowed/path1/subdir') return '/allowed/path1/subdir';
+          if (pStr === '/allowed/path1') return '/allowed/path1';
+          throw { code: 'ENOENT' };
+        });
+
+        // Mock tilde expansion to resolve to allowed area by mocking os.homedir
+        mockOs.homedir.mockReturnValueOnce('/allowed/path1');
+
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve('/allowed/path1/subdir/newfile.txt'));
+      });
+
+      it('should skip checkAllowed when checkAllowed is false in creation mode', async () => {
+        const userPath = '/disallowed/newfile.txt';
+        // Mock parent directory exists
+        mockFs.realpath.mockResolvedValue('/disallowed');
+
+        const resolved = await validateAndResolvePath(userPath, {
+          forCreation: true,
+          checkAllowed: false,
+        });
+        expect(resolved).toBe(path.resolve(userPath));
+      });
+
+      it('should handle creation at root of allowed directory', async () => {
+        const userPath = '/allowed/path1/newfile.txt';
+        // Mock parent directory exists and is allowed
+        mockFs.realpath.mockResolvedValue('/allowed/path1');
+
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve(userPath));
+      });
     });
   });
 });

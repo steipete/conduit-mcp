@@ -29,12 +29,14 @@ vi.mock('@/internal', async (importOriginal) => {
     // Override specific parts with mocks
     logger: loggerForInternalMock,
     configLoader: mockedConfigLoader,
+    conduitConfig: mockDeep<ConduitServerConfig>(),
     fileSystemOps: mockDeep<typeof originalModule.fileSystemOps>(),
     webFetcher: {
       ...originalModule.webFetcher, // Spread original webFetcher to keep other potential functions
       fetchUrlContent: vi.fn(), // Specifically mock fetchUrlContent
     },
     getMimeType: vi.fn(),
+    validateAndResolvePath: vi.fn(),
     // ConduitError, ErrorCode, ReadTool etc. will be passed from originalModule
     ConduitError: originalModule.ConduitError,
     ErrorCode: originalModule.ErrorCode,
@@ -42,6 +44,9 @@ vi.mock('@/internal', async (importOriginal) => {
     ConduitServerConfig: originalModule.ConduitServerConfig,
   };
 });
+
+// Import validateAndResolvePath for mocking
+import { validateAndResolvePath as internalValidateAndResolvePath } from '@/internal';
 
 // Use the imported mocks
 const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
@@ -51,6 +56,9 @@ const mockedFetchUrlContent = webFetcher.fetchUrlContent as MockedFunction<
   typeof webFetcher.fetchUrlContent
 >;
 const mockedGetMimeType = internalGetMimeType as MockedFunction<typeof internalGetMimeType>;
+const mockedValidateAndResolvePath = internalValidateAndResolvePath as MockedFunction<
+  typeof internalValidateAndResolvePath
+>;
 
 describe('diffOps', () => {
   const defaultTestConfig: Partial<ConduitServerConfig> = {
@@ -68,22 +76,25 @@ describe('diffOps', () => {
   const source2Url = 'http://example.com/file2.txt';
 
   beforeEach(() => {
+    // Use vi.clearAllMocks() to reset all mocks
+    vi.clearAllMocks();
+    
+    // Reset deep mocks
     mockReset(mockedLogger);
+    mockReset(mockedConfig);
+    mockReset(mockedFsOps);
+    
     // The child mock setup for logger needs to ensure it returns the parent mock correctly after reset
-    // if child is also a deep mock, it might need its own reset or careful setup.
-    // For simplicity, if logger.child().info() is called, ensure logger.child returns mockedLogger.
     (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
 
-    mockReset(mockedConfig); // This should now work
+    // Set up config after reset
     Object.assign(mockedConfig, defaultTestConfig);
-    // Ensure type safety if defaultTestConfig properties are all optional
     mockedConfig.maxFileReadBytes = defaultTestConfig.maxFileReadBytes!;
     mockedConfig.maxUrlDownloadSizeBytes = defaultTestConfig.maxUrlDownloadSizeBytes!;
     mockedConfig.httpTimeoutMs = defaultTestConfig.httpTimeoutMs!;
 
-    mockReset(mockedFsOps);
-    mockedFetchUrlContent.mockReset();
-    mockedGetMimeType.mockReset();
+    // Set up default implementation for validateAndResolvePath
+    mockedValidateAndResolvePath.mockImplementation(async (path: string) => path);
   });
 
   afterEach(() => {
@@ -102,6 +113,11 @@ describe('diffOps', () => {
     } as any;
 
     it('should return a text diff for two different files', async () => {
+      // Mock validateAndResolvePath for both files
+      mockedValidateAndResolvePath
+        .mockResolvedValueOnce(source1Path)
+        .mockResolvedValueOnce(source2Path);
+      
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
       mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(
@@ -133,6 +149,11 @@ describe('diffOps', () => {
     });
 
     it('should return empty diff for identical files', async () => {
+      // Mock validateAndResolvePath for both files
+      mockedValidateAndResolvePath
+        .mockResolvedValueOnce(source1Path)
+        .mockResolvedValueOnce(source2Path);
+      
       mockedFsOps.getStats.mockResolvedValue(mockFileStats);
       mockedGetMimeType.mockResolvedValue('text/plain');
       mockedFsOps.readFileAsBuffer.mockResolvedValue(
@@ -222,6 +243,9 @@ describe('diffOps', () => {
     } as any;
 
     it('should return a text diff for a file and a URL', async () => {
+      // Mock validateAndResolvePath for the file path only (URL should not be validated)
+      mockedValidateAndResolvePath.mockResolvedValueOnce(source1Path);
+      
       // Mock for source1Path (file)
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');

@@ -8,6 +8,8 @@ import {
   fileSystemOps,
   logger,
   webFetcher,
+  validateAndResolvePath,
+  createMCPErrorStatus,
 } from '@/internal';
 import * as diff from 'diff'; // Using the 'diff' library
 // import logger from '@/utils/logger'; // Direct import
@@ -102,30 +104,69 @@ export async function getDiff(
   const [source1PathOrUrl, source2PathOrUrl] = params.sources;
 
   try {
-    let strContent1: string;
-    let strContent2: string;
+    // Validate and resolve file paths before proceeding
+    let resolvedSource1 = source1PathOrUrl;
+    let resolvedSource2 = source2PathOrUrl;
 
     const isUrl1 =
       source1PathOrUrl.startsWith('http://') || source1PathOrUrl.startsWith('https://');
     const isUrl2 =
       source2PathOrUrl.startsWith('http://') || source2PathOrUrl.startsWith('https://');
 
+    // Validate file paths (skip URLs)
+    if (!isUrl1) {
+      try {
+        resolvedSource1 = await validateAndResolvePath(source1PathOrUrl, {
+          isExistenceRequired: true,
+          checkAllowed: true,
+        });
+      } catch (error: unknown) {
+        if (error instanceof ConduitError) {
+          return createMCPErrorStatus(error.errorCode, error.message);
+        }
+        return createMCPErrorStatus(
+          ErrorCode.ERR_FS_INVALID_PATH,
+          `Invalid file path: ${source1PathOrUrl}`
+        );
+      }
+    }
+
+    if (!isUrl2) {
+      try {
+        resolvedSource2 = await validateAndResolvePath(source2PathOrUrl, {
+          isExistenceRequired: true,
+          checkAllowed: true,
+        });
+      } catch (error: unknown) {
+        if (error instanceof ConduitError) {
+          return createMCPErrorStatus(error.errorCode, error.message);
+        }
+        return createMCPErrorStatus(
+          ErrorCode.ERR_FS_INVALID_PATH,
+          `Invalid file path: ${source2PathOrUrl}`
+        );
+      }
+    }
+
+    let strContent1: string;
+    let strContent2: string;
+
     if (isUrl1) {
-      strContent1 = await readUrlContentForDiff(source1PathOrUrl, config, operationLogger);
+      strContent1 = await readUrlContentForDiff(resolvedSource1, config, operationLogger);
     } else {
-      strContent1 = await readFileContentForDiff(source1PathOrUrl, config, operationLogger);
+      strContent1 = await readFileContentForDiff(resolvedSource1, config, operationLogger);
     }
 
     if (isUrl2) {
-      strContent2 = await readUrlContentForDiff(source2PathOrUrl, config, operationLogger);
+      strContent2 = await readUrlContentForDiff(resolvedSource2, config, operationLogger);
     } else {
-      strContent2 = await readFileContentForDiff(source2PathOrUrl, config, operationLogger);
+      strContent2 = await readFileContentForDiff(resolvedSource2, config, operationLogger);
     }
 
     // Perform diff
     const diffOutput = diff.createTwoFilesPatch(
-      source1PathOrUrl,
-      source2PathOrUrl,
+      resolvedSource1,
+      resolvedSource2,
       strContent1,
       strContent2,
       '',
@@ -134,7 +175,7 @@ export async function getDiff(
     );
 
     return {
-      sources_compared: [source1PathOrUrl, source2PathOrUrl],
+      sources_compared: [resolvedSource1, resolvedSource2],
       status: 'success',
       diff_format_used: 'unified',
       diff_content: diffOutput,

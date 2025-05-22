@@ -1,78 +1,57 @@
 /// <reference types="vitest/globals" />
 
-import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
-import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
-import * as path from 'path';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-// Mock @/internal using the refactored approach
 vi.mock('@/internal', async (importOriginal) => {
   const originalModule = await importOriginal<typeof import('@/internal')>();
-
-  return {
-    ...originalModule, // Spread original module first
-    // Override specific parts with mocks
-    conduitConfig: mockDeep<typeof originalModule.ConduitServerConfig>(),
-    logger: (() => {
-      const loggerMock = mockDeep<import('pino').Logger<string>>();
-      loggerMock.child.mockReturnValue(loggerMock);
-      return loggerMock;
-    })(),
-    fileSystemOps: mockDeep<typeof originalModule.fileSystemOps>(),
-    getMimeType: vi.fn(),
-    // Pass through necessary exports from original module
-    ConduitError: originalModule.ConduitError,
-    ErrorCode: originalModule.ErrorCode,
-    FindTool: originalModule.FindTool,
-    EntryInfo: originalModule.EntryInfo,
-    ConduitServerConfig: originalModule.ConduitServerConfig,
+  
+  // Create mocks inside the factory to avoid hoisting issues
+  const mockLogger = {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn(),
   };
-});
-
-// Mock findOps.ts functions we're not directly testing
-vi.mock('@/operations/findOps', async (importOriginal) => {
-  const originalModule = await importOriginal<typeof import('@/operations/findOps')>();
+  mockLogger.child.mockReturnValue(mockLogger);
+  
   return {
     ...originalModule,
-    // We'll directly mock these when needed in tests
+    logger: mockLogger,
+    fileSystemOps: {
+      pathExists: vi.fn(),
+      getStats: vi.fn(),
+      listDirectory: vi.fn(),
+      getLstats: vi.fn(),
+      createEntryInfo: vi.fn(),
+      readFileAsBuffer: vi.fn(),
+    },
+    getMimeType: vi.fn(),
+    validateAndResolvePath: vi.fn(),
+    conduitConfig: {
+      maxFileReadBytes: 1024 * 1024,
+      maxFileReadBytesFind: 512 * 1024,
+      maxRecursiveDepth: 10,
+      httpTimeoutMs: 5000,
+      workspaceRoot: '/test/workspace',
+      allowedPaths: ['/test'],
+      logLevel: 'ERROR',
+    },
   };
 });
 
-// Import the mocked items from @/internal
-import {
-  ConduitError,
-  ErrorCode,
-  conduitConfig as internalConduitConfig,
-  fileSystemOps as internalFileSystemOps,
-  FindTool,
-  ConduitServerConfig,
-  EntryInfo,
-  validateAndResolvePath as internalValidateAndResolvePath,
-  getMimeType as internalGetMimeType,
-  logger as internalLogger,
-} from '@/internal';
+import { ConduitError, ErrorCode, EntryInfo, ConduitServerConfig, fileSystemOps } from '@/internal';
 
 describe('findOps', () => {
-  // Initialize test-level variables for mocks with proper types
-  const mockedConfig = internalConduitConfig as DeepMockProxy<ConduitServerConfig>;
-  const mockedFsOps = internalFileSystemOps as DeepMockProxy<typeof internalFileSystemOps>;
-  const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger<string>>;
-  const mockedValidateAndResolvePath = internalValidateAndResolvePath as MockedFunction<
-    typeof internalValidateAndResolvePath
-  >;
-  const mockedGetMimeType = internalGetMimeType as MockedFunction<typeof internalGetMimeType>;
-
-  const defaultTestConfig: Partial<ConduitServerConfig> = {
+  const defaultTestConfig: ConduitServerConfig = {
     workspaceRoot: '/test/workspace',
     logLevel: 'ERROR',
     allowedPaths: ['/test'],
-    maxFileReadBytes: 1024 * 1024, // 1MB
-    maxFileReadBytesFind: 512 * 1024, // 512KB for find operations
+    maxFileReadBytes: 1024 * 1024,
+    maxFileReadBytesFind: 512 * 1024,
     maxRecursiveDepth: 10,
     httpTimeoutMs: 5000,
-  };
-
-  const basePath = '/test/dir';
-  const resolvedBasePath = '/test/dir';
+  } as ConduitServerConfig;
 
   const createMockStats = (isFile = true, isDir = false) => ({
     isFile: () => isFile,
@@ -87,45 +66,13 @@ describe('findOps', () => {
   });
 
   beforeEach(() => {
-    // Reset all deep mocks
-    mockReset(mockedConfig);
-    mockReset(mockedFsOps);
-    mockReset(mockedLogger);
-
-    // Reset vi.fn() mocks
-    mockedValidateAndResolvePath.mockReset();
-    mockedGetMimeType.mockReset();
-
-    // Set up default config after reset
-    Object.assign(mockedConfig, defaultTestConfig);
-
-    // Explicitly set critical config values to ensure they're properly defined
-    mockedConfig.maxFileReadBytes = defaultTestConfig.maxFileReadBytes!;
-    mockedConfig.maxFileReadBytesFind = defaultTestConfig.maxFileReadBytesFind!;
-    mockedConfig.maxRecursiveDepth = defaultTestConfig.maxRecursiveDepth!;
-    mockedConfig.httpTimeoutMs = defaultTestConfig.httpTimeoutMs!;
-    mockedConfig.workspaceRoot = defaultTestConfig.workspaceRoot!;
-    mockedConfig.allowedPaths = defaultTestConfig.allowedPaths!;
-
-    // Set up default implementations for mockedFsOps functions
-    mockedFsOps.getStats.mockResolvedValue(createMockStats() as any);
-    mockedFsOps.readDir.mockResolvedValue([]);
-    mockedFsOps.pathExists.mockResolvedValue(true);
-    mockedFsOps.readFileAsBuffer.mockResolvedValue(Buffer.from('test content'));
-
-    // Set up default implementation for getMimeType
-    mockedGetMimeType.mockReturnValue('text/plain');
-
-    // Ensure logger.child returns the logger itself
-    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('handleFindEntries', () => {
     it('should call findEntries and return results for successful find', async () => {
+      const { handleFindEntries } = await import('@/operations/findOps');
+      
       const mockEntries: EntryInfo[] = [
         {
           name: 'file1.txt',
@@ -138,143 +85,116 @@ describe('findOps', () => {
         },
       ];
 
-      // Mock the findEntries function that's imported into handleFindEntries
-      const originalFindEntries = await import('@/operations/findOps').then(
-        (mod) => mod.findEntries
-      );
-      vi.spyOn({ findEntries: originalFindEntries }, 'findEntries').mockResolvedValueOnce(
-        mockEntries
-      );
+      // Set up mocks
+      (fileSystemOps.pathExists as any).mockResolvedValue(true);
+      (fileSystemOps.getStats as any).mockResolvedValue(createMockStats(false, true));
+      (fileSystemOps.listDirectory as any).mockResolvedValue(['file1.txt']);
+      (fileSystemOps.getLstats as any).mockResolvedValue(createMockStats(true, false));
+      (fileSystemOps.createEntryInfo as any).mockResolvedValue(mockEntries[0]);
 
-      const params: FindTool.Parameters = {
-        base_path: basePath,
+      const params = {
+        base_path: '/test/dir',
+        match_criteria: [],
         recursive: false,
-        match_criteria: [
-          {
-            type: 'name_pattern',
-            pattern: '*.txt',
-          },
-        ],
-        entry_type_filter: 'file',
       };
 
-      // Skip this test for now
-      expect(true).toBe(true);
+      const result = await handleFindEntries(params, defaultTestConfig);
+      expect(result).toEqual(mockEntries);
     });
 
     it('should throw error when findEntries returns ConduitError', async () => {
-      const mockError = new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, 'Base path not found');
+      const { handleFindEntries } = await import('@/operations/findOps');
+      
+      // Mock path not existing to trigger an error
+      (fileSystemOps.pathExists as any).mockResolvedValue(false);
 
-      // Skip this test for now
-      expect(true).toBe(true);
-    });
-  });
+      const params = {
+        base_path: '/nonexistent/path',
+        match_criteria: [],
+        recursive: false,
+      };
 
-  describe('findEntries with name_pattern', () => {
-    const setupMocksForDirectoryWithFiles = () => {
-      mockedValidateAndResolvePath.mockResolvedValueOnce(resolvedBasePath);
-      mockedFsOps.pathExists.mockResolvedValueOnce(true);
-      mockedFsOps.getStats.mockResolvedValueOnce(createMockStats(false, true) as any);
-      mockedFsOps.listDirectory.mockResolvedValueOnce(['file1.txt', 'file2.log', 'file3.md']);
-
-      // Mock stats for each file
-      mockedFsOps.getLstats
-        .mockResolvedValueOnce(createMockStats(true, false) as any) // file1.txt
-        .mockResolvedValueOnce(createMockStats(true, false) as any) // file2.log
-        .mockResolvedValueOnce(createMockStats(true, false) as any); // file3.md
-
-      // Mock entry info for each file
-      const mockFiles: EntryInfo[] = [
-        {
-          name: 'file1.txt',
-          path: path.join(resolvedBasePath, 'file1.txt'),
-          type: 'file',
-          size_bytes: 1024,
-          mime_type: 'text/plain',
-          created_at: '2023-01-01T00:00:00Z',
-          modified_at: '2023-01-01T00:00:00Z',
-        },
-        {
-          name: 'file2.log',
-          path: path.join(resolvedBasePath, 'file2.log'),
-          type: 'file',
-          size_bytes: 1024,
-          mime_type: 'text/plain',
-          created_at: '2023-01-01T00:00:00Z',
-          modified_at: '2023-01-01T00:00:00Z',
-        },
-        {
-          name: 'file3.md',
-          path: path.join(resolvedBasePath, 'file3.md'),
-          type: 'file',
-          size_bytes: 1024,
-          mime_type: 'text/markdown',
-          created_at: '2023-01-01T00:00:00Z',
-          modified_at: '2023-01-01T00:00:00Z',
-        },
-      ];
-
-      mockedFsOps.createEntryInfo
-        .mockResolvedValueOnce(mockFiles[0])
-        .mockResolvedValueOnce(mockFiles[1])
-        .mockResolvedValueOnce(mockFiles[2]);
-
-      return mockFiles;
-    };
-
-    it('should find files matching name pattern', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-
-    it('should filter by entry_type_filter', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('findEntries with content_pattern', () => {
-    it('should find files containing specific content', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-
-    it('should find files using regex content pattern', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('findEntries with metadata_filter', () => {
-    it('should find files matching size criteria', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-
-    it('should find files matching date criteria', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('findEntries with recursive search', () => {
-    it('should search recursively through directories', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('findEntries with multiple criteria', () => {
-    it('should find entries matching multiple criteria', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
+      await expect(handleFindEntries(params, defaultTestConfig))
+        .rejects.toThrow(ConduitError);
     });
   });
 
   describe('findEntries error handling', () => {
     it('should return ConduitError when base path does not exist', async () => {
-      // Skip this test for now since we have validation issues with the mock setup
-      expect(true).toBe(true);
+      const { findEntries } = await import('@/operations/findOps');
+      
+      (fileSystemOps.pathExists as any).mockResolvedValue(false);
+
+      const params = {
+        base_path: '/nonexistent/path',
+        match_criteria: [],
+        recursive: false,
+      };
+
+      const result = await findEntries(params, defaultTestConfig);
+      expect(result).toBeInstanceOf(ConduitError);
+      if (result instanceof ConduitError) {
+        expect(result.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+      }
+    });
+  });
+
+  describe('findEntries with name_pattern', () => {
+    it('should find files matching name pattern', async () => {
+      const { findEntries } = await import('@/operations/findOps');
+      
+      (fileSystemOps.pathExists as any).mockResolvedValue(true);
+      (fileSystemOps.getStats as any).mockResolvedValue(createMockStats(false, true));
+      (fileSystemOps.listDirectory as any).mockResolvedValue(['test.txt', 'other.md', 'readme.txt']);
+      (fileSystemOps.getLstats as any).mockResolvedValue(createMockStats(true, false));
+      
+      // Mock createEntryInfo for each file
+      (fileSystemOps.createEntryInfo as any)
+        .mockResolvedValueOnce({
+          name: 'test.txt',
+          path: '/test/test.txt',
+          type: 'file',
+          size_bytes: 1024,
+          mime_type: 'text/plain',
+          created_at: '2023-01-01T00:00:00Z',
+          modified_at: '2023-01-01T00:00:00Z',
+        })
+        .mockResolvedValueOnce({
+          name: 'other.md',
+          path: '/test/other.md',
+          type: 'file',
+          size_bytes: 2048,
+          mime_type: 'text/markdown',
+          created_at: '2023-01-01T00:00:00Z',
+          modified_at: '2023-01-01T00:00:00Z',
+        })
+        .mockResolvedValueOnce({
+          name: 'readme.txt',
+          path: '/test/readme.txt',
+          type: 'file',
+          size_bytes: 512,
+          mime_type: 'text/plain',
+          created_at: '2023-01-01T00:00:00Z',
+          modified_at: '2023-01-01T00:00:00Z',
+        });
+
+      const params = {
+        base_path: '/test',
+        match_criteria: [{
+          type: 'name_pattern' as const,
+          pattern: '*.txt'
+        }],
+        recursive: false,
+      };
+
+      const result = await findEntries(params, defaultTestConfig);
+      expect(Array.isArray(result)).toBe(true);
+      if (Array.isArray(result)) {
+        expect(result).toHaveLength(2);
+        expect(result.map(r => r.name)).toContain('test.txt');
+        expect(result.map(r => r.name)).toContain('readme.txt');
+        expect(result.map(r => r.name)).not.toContain('other.md');
+      }
     });
   });
 });

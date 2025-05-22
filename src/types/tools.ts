@@ -6,7 +6,7 @@ import {
   MCPErrorStatus,
   MCPSuccess,
   RangeRequestStatus,
-} from './common.js';
+} from './common';
 import { ErrorCode } from '@/internal';
 
 // This file will be expanded with specific request and response types for each tool
@@ -168,9 +168,8 @@ export namespace WriteTool {
     recursive?: boolean;
   }
 
-  export interface TouchEntry extends BaseWriteEntry {
-    // Inherits path from BaseWriteEntry, no additional properties needed
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- interface extends BaseWriteEntry with no additional properties
+  export interface TouchEntry extends BaseWriteEntry {}
 
   export interface CopyEntry {
     source_path: string;
@@ -462,6 +461,7 @@ export namespace ArchiveTool {
     source_paths: string[];
     archive_path: string;
     compression?: 'gzip' | 'none';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can have various structures
     metadata?: Record<string, any>;
     options?: ArchiveOptions;
   }
@@ -492,6 +492,7 @@ export namespace ArchiveTool {
     entries_processed: number; // Number of top-level source paths processed
     checksum_sha256?: string;
     compression_used?: 'zip' | 'gzip' | 'none';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can have various structures
     metadata?: Record<string, any>;
     options_applied?: ArchiveOptions;
     message?: string;

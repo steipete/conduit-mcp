@@ -13,6 +13,7 @@ import {
   imageProcessor, // Namespace for imageProcessor functions and types
   FetchedContent, // Type from common.ts
   RangeRequestStatus, // Type from common.ts
+  validateAndResolvePath, // Import the security handler function
 } from '@/internal';
 
 interface BaseResultForError {
@@ -88,22 +89,50 @@ export async function getContentFromFile(
 ): Promise<ReadTool.ContentResultItem> {
   const operationLogger = logger.child({ component: 'getContentOps' });
   operationLogger.debug(
-    `Getting content from file: ${filePath} with params: ${JSON.stringify(params)}`
+    `Attempting to get content from file: ${filePath} with params: ${JSON.stringify(params)}`
   );
 
+  let resolvedValidatedPath: string;
   try {
-    const stats = await fileSystemOps.getStats(filePath);
-
-    if (stats.isDirectory()) {
+    // Validate and resolve the path first
+    resolvedValidatedPath = await validateAndResolvePath(filePath, {
+      isExistenceRequired: true, // Existence is required for reading content
+      checkAllowed: true, // Ensure it's an allowed path
+    });
+    operationLogger.debug(`Path validated and resolved: ${filePath} -> ${resolvedValidatedPath}`);
+  } catch (validationError) {
+    // If validation fails, return that error
+    operationLogger.warn(`Path validation failed for ${filePath}:`, validationError);
+    if (validationError instanceof ConduitError) {
       return createErrorContentResultItem(
         filePath,
         'file',
+        validationError.errorCode,
+        validationError.message
+      );
+    }
+    return createErrorContentResultItem(
+      filePath,
+      'file',
+      ErrorCode.ERR_FS_INVALID_PATH, // Generic fallback if not ConduitError
+      validationError instanceof Error ? validationError.message : 'Path validation failed'
+    );
+  }
+
+  try {
+    // Use resolvedValidatedPath for all subsequent operations
+    const stats = await fileSystemOps.getStats(resolvedValidatedPath);
+
+    if (stats.isDirectory()) {
+      return createErrorContentResultItem(
+        resolvedValidatedPath, // Use resolved path in error reporting too
+        'file',
         ErrorCode.ERR_FS_PATH_IS_DIR,
-        `Source is a directory, not a file: ${filePath}`
+        `Source is a directory, not a file: ${resolvedValidatedPath}`
       );
     }
 
-    const detectedMimeType = await getMimeType(filePath);
+    const detectedMimeType = await getMimeType(resolvedValidatedPath);
     const format =
       params.format ||
       (detectedMimeType?.startsWith('text/') ||
@@ -119,7 +148,7 @@ export async function getContentFromFile(
 
     if (length !== -1 && offset + length > stats.size) {
       operationLogger.warn(
-        `Requested range [${offset}-${offset + length - 1}] for ${filePath} exceeds file size ${stats.size}. Adjusting length.`
+        `Requested range [${offset}-${offset + length - 1}] for ${resolvedValidatedPath} exceeds file size ${stats.size}. Adjusting length.`
       );
       length = stats.size - offset;
       if (length < 0) length = 0;
@@ -136,7 +165,7 @@ export async function getContentFromFile(
             }
           : {};
       return {
-        source: filePath,
+        source: resolvedValidatedPath,
         source_type: 'file',
         status: 'success',
         output_format_used: format as ReadTool.ContentFormat,
@@ -163,7 +192,7 @@ export async function getContentFromFile(
             }
           : {};
       return {
-        source: filePath,
+        source: resolvedValidatedPath,
         source_type: 'file',
         status: 'success',
         output_format_used: format as ReadTool.ContentFormat,
@@ -188,29 +217,32 @@ export async function getContentFromFile(
       if (stats.size > config.maxFileReadBytes) {
         throw new ConduitError(
           ErrorCode.RESOURCE_LIMIT_EXCEEDED,
-          `File size ${stats.size} for ${filePath} exceeds max file read bytes ${config.maxFileReadBytes} for full read.`
+          `File size ${stats.size} for ${resolvedValidatedPath} exceeds max file read bytes ${config.maxFileReadBytes} for full read.`
         );
       }
-      fileBuffer = await fileSystemOps.readFileAsBuffer(filePath, config.maxFileReadBytes);
+      fileBuffer = await fileSystemOps.readFileAsBuffer(
+        resolvedValidatedPath,
+        config.maxFileReadBytes
+      );
       if (offset > 0 || (length !== -1 && length < fileBuffer.length)) {
         const end = length === -1 ? fileBuffer.length : offset + length;
         fileBuffer = fileBuffer.subarray(offset, Math.min(end, fileBuffer.length));
       }
     } else {
-      const fileHandle = await fs.open(filePath, 'r');
+      const fileHandle = await fs.open(resolvedValidatedPath, 'r');
       try {
         const bytesToRead = length === -1 ? stats.size - offset : length;
 
         if (bytesToRead < 0) {
           throw new ConduitError(
             ErrorCode.ERR_FS_READ_FAILED,
-            `Internal inconsistency: Calculated bytesToRead is negative for ${filePath}.`
+            `Internal inconsistency: Calculated bytesToRead is negative for ${resolvedValidatedPath}.`
           );
         }
         if (bytesToRead > config.maxFileReadBytes) {
           throw new ConduitError(
             ErrorCode.RESOURCE_LIMIT_EXCEEDED,
-            `Requested byte range length ${bytesToRead} for ${filePath} exceeds max file read bytes ${config.maxFileReadBytes}.`
+            `Requested byte range length ${bytesToRead} for ${resolvedValidatedPath} exceeds max file read bytes ${config.maxFileReadBytes}.`
           );
         }
 
@@ -231,7 +263,7 @@ export async function getContentFromFile(
       try {
         const checksum = await calculateChecksum(fileBuffer, algo as string);
         return {
-          source: filePath,
+          source: resolvedValidatedPath,
           source_type: 'file',
           status: 'success',
           output_format_used: 'checksum',
@@ -243,10 +275,12 @@ export async function getContentFromFile(
       } catch (checksumError: unknown) {
         const errorMessage =
           checksumError instanceof Error ? checksumError.message : 'Unknown error';
-        operationLogger.error(`Checksum calculation failed for ${filePath}: ${errorMessage}`);
+        operationLogger.error(
+          `Checksum calculation failed for ${resolvedValidatedPath}: ${errorMessage}`
+        );
         throw new ConduitError(
           ErrorCode.ERR_CHECKSUM_FAILED,
-          `Checksum calculation failed for ${filePath}: ${errorMessage}`
+          `Checksum calculation failed for ${resolvedValidatedPath}: ${errorMessage}`
         );
       }
     }
@@ -263,7 +297,7 @@ export async function getContentFromFile(
         sourceMimeType !== 'application/svg+xml'
       ) {
         return {
-          source: filePath,
+          source: resolvedValidatedPath,
           source_type: 'file',
           status: 'success',
           output_format_used: 'text',
@@ -274,7 +308,7 @@ export async function getContentFromFile(
       }
       const textContent = fileBuffer.toString('utf8');
       return {
-        source: filePath,
+        source: resolvedValidatedPath,
         source_type: 'file',
         status: 'success',
         output_format_used: 'text',
@@ -293,7 +327,7 @@ export async function getContentFromFile(
       }
       const base64Content = finalBuffer.toString('base64');
       return {
-        source: filePath,
+        source: resolvedValidatedPath,
         source_type: 'file',
         status: 'success',
         output_format_used: 'base64',
@@ -312,10 +346,10 @@ export async function getContentFromFile(
         try {
           const markdownContent = webFetcher.cleanHtmlToMarkdown(
             fileContentForMarkdown,
-            `file://${filePath}`
+            `file://${resolvedValidatedPath}`
           );
           return {
-            source: filePath,
+            source: resolvedValidatedPath,
             source_type: 'file',
             status: 'success',
             output_format_used: 'markdown',
@@ -327,7 +361,7 @@ export async function getContentFromFile(
         } catch (mdError: unknown) {
           const errorMessage = mdError instanceof Error ? mdError.message : 'Unknown error';
           operationLogger.warn(
-            `Markdown conversion failed for local HTML file ${filePath}: ${errorMessage}`
+            `Markdown conversion failed for local HTML file ${resolvedValidatedPath}: ${errorMessage}`
           );
           const errorCode =
             mdError instanceof ConduitError &&
@@ -336,16 +370,16 @@ export async function getContentFromFile(
               ? mdError.errorCode
               : ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED;
           return createErrorContentResultItem(
-            filePath,
+            resolvedValidatedPath,
             'file',
             errorCode,
-            `Markdown processing failed for ${filePath}: ${errorMessage}`
+            `Markdown processing failed for ${resolvedValidatedPath}: ${errorMessage}`
           );
         }
       } else {
         // Not HTML, so attempt to return as 'text' or indicate not convertible
         operationLogger.info(
-          `Markdown format requested for non-HTML file ${filePath} (MIME: ${sourceMimeType}). Returning as text if possible.`
+          `Markdown format requested for non-HTML file ${resolvedValidatedPath} (MIME: ${sourceMimeType}). Returning as text if possible.`
         );
         if (
           sourceMimeType &&
@@ -356,7 +390,7 @@ export async function getContentFromFile(
           sourceMimeType !== 'application/svg+xml'
         ) {
           return {
-            source: filePath,
+            source: resolvedValidatedPath,
             source_type: 'file',
             status: 'success',
             output_format_used: 'text', // Fallback to text
@@ -369,7 +403,7 @@ export async function getContentFromFile(
           } as ReadTool.ContentResultSuccess;
         }
         return {
-          source: filePath,
+          source: resolvedValidatedPath,
           source_type: 'file',
           status: 'success',
           output_format_used: 'text', // Fallback from Markdown for non-HTML text files
@@ -383,42 +417,49 @@ export async function getContentFromFile(
     }
 
     // Should not be reached if format is one of the above
-    operationLogger.error(`getContentFromFile: Unhandled format ${format} for ${filePath}`);
+    operationLogger.error(
+      `getContentFromFile: Unhandled format ${format} for ${resolvedValidatedPath}`
+    );
     return createErrorContentResultItem(
-      filePath,
+      resolvedValidatedPath,
       'file',
       ErrorCode.INVALID_PARAMETER,
       `Unsupported format specified: ${format}`
     );
   } catch (error: unknown) {
-    operationLogger.error(`Error in getContentFromFile for ${filePath}:`, error);
+    operationLogger.error(`Error in getContentFromFile for ${resolvedValidatedPath}:`, error);
     if (error instanceof ConduitError) {
-      return createErrorContentResultItem(filePath, 'file', error.errorCode, error.message);
+      return createErrorContentResultItem(
+        resolvedValidatedPath,
+        'file',
+        error.errorCode,
+        error.message
+      );
     }
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'ENOENT') {
         return createErrorContentResultItem(
-          filePath,
+          resolvedValidatedPath,
           'file',
           ErrorCode.ERR_FS_NOT_FOUND,
-          `File not found: ${filePath}`
+          `File not found: ${resolvedValidatedPath}`
         );
       }
       if (error.code === 'EACCES' || error.code === 'EPERM') {
         return createErrorContentResultItem(
-          filePath,
+          resolvedValidatedPath,
           'file',
           ErrorCode.ERR_FS_PERMISSION_DENIED,
-          `Permission denied for file: ${filePath}`
+          `Permission denied for file: ${resolvedValidatedPath}`
         );
       }
     }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return createErrorContentResultItem(
-      filePath,
+      resolvedValidatedPath,
       'file',
       ErrorCode.ERR_FS_READ_FAILED,
-      `Failed to read file ${filePath}: ${errorMessage}`
+      `Failed to read file ${resolvedValidatedPath}: ${errorMessage}`
     );
   }
 }

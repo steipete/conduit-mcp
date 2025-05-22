@@ -92,21 +92,48 @@ async function getMetadataFromFile(
 ): Promise<ReadTool.MetadataResultItem> {
   const operationLogger = logger.child({ operation: 'getMetadataFromFile', path: filePath });
   operationLogger.info('Getting metadata from file');
+
+  let resolvedValidatedPath: string;
   try {
-    const resolvedPath = await validateAndResolvePath(filePath, { isExistenceRequired: true });
-    const stats = await fileSystemOps.getLstats(resolvedPath);
-    if (!stats) {
+    // Validate and resolve the path first
+    resolvedValidatedPath = await validateAndResolvePath(filePath, {
+      isExistenceRequired: true, // Existence is required for reading metadata
+      checkAllowed: true, // Ensure it's an allowed path
+    });
+    operationLogger.debug(`Path validated and resolved: ${filePath} -> ${resolvedValidatedPath}`);
+  } catch (validationError) {
+    // If validation fails, return that error
+    operationLogger.warn(`Path validation failed for ${filePath}:`, validationError);
+    if (validationError instanceof ConduitError) {
       return createErrorMetadataResultItem(
         filePath,
         'file',
+        validationError.errorCode,
+        validationError.message
+      );
+    }
+    return createErrorMetadataResultItem(
+      filePath,
+      'file',
+      ErrorCode.ERR_FS_INVALID_PATH, // Generic fallback if not ConduitError
+      validationError instanceof Error ? validationError.message : 'Path validation failed'
+    );
+  }
+
+  try {
+    const stats = await fileSystemOps.getLstats(resolvedValidatedPath);
+    if (!stats) {
+      return createErrorMetadataResultItem(
+        resolvedValidatedPath,
+        'file',
         ErrorCode.ERR_FS_NOT_FOUND,
-        `File not found or not accessible: ${filePath}`
+        `File not found or not accessible: ${resolvedValidatedPath}`
       );
     }
     const entryInfo = await fileSystemOps.createEntryInfo(
-      resolvedPath,
+      resolvedValidatedPath,
       stats,
-      path.basename(resolvedPath)
+      path.basename(resolvedValidatedPath)
     );
 
     const metadata: ReadTool.Metadata = {
@@ -122,32 +149,39 @@ async function getMetadataFromFile(
 
     return {
       status: 'success',
-      source: filePath,
+      source: resolvedValidatedPath,
       source_type: 'file',
       metadata: metadata,
     };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    operationLogger.error(`Error getting metadata for file ${filePath}: ${errorMessage}`);
+    operationLogger.error(
+      `Error getting metadata for file ${resolvedValidatedPath}: ${errorMessage}`
+    );
     if (error instanceof ConduitError) {
       if (
         error.errorCode === ErrorCode.ACCESS_DENIED ||
         error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED
       ) {
         return createErrorMetadataResultItem(
-          filePath,
+          resolvedValidatedPath,
           'file',
           ErrorCode.ERR_FS_PERMISSION_DENIED,
-          `Permission denied to access metadata for: ${filePath}`
+          `Permission denied to access metadata for: ${resolvedValidatedPath}`
         );
       }
-      return createErrorMetadataResultItem(filePath, 'file', error.errorCode, error.message);
+      return createErrorMetadataResultItem(
+        resolvedValidatedPath,
+        'file',
+        error.errorCode,
+        error.message
+      );
     }
     return createErrorMetadataResultItem(
-      filePath,
+      resolvedValidatedPath,
       'file',
       ErrorCode.OPERATION_FAILED,
-      `Failed to get metadata for file: ${filePath}. ${errorMessage}`
+      `Failed to get metadata for file: ${resolvedValidatedPath}. ${errorMessage}`
     );
   }
 }

@@ -2,7 +2,14 @@ import * as tar from 'tar';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import AdmZip from 'adm-zip';
-import { ArchiveTool, ConduitServerConfig, ConduitError, ErrorCode, logger } from '@/internal';
+import {
+  ArchiveTool,
+  ConduitServerConfig,
+  ConduitError,
+  ErrorCode,
+  logger,
+  validateAndResolvePath,
+} from '@/internal';
 import { calculateChecksum } from '@/utils/checksum';
 
 const createErrorArchiveResultItem = (
@@ -24,18 +31,36 @@ export const createArchive = async (
   const { archive_path, source_paths, compression, options } = params;
   const { workspaceRoot } = config;
 
-  const absoluteArchivePath = path.resolve(workspaceRoot, archive_path);
-  const relativeSourcePathsForTar = source_paths.map((p: string) => {
-    const absPath = path.resolve(workspaceRoot, p);
-    const relPath = path.relative(workspaceRoot, absPath);
-    if (relPath.startsWith('..') || path.isAbsolute(relPath)) {
-      throw new ConduitError(
-        ErrorCode.INVALID_PARAMETER,
-        `Source path ${p} is outside the workspace root or invalid.`
-      );
+  let absoluteArchivePath: string;
+  let resolvedSourcePaths: string[] = [];
+  let relativeSourcePathsForTar: string[] = [];
+
+  try {
+    // Validate archive path
+    absoluteArchivePath = await validateAndResolvePath(archive_path, {
+      forCreation: true,
+      checkAllowed: true,
+    });
+
+    // Validate each source path
+    for (const sourcePath of source_paths) {
+      const resolvedSourcePath = await validateAndResolvePath(sourcePath, {
+        isExistenceRequired: true,
+        checkAllowed: true,
+      });
+      resolvedSourcePaths.push(resolvedSourcePath);
+
+      // Create relative path for tar operations
+      const relPath = path.relative(workspaceRoot, resolvedSourcePath);
+      relativeSourcePathsForTar.push(relPath);
     }
-    return relPath;
-  });
+  } catch (error: unknown) {
+    if (error instanceof ConduitError) {
+      throw error;
+    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new ConduitError(ErrorCode.INVALID_PARAMETER, `Path validation failed: ${errorMessage}`);
+  }
 
   if ((await fs.pathExists(absoluteArchivePath)) && !options?.overwrite) {
     return createErrorArchiveResultItem(
@@ -68,18 +93,18 @@ export const createArchive = async (
 
     if (inferredFormat === 'zip') {
       const zip = new AdmZip();
-      for (const sourcePath of source_paths) {
-        const absoluteSourcePath = path.resolve(workspaceRoot, sourcePath);
+      for (let i = 0; i < source_paths.length; i++) {
+        const absoluteSourcePath = resolvedSourcePaths[i];
         const stats = await fs.stat(absoluteSourcePath);
 
         const entryZipPath = options?.prefix
-          ? path.join(options.prefix, path.basename(sourcePath))
-          : path.basename(sourcePath);
+          ? path.join(options.prefix, path.basename(source_paths[i]))
+          : path.basename(source_paths[i]);
         if (stats.isDirectory()) {
           zip.addLocalFolder(absoluteSourcePath, entryZipPath);
         } else {
           const dirInZip = options?.prefix ? options.prefix : '';
-          const fileNameInZip = path.basename(sourcePath);
+          const fileNameInZip = path.basename(source_paths[i]);
           zip.addLocalFile(absoluteSourcePath, dirInZip, fileNameInZip);
         }
       }
@@ -141,21 +166,31 @@ export const createArchive = async (
 
 export const extractArchive = async (
   params: ArchiveTool.ExtractArchiveParams,
-  config: ConduitServerConfig
+  _config: ConduitServerConfig
 ): Promise<ArchiveTool.ArchiveResultItem> => {
   const { archive_path, target_path, options } = params;
-  const { workspaceRoot } = config;
 
-  const absoluteArchivePath = path.resolve(workspaceRoot, archive_path);
-  const absoluteTargetPath = path.resolve(workspaceRoot, target_path);
+  let absoluteArchivePath: string;
+  let absoluteTargetPath: string;
 
-  if (!(await fs.pathExists(absoluteArchivePath))) {
-    return createErrorArchiveResultItem(
-      'extract',
-      `Archive not found at ${archive_path}.`,
-      ErrorCode.ERR_ARCHIVE_NOT_FOUND,
-      `File ${absoluteArchivePath} does not exist.`
-    );
+  try {
+    // Validate archive path
+    absoluteArchivePath = await validateAndResolvePath(archive_path, {
+      isExistenceRequired: true,
+      checkAllowed: true,
+    });
+
+    // Validate destination path
+    absoluteTargetPath = await validateAndResolvePath(target_path, {
+      forCreation: true,
+      checkAllowed: true,
+    });
+  } catch (error: unknown) {
+    if (error instanceof ConduitError) {
+      throw error;
+    }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new ConduitError(ErrorCode.INVALID_PARAMETER, `Path validation failed: ${errorMessage}`);
   }
 
   try {

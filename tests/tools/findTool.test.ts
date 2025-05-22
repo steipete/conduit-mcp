@@ -1,7 +1,15 @@
 import { findToolHandler } from '@/tools/findTool';
 import { FindTool } from '@/types/tools';
-import { EntryInfo, ConduitError, ErrorCode, conduitConfig, ConduitServerConfig } from '@/internal';
-import { findEntriesRecursive } from '@/operations/findOps';
+import { 
+  EntryInfo, 
+  ConduitError, 
+  ErrorCode, 
+  conduitConfig, 
+  ConduitServerConfig,
+  validateAndResolvePath,
+  fileSystemOps
+} from '@/internal';
+import { findEntries } from '@/operations/findOps';
 import { vi, type MockedFunction } from 'vitest';
 
 // Mocks
@@ -12,19 +20,25 @@ vi.mock('@/internal', async (importOriginal) => {
     conduitConfig: {
       maxRecursiveDepth: 5,
     },
+    validateAndResolvePath: vi.fn(),
+    fileSystemOps: {
+      getStats: vi.fn(),
+    },
   };
 });
+
 vi.mock('@/operations/findOps', () => ({
-  findEntriesRecursive: vi.fn(),
+  findEntries: vi.fn(),
 }));
 
 const mockedConduitConfig = conduitConfig as any;
-const mockedFindEntriesRecursive = findEntriesRecursive as MockedFunction<
-  typeof findEntriesRecursive
->;
+const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<typeof validateAndResolvePath>;
+const mockedFileSystemOps = fileSystemOps as any;
+const mockedFindEntries = findEntries as MockedFunction<typeof findEntries>;
 
 describe('FindTool', () => {
   const mockBasePath = '/allowed/search_base';
+  const mockResolvedPath = '/resolved/allowed/search_base';
   const mockTimestamp = new Date().toISOString();
   const mockEntryInfoFile: EntryInfo = {
     name: 'file.txt',
@@ -52,19 +66,27 @@ describe('FindTool', () => {
     vi.clearAllMocks();
     mockedConduitConfig.maxRecursiveDepth = 5;
 
-    // Default mock for findEntriesRecursive: resolves with empty array
-    // Test cases will override this if they expect results.
-    mockedFindEntriesRecursive.mockResolvedValue([]);
+    // Default successful mocks
+    mockedValidateAndResolvePath.mockResolvedValue(mockResolvedPath);
+    mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => true });
+    mockedFindEntries.mockResolvedValue([]);
   });
 
-  it('should call findEntriesRecursive with correct parameters (default recursive)', async () => {
+  it('should validate and resolve path, then call findEntries with resolved path', async () => {
     const params: FindTool.Parameters = {
       base_path: mockBasePath,
       match_criteria: [{ type: 'name_pattern', pattern: '*.txt' }],
     };
+
     await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
-    expect(mockedFindEntriesRecursive).toHaveBeenCalledWith(
-      params,
+
+    expect(mockedValidateAndResolvePath).toHaveBeenCalledWith(mockBasePath, {
+      isExistenceRequired: true,
+      checkAllowed: true,
+    });
+    expect(mockedFileSystemOps.getStats).toHaveBeenCalledWith(mockResolvedPath);
+    expect(mockedFindEntries).toHaveBeenCalledWith(
+      { ...params, base_path: mockResolvedPath },
       mockedConduitConfig as ConduitServerConfig
     );
   });
@@ -75,9 +97,11 @@ describe('FindTool', () => {
       match_criteria: [{ type: 'name_pattern', pattern: '*.txt' }],
       recursive: false,
     };
+
     await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
-    expect(mockedFindEntriesRecursive).toHaveBeenCalledWith(
-      params,
+
+    expect(mockedFindEntries).toHaveBeenCalledWith(
+      { ...params, base_path: mockResolvedPath },
       mockedConduitConfig as ConduitServerConfig
     );
   });
@@ -88,103 +112,126 @@ describe('FindTool', () => {
       match_criteria: [{ type: 'name_pattern', pattern: '*' }],
       entry_type_filter: 'file',
     };
+
     await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
-    expect(mockedFindEntriesRecursive).toHaveBeenCalledWith(
-      params,
+
+    expect(mockedFindEntries).toHaveBeenCalledWith(
+      { ...params, base_path: mockResolvedPath },
       mockedConduitConfig as ConduitServerConfig
     );
   });
 
-  it('should return results populated by findEntriesRecursive', async () => {
+  it('should return results populated by findEntries', async () => {
     const expectedResults: EntryInfo[] = [mockEntryInfoFile, mockEntryInfoDir];
-    mockedFindEntriesRecursive.mockResolvedValue(expectedResults);
+    mockedFindEntries.mockResolvedValue(expectedResults);
+
     const params: FindTool.Parameters = {
       base_path: mockBasePath,
       match_criteria: [{ type: 'name_pattern', pattern: '*' }],
     };
+
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({ tool_name: 'find', results: expectedResults });
   });
 
-  it('should return error response if base_path is missing', async () => {
-    const params: Partial<FindTool.Parameters> = { match_criteria: [] };
-    mockedFindEntriesRecursive.mockRejectedValueOnce(
-      new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing 'base_path' parameter for find tool.")
-    );
-    const result = await findToolHandler(
-      params as FindTool.Parameters,
-      mockedConduitConfig as ConduitServerConfig
-    );
+  it('should return error response if path validation fails', async () => {
+    const validationError = new ConduitError(ErrorCode.ERR_PATH_VALIDATION, 'Path validation failed');
+    mockedValidateAndResolvePath.mockRejectedValue(validationError);
+
+    const params: FindTool.Parameters = {
+      base_path: '/invalid/path',
+      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+    };
+
+    const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
       status: 'error',
-      error_code: ErrorCode.INVALID_PARAMETER,
-      error_message: "Missing 'base_path' parameter for find tool.",
+      error_code: ErrorCode.ERR_PATH_VALIDATION,
+      error_message: 'Path validation failed',
     });
   });
 
-  it('should return error response if match_criteria is missing or empty', async () => {
-    let params: Partial<FindTool.Parameters> = { base_path: mockBasePath };
-    mockedFindEntriesRecursive.mockRejectedValueOnce(
-      new ConduitError(
-        ErrorCode.INVALID_PARAMETER,
-        "Missing or empty 'match_criteria' for find tool."
-      )
-    );
-    let result = await findToolHandler(
-      params as FindTool.Parameters,
-      mockedConduitConfig as ConduitServerConfig
-    );
-    expect(result).toEqual({
-      status: 'error',
-      error_code: ErrorCode.INVALID_PARAMETER,
-      error_message: "Missing or empty 'match_criteria' for find tool.",
-    });
+  it('should return error response if base_path is a file not directory', async () => {
+    mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => false });
 
-    params = { base_path: mockBasePath, match_criteria: [] };
-    mockedFindEntriesRecursive.mockRejectedValueOnce(
-      new ConduitError(
-        ErrorCode.INVALID_PARAMETER,
-        "Missing or empty 'match_criteria' for find tool."
-      )
-    );
-    result = await findToolHandler(
-      params as FindTool.Parameters,
-      mockedConduitConfig as ConduitServerConfig
-    );
-    expect(result).toEqual({
-      status: 'error',
-      error_code: ErrorCode.INVALID_PARAMETER,
-      error_message: "Missing or empty 'match_criteria' for find tool.",
-    });
-  });
-
-  it('should return error response if findEntriesRecursive throws specific ConduitError', async () => {
-    const specificError = new ConduitError(ErrorCode.OPERATION_FAILED, 'Specific find op failure');
-    mockedFindEntriesRecursive.mockRejectedValueOnce(specificError);
     const params: FindTool.Parameters = {
       base_path: mockBasePath,
       match_criteria: [{ type: 'name_pattern', pattern: '*' }],
     };
+
+    const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+    expect(result).toEqual({
+      status: 'error',
+      error_code: ErrorCode.ERR_FS_PATH_IS_FILE,
+      error_message: `Provided base_path is a file, not a directory: ${mockResolvedPath}`,
+    });
+  });
+
+  it('should return error response if findEntries returns ConduitError', async () => {
+    const findError = new ConduitError(ErrorCode.OPERATION_FAILED, 'Find operation failed');
+    mockedFindEntries.mockResolvedValue(findError);
+
+    const params: FindTool.Parameters = {
+      base_path: mockBasePath,
+      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+    };
+
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.OPERATION_FAILED,
-      error_message: 'Specific find op failure',
+      error_message: 'Find operation failed',
     });
   });
 
-  it('should return error response with generic message if findEntriesRecursive throws non-ConduitError', async () => {
-    const genericError = new Error('Generic find op failure');
-    mockedFindEntriesRecursive.mockRejectedValueOnce(genericError);
+  it('should return error response if findEntries throws ConduitError', async () => {
+    const findError = new ConduitError(ErrorCode.OPERATION_FAILED, 'Find operation failed');
+    mockedFindEntries.mockRejectedValue(findError);
+
     const params: FindTool.Parameters = {
       base_path: mockBasePath,
       match_criteria: [{ type: 'name_pattern', pattern: '*' }],
     };
+
+    const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+    expect(result).toEqual({
+      status: 'error',
+      error_code: ErrorCode.OPERATION_FAILED,
+      error_message: 'Find operation failed',
+    });
+  });
+
+  it('should return error response if an unexpected error occurs', async () => {
+    const genericError = new Error('Unexpected error');
+    mockedFindEntries.mockRejectedValue(genericError);
+
+    const params: FindTool.Parameters = {
+      base_path: mockBasePath,
+      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+    };
+
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.INTERNAL_ERROR,
-      error_message: 'Internal server error: Generic find op failure',
+      error_message: 'Internal server error: Unexpected error',
+    });
+  });
+
+  it('should return error response if fileSystemOps.getStats throws error', async () => {
+    const statsError = new Error('Stats error');
+    mockedFileSystemOps.getStats.mockRejectedValue(statsError);
+
+    const params: FindTool.Parameters = {
+      base_path: mockBasePath,
+      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+    };
+
+    const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+    expect(result).toEqual({
+      status: 'error',
+      error_code: ErrorCode.INTERNAL_ERROR,
+      error_message: 'Internal server error: Stats error',
     });
   });
 });

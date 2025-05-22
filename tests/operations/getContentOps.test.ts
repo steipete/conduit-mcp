@@ -24,6 +24,7 @@ import {
   getCurrentISO8601UTC,
   ConduitServerConfig,
   FetchedContent,
+  validateAndResolvePath,
 } from '@/internal';
 
 // No global vi.mock('@/utils/logger') here.
@@ -52,6 +53,7 @@ vi.mock('@/internal', async (importOriginal) => {
     calculateChecksum: vi.fn(),
     getMimeType: vi.fn(),
     getCurrentISO8601UTC: vi.fn(() => '2023-01-01T00:00:00.000Z'),
+    validateAndResolvePath: vi.fn(),
 
     // ConduitError, ErrorCode, ReadTool should be passed through from originalModule via the spread.
     // No need to list them separately if they are correctly exported from @/internal/index.ts
@@ -81,6 +83,7 @@ describe('getContentOps', () => {
   const mockedGetCurrentISO8601UTC = getCurrentISO8601UTC as MockedFunction<
     typeof getCurrentISO8601UTC
   >;
+  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<typeof validateAndResolvePath>;
 
   const defaultTestConfig: ConduitServerConfig = {
     maxFileReadBytes: 1024 * 1024,
@@ -126,6 +129,15 @@ describe('getContentOps', () => {
     mockedGetMimeType.mockReset();
     mockedFsOpen.mockReset();
     mockedGetCurrentISO8601UTC.mockReturnValue('2023-01-01T00:00:00.000Z');
+    mockedValidateAndResolvePath.mockReset();
+    
+    // Default mock for validateAndResolvePath
+    mockedValidateAndResolvePath.mockImplementation(async (inputPath: string) => {
+      if (inputPath.startsWith('/')) {
+        return inputPath;
+      }
+      return `/test/workspace/${inputPath}`;
+    });
   });
 
   afterEach(() => {
@@ -142,6 +154,9 @@ describe('getContentOps', () => {
     };
 
     it('should return error if source is a directory', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => false,
         isDirectory: () => true,
@@ -162,6 +177,9 @@ describe('getContentOps', () => {
     });
 
     it('should default to "text" format for text-like MIME types', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -187,6 +205,9 @@ describe('getContentOps', () => {
     });
 
     it('should default to "base64" format for non-text-like MIME types', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -212,6 +233,9 @@ describe('getContentOps', () => {
     });
 
     it('should use specified "text" format', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -233,6 +257,9 @@ describe('getContentOps', () => {
     });
 
     it('should use specified "base64" format', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -254,6 +281,9 @@ describe('getContentOps', () => {
     });
 
     it('should handle "checksum" format', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       const checksumValue = 'mockedChecksum';
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
@@ -286,6 +316,9 @@ describe('getContentOps', () => {
     });
 
     it('should handle "checksum" format with default algorithm', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       const checksumValue = 'defaultAlgoChecksum';
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
@@ -313,6 +346,9 @@ describe('getContentOps', () => {
     });
 
     it('should handle range requests for "text" format', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       const fileContent = 'This is a long line of text for range testing.';
       const offset = 5;
       const length = 10;
@@ -359,6 +395,9 @@ describe('getContentOps', () => {
     });
 
     it('should handle range requests for "base64" format', async () => {
+      // Mock validateAndResolvePath to return the path
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       const fileContent = 'BinaryDataForRangeTest';
       const offset = 3;
       const length = 6;
@@ -405,6 +444,8 @@ describe('getContentOps', () => {
     });
 
     it('should return error if fs.stat fails', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       // Simulate the error that fileSystemOps.getStats would throw
       const originalFsError = new Error('FS stat failed'); // The message from the raw fs error
       const expectedConduitErrorMessage = `Failed to get stats for path: ${filePath}. Error: ${originalFsError.message}`;
@@ -428,6 +469,8 @@ describe('getContentOps', () => {
     });
 
     it('should return error if getMimeType fails', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -448,6 +491,8 @@ describe('getContentOps', () => {
     });
 
     it('should return error if readFileAsString fails for text format (now fs.open or readFileAsBuffer)', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -470,6 +515,8 @@ describe('getContentOps', () => {
     });
 
     it('should return error if readFileAsBuffer fails for base64 format', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -495,6 +542,8 @@ describe('getContentOps', () => {
     });
 
     it('should apply image compression for image MIME types and base64 format', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       const originalImageData = Buffer.from('originalImageData');
       const compressedImageData = Buffer.from('compressedImageData');
 
@@ -536,6 +585,8 @@ describe('getContentOps', () => {
     });
 
     it('should skip image compression if imageProcessor.compressImageIfNecessary fails', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       const originalImageData = Buffer.from('originalImageData');
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
@@ -568,6 +619,8 @@ describe('getContentOps', () => {
     });
 
     it('should not apply image compression for non-image MIME types', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -589,6 +642,8 @@ describe('getContentOps', () => {
     });
 
     it('should not apply image compression for "checksum" format', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -612,6 +667,8 @@ describe('getContentOps', () => {
     });
 
     it('should return error if calculateChecksum fails', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -766,7 +823,7 @@ describe('getContentOps', () => {
       const offset = 5;
       const length = 10;
       const expectedSubstring = fullContent.substring(offset, offset + length);
-      const rangeHeader = `bytes=${offset}-${offset + length - 1}`;
+      const rangeObject = { offset, length };
 
       const mockFetchedContent: FetchedContent = {
         finalUrl: testUrl,
@@ -792,7 +849,7 @@ describe('getContentOps', () => {
       expect(result.content).toBe(expectedSubstring);
       expect(result.range_request_status).toBe('native');
       expect(result.size_bytes).toBe(expectedSubstring.length);
-      expect(mockedWebFetcher.fetchUrlContent).toHaveBeenCalledWith(testUrl, false, rangeHeader);
+      expect(mockedWebFetcher.fetchUrlContent).toHaveBeenCalledWith(testUrl, false, rangeObject);
     });
 
     it('should handle range request where server returns full content (200) and simulate range', async () => {
@@ -800,7 +857,7 @@ describe('getContentOps', () => {
       const offset = 5;
       const length = 10;
       const expectedSubstring = fullContent.substring(offset, offset + length);
-      const rangeHeader = `bytes=${offset}-${offset + length - 1}`;
+      const rangeObject = { offset, length };
 
       const mockFetchedContent: FetchedContent = {
         finalUrl: testUrl,
@@ -823,7 +880,7 @@ describe('getContentOps', () => {
       expect(result.content).toBe(expectedSubstring);
       expect(result.range_request_status).toBe('simulated'); // Was full_content_returned then changed to simulated
       expect(result.size_bytes).toBe(expectedSubstring.length);
-      expect(mockedWebFetcher.fetchUrlContent).toHaveBeenCalledWith(testUrl, false, rangeHeader);
+      expect(mockedWebFetcher.fetchUrlContent).toHaveBeenCalledWith(testUrl, false, rangeObject);
     });
 
     it('should simulate range if no range header sent but params specify range', async () => {
@@ -856,13 +913,13 @@ describe('getContentOps', () => {
       expect(result.content).toBe(expectedSubstring);
       expect(result.range_request_status).toBe('simulated');
       expect(result.size_bytes).toBe(expectedSubstring.length);
-      // Expect fetchUrlContent to have been called WITH a range header initially
+      // Expect fetchUrlContent to have been called WITH a range object initially
       // because params.offset and params.length are set
-      const expectedRangeHeader = `bytes=${offset}-${offset + length - 1}`;
+      const expectedRangeObject = { offset, length };
       expect(mockedWebFetcher.fetchUrlContent).toHaveBeenCalledWith(
         testUrl,
         false,
-        expectedRangeHeader
+        expectedRangeObject
       );
     });
 
@@ -1060,9 +1117,9 @@ describe('getContentOps', () => {
         )) as ReadTool.ContentResultSuccess;
 
         expect(result.status).toBe('success');
-        // As per getContentOps, it falls back to 'text' and provides a message
-        expect(result.output_format_used).toBe('text');
-        expect(result.content).toContain('[Non-HTML content, cannot convert to Markdown.');
+        // As per getContentOps, it stays 'markdown' format but content is null for non-HTML
+        expect(result.output_format_used).toBe('markdown');
+        expect(result.content).toBeNull();
         expect(result.markdown_conversion_status).toBe('skipped_unsupported_content_type');
         expect(result.markdown_conversion_skipped_reason).toContain(
           'Content type application/json is not HTML'

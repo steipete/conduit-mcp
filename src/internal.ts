@@ -74,6 +74,7 @@ export * from './operations/diffOps';
 export * from './operations/mkdirOps';
 export * from './operations/listOps';
 export * from './operations/findOps';
+export * from './operations/batchWriteOps';
 
 // ======= Tool Handlers (as used by server.ts) =======
 export { readToolHandler as handleReadTool } from './tools/readTool';
