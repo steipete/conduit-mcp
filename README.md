@@ -93,6 +93,7 @@ Read and process content from files or URLs in various formats.
 - `"checksum"` - Generate cryptographic fingerprints
 
 **Parameters:**
+
 - `sources`: `string[]` (Required) - Array of file paths or URLs
 - `format?`: `string` (Optional) - Output format
 - `checksum_algorithm?`: `string` (Optional) - `"md5" | "sha1" | "sha256" | "sha512"`
@@ -134,6 +135,7 @@ Compare two files and see exactly what changed.
 ```
 
 **Parameters:**
+
 - `sources`: `string[2]` (Required) - Exactly two file paths
 - `diff_format?`: `string` (Optional) - Currently supports `"unified"`
 
@@ -161,6 +163,7 @@ Write content to files with different encoding and write modes.
 ```
 
 **Parameters for `put`:**
+
 - `path`: `string` (Required) - Target file path
 - `content`: `string` (Required) - Content to write
 - `input_encoding?`: `"text" | "base64"` (Optional, default: `"text"`)
@@ -257,6 +260,7 @@ Explore directory structures with recursive capabilities.
 ```
 
 **Parameters:**
+
 - `path`: `string` (Required) - Directory to list
 - `recursive_depth?`: `integer` (Optional, default: `0`) - How deep to recurse
 - `calculate_recursive_size?`: `boolean` (Optional, default: `false`) - Calculate total size of directories
@@ -281,6 +285,7 @@ Get information about the server and file system.
 ```
 
 **Info Types:**
+
 - `"server_capabilities"` - Server version, configuration, supported features
 - `"filesystem_stats"` - File system statistics for a given path
 
@@ -310,6 +315,7 @@ The most sophisticated search tool - your cat can find ANYTHING using multiple c
 ```
 
 **Parameters:**
+
 - `base_path`: `string` (Required) - Starting directory
 - `recursive?`: `boolean` (Optional, default: `true`) - Search subdirectories
 - `match_criteria`: `object[]` (Required) - Array of search criteria (ALL must match)
@@ -318,6 +324,7 @@ The most sophisticated search tool - your cat can find ANYTHING using multiple c
 #### Search Criteria Types
 
 **Name Pattern Matching:**
+
 ```json
 {
   "type": "name_pattern",
@@ -326,6 +333,7 @@ The most sophisticated search tool - your cat can find ANYTHING using multiple c
 ```
 
 **Content Search:**
+
 ```json
 {
   "type": "content_pattern",
@@ -337,6 +345,7 @@ The most sophisticated search tool - your cat can find ANYTHING using multiple c
 ```
 
 **Metadata Filtering:**
+
 ```json
 {
   "type": "metadata_filter",
@@ -364,11 +373,12 @@ A debugging tool for testing the MCP server functionality.
 {
   "tool": "test",
   "operation": "echo",
-  "params_to_echo": {"message": "Hello, world!"}
+  "params_to_echo": { "message": "Hello, world!" }
 }
 ```
 
 **Operations:**
+
 - `"echo"` - Echo back provided parameters for testing
 - `"generate_error"` - Generate specific error codes for testing error handling
 

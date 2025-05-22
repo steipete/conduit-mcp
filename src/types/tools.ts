@@ -174,6 +174,7 @@ export namespace WriteTool {
   export interface CopyEntry {
     source_path: string;
     destination_path: string;
+    overwrite?: boolean;
   }
 
   export interface MoveEntry {

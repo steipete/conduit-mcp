@@ -1,7 +1,7 @@
 import { readToolHandler } from '@/tools/readTool';
 import { ReadTool } from '@/types/tools';
 import { ErrorCode } from '@/utils/errorHandler';
-import { vi } from 'vitest';
+import { vi, type MockedFunction } from 'vitest';
 
 // Mock internal module
 vi.mock('@/internal', async (importOriginal) => {
@@ -43,20 +43,30 @@ vi.mock('@/operations/diffOps', () => ({
   getDiff: vi.fn(),
 }));
 
-// Import mocked modules
-const { conduitConfig } = await import('@/internal');
-const { getContent } = await import('@/operations/getContentOps');
-const { getMetadata } = await import('@/operations/metadataOps');
-const { getDiff } = await import('@/operations/diffOps');
-
-// Type the mocked functions
-const mockedGetContent = getContent as vi.MockedFunction<typeof getContent>;
-const mockedGetMetadata = getMetadata as vi.MockedFunction<typeof getMetadata>;
-const mockedGetDiff = getDiff as vi.MockedFunction<typeof getDiff>;
+// Import mocked modules - will be initialized in beforeAll
+let conduitConfig: any;
+let mockedGetContent: MockedFunction<typeof import('@/operations/getContentOps').getContent>;
+let mockedGetMetadata: MockedFunction<typeof import('@/operations/metadataOps').getMetadata>;
+let mockedGetDiff: MockedFunction<typeof import('@/operations/diffOps').getDiff>;
 
 describe('ReadTool', () => {
   const mockSourceFile = '/allowed/file.txt';
   const mockSourceUrl = 'http://example.com/page.html';
+
+  beforeAll(async () => {
+    // Import mocked modules
+    const internal = await import('@/internal');
+    conduitConfig = internal.conduitConfig;
+    
+    const getContentOps = await import('@/operations/getContentOps');
+    mockedGetContent = getContentOps.getContent as MockedFunction<typeof getContentOps.getContent>;
+    
+    const metadataOps = await import('@/operations/metadataOps');
+    mockedGetMetadata = metadataOps.getMetadata as MockedFunction<typeof metadataOps.getMetadata>;
+    
+    const diffOps = await import('@/operations/diffOps');
+    mockedGetDiff = diffOps.getDiff as MockedFunction<typeof diffOps.getDiff>;
+  });
   const mockImageUrl = 'http://example.com/image.png';
 
   beforeEach(() => {

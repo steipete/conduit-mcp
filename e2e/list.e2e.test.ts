@@ -5,6 +5,14 @@ import { loadTestScenarios } from './utils/scenarioLoader';
 import path from 'path';
 import fs from 'fs';
 
+interface DirectoryEntry {
+  name: string;
+  type: 'file' | 'directory';
+  size_bytes?: number;
+  modified?: string;
+  mode?: string;
+}
+
 interface TestScenario {
   name: string;
   description: string;
@@ -44,21 +52,21 @@ describe('E2E List Operations', () => {
   });
 
   // Helper function to recursively substitute placeholders in any object/string
-  function substitutePlaceholders(obj: any, substitutions: Record<string, string>): any {
+  function substitutePlaceholders<T>(obj: T, substitutions: Record<string, string>): T {
     if (typeof obj === 'string') {
       let result = obj;
       for (const [placeholder, value] of Object.entries(substitutions)) {
         result = result.replace(new RegExp(placeholder, 'g'), value);
       }
-      return result;
+      return result as T;
     } else if (Array.isArray(obj)) {
-      return obj.map((item) => substitutePlaceholders(item, substitutions));
+      return obj.map((item) => substitutePlaceholders(item, substitutions)) as T;
     } else if (obj && typeof obj === 'object') {
-      const result: any = {};
+      const result: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
         result[key] = substitutePlaceholders(value, substitutions);
       }
-      return result;
+      return result as T;
     }
     return obj;
   }
@@ -67,8 +75,8 @@ describe('E2E List Operations', () => {
   const scenarios = loadTestScenarios('listTool.scenarios.json') as TestScenario[];
 
   scenarios.forEach((scenario) => {
-    describe(scenario.name, () => {
-      it(scenario.description, async () => {
+    describe(`${scenario.name}`, () => {
+      it(`${scenario.description}`, async () => {
         // Setup files/directories if specified
         if (scenario.setup_files) {
           for (const file of scenario.setup_files) {
@@ -139,27 +147,29 @@ describe('E2E List Operations', () => {
                   expect(Array.isArray(entries)).toBe(true);
 
                   // Filter out hidden files and check we have the expected visible entries
-                  const visibleEntries = entries.filter((e: any) => !e.name.startsWith('.'));
+                  const visibleEntries = entries.filter(
+                    (e: DirectoryEntry) => !e.name.startsWith('.')
+                  );
                   expect(visibleEntries.length).toBe(3);
 
-                  const entryNames = visibleEntries.map((e: any) => e.name).sort();
+                  const entryNames = visibleEntries.map((e: DirectoryEntry) => e.name).sort();
                   expect(entryNames).toEqual(['file1.txt', 'file2.log', 'subdir1']);
 
                   // Check types and sizes
-                  const file1 = visibleEntries.find((e: any) => e.name === 'file1.txt');
+                  const file1 = visibleEntries.find((e: DirectoryEntry) => e.name === 'file1.txt');
                   expect(file1.type).toBe('file');
                   expect(file1.size_bytes).toBe(5);
 
-                  const file2 = visibleEntries.find((e: any) => e.name === 'file2.log');
+                  const file2 = visibleEntries.find((e: DirectoryEntry) => e.name === 'file2.log');
                   expect(file2.type).toBe('file');
                   expect(file2.size_bytes).toBe(5);
 
-                  const subdir = visibleEntries.find((e: any) => e.name === 'subdir1');
+                  const subdir = visibleEntries.find((e: DirectoryEntry) => e.name === 'subdir1');
                   expect(subdir.type).toBe('directory');
 
                   // Ensure hidden files are not in the visible entries (but may be in the full list)
                   const hiddenFileInVisible = visibleEntries.find(
-                    (e: any) => e.name === '.hiddenfile'
+                    (e: DirectoryEntry) => e.name === '.hiddenfile'
                   );
                   expect(hiddenFileInVisible).toBeUndefined();
                   break;

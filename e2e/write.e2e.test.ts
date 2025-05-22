@@ -173,6 +173,9 @@ describe('E2E Write Operations', () => {
                   force: true,
                 });
               }
+            } else if (file.content_type === 'directory') {
+              // Create directory
+              fs.mkdirSync(filePath, { recursive: true });
             } else {
               // Regular file
               fs.writeFileSync(filePath, file.content, file.encoding || 'utf8');
@@ -197,6 +200,34 @@ describe('E2E Write Operations', () => {
           JSON.parse(JSON.stringify(scenario.env_vars || {})),
           testWorkspaceDir
         );
+
+        // Initialize timestamp tracking for custom_logic assertions
+        const timestampTracking: Map<string, number> = new Map();
+
+        // Check for timestamp tracking needs before executing the tool
+        if (scenario.assertions) {
+          for (const assertion of scenario.assertions) {
+            if (
+              assertion.type === 'custom_logic' &&
+              assertion.name === 'check_timestamp_updated' &&
+              assertion.setup_path
+            ) {
+              const resolvedSetupPath = substituteTemplateValues(
+                assertion.setup_path,
+                testWorkspaceDir
+              ) as string;
+              if (fs.existsSync(resolvedSetupPath)) {
+                const initialTimestamp = fs.statSync(resolvedSetupPath).mtimeMs;
+                timestampTracking.set(resolvedSetupPath, initialTimestamp);
+              }
+            }
+          }
+        }
+
+        // Handle pre-run delay if specified
+        if (scenario.pre_run_delay_ms && typeof scenario.pre_run_delay_ms === 'number') {
+          await new Promise((resolve) => setTimeout(resolve, scenario.pre_run_delay_ms));
+        }
 
         // Run the test
         const result = await runConduitMCPScript(processedRequestPayload, processedEnvVars);
@@ -258,6 +289,18 @@ describe('E2E Write Operations', () => {
                 });
                 expect(actualEntries).toEqual(expect.arrayContaining(expectedEntries));
               }
+            } else if (processedAssertion.type === 'custom_logic') {
+              // Handle custom logic assertions
+              if (processedAssertion.name === 'check_timestamp_updated') {
+                const resolvedSetupPath = processedAssertion.setup_path;
+                expect(fs.existsSync(resolvedSetupPath)).toBe(true);
+
+                const initialTimestamp = timestampTracking.get(resolvedSetupPath);
+                expect(initialTimestamp).toBeDefined();
+
+                const newTimestamp = fs.statSync(resolvedSetupPath).mtimeMs;
+                expect(newTimestamp).toBeGreaterThan(initialTimestamp!);
+              }
             }
           }
         }
@@ -266,13 +309,36 @@ describe('E2E Write Operations', () => {
   });
 });
 
+interface WriteResult {
+  tool_name?: string;
+  isError?: boolean;
+  status?: string;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+  error_code?: string;
+  error_message?: string;
+  results?: Array<{
+    status: string;
+    operation?: string;
+    file_path?: string;
+    bytes_written?: number;
+    encoding?: string;
+    error?: string;
+  }>;
+}
+
 /**
  * Helper function to verify scenario results with flexible byte count handling
  */
-function verifyScenarioResults(actual: any, expected: any) {
-  if (expected.isError) {
+function verifyScenarioResults(actual: unknown, expected: unknown) {
+  const actualTyped = actual as WriteResult;
+  const expectedTyped = expected as WriteResult;
+
+  if (expectedTyped.isError) {
     // Handle error scenarios - check for server error response format
-    if (actual.isError) {
+    if (actualTyped.isError) {
       // Handle scenarios that expect isError format
       expect(actual.isError).toBe(true);
       if (expected.error.code) {
@@ -281,7 +347,7 @@ function verifyScenarioResults(actual: any, expected: any) {
       if (expected.error.message_contains) {
         expect(actual.error.message).toContain(expected.error.message_contains);
       }
-    } else if (actual.status === 'error') {
+    } else if (actualTyped.status === 'error') {
       // Handle actual server error response format
       expect(actual.status).toBe('error');
       if (expected.error.code) {
@@ -297,7 +363,7 @@ function verifyScenarioResults(actual: any, expected: any) {
   }
 
   // Handle direct server error response format (when actual.status === 'error')
-  if (actual.status === 'error') {
+  if (actualTyped.status === 'error') {
     // The actual response is a direct error, not wrapped in tool response
     // But expected might be in tool response format, so we need to handle this
     if (

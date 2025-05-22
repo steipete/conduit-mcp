@@ -222,11 +222,31 @@ export async function writeFile(
  */
 export async function createDirectory(dirPath: string, recursive: boolean = false): Promise<void> {
   try {
+    // Check if path already exists
+    if (await pathExists(dirPath)) {
+      const stats = await getStats(dirPath);
+      if (stats.isFile()) {
+        throw new ConduitError(
+          ErrorCode.ERR_FS_PATH_IS_FILE,
+          `Path ${dirPath} is a file, expected a directory or non-existent path for mkdir.`
+        );
+      } else if (stats.isDirectory()) {
+        // Idempotent: directory already exists
+        logger.debug(`Directory already exists (idempotent success): ${dirPath}`);
+        return;
+      }
+    }
+
     await fs.mkdir(dirPath, { recursive });
   } catch (error: unknown) {
+    // If it's already a ConduitError, re-throw it
+    if (error instanceof ConduitError) {
+      throw error;
+    }
+
     const nodeError = error as NodeError;
     if (nodeError.code === 'EEXIST') {
-      // Idempotent: directory already exists
+      // This should be handled above, but just in case
       logger.debug(`Directory already exists (idempotent success): ${dirPath}`);
       return;
     }
@@ -247,7 +267,42 @@ export async function deletePath(itemPath: string, recursive: boolean = false): 
   try {
     const stats = await getLstats(itemPath); // Use lstat to avoid following symlinks before deletion
     if (stats.isDirectory()) {
-      await fs.rm(itemPath, { recursive, force: recursive }); // force helps with some permission issues on Windows if recursive
+      if (!recursive) {
+        // Check if directory is empty before attempting deletion
+        try {
+          const dirContents = await fs.readdir(itemPath);
+          if (dirContents.length > 0) {
+            throw new ConduitError(
+              ErrorCode.ERR_FS_DIR_NOT_EMPTY,
+              `Directory ${itemPath} is not empty and recursive is false.`
+            );
+          }
+        } catch (error: unknown) {
+          const nodeError = error as NodeError;
+          if (nodeError.code === 'ENOENT') {
+            // Directory disappeared between stat and readdir, consider success
+            logger.debug(
+              `Directory disappeared during deletion check (considered success): ${itemPath}`
+            );
+            return;
+          }
+          // If it's already a ConduitError, re-throw it
+          if (error instanceof ConduitError) {
+            throw error;
+          }
+          // For other errors during readdir, re-throw as general error
+          throw new ConduitError(
+            ErrorCode.ERR_FS_DELETE_FAILED,
+            `Failed to check directory contents: ${itemPath}. Error: ${nodeError.message}`
+          );
+        }
+
+        // Directory is empty, use rm for empty directories
+        await fs.rm(itemPath, { recursive: false });
+      } else {
+        // Recursive deletion
+        await fs.rm(itemPath, { recursive: true, force: true }); // force helps with some permission issues on Windows if recursive
+      }
     } else {
       await fs.unlink(itemPath);
     }
@@ -260,7 +315,7 @@ export async function deletePath(itemPath: string, recursive: boolean = false): 
       logger.debug(`Path not found for deletion (considered success): ${itemPath}`);
       return;
     } else if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
-      // Other ConduitError-like errors
+      // Other ConduitError-like errors (including ERR_FS_DIR_NOT_EMPTY)
       throw error;
     }
 
@@ -448,18 +503,65 @@ export async function touchFile(filePath: string): Promise<void> {
     if (!(await pathExists(filePath))) {
       // Ensure parent directories exist before creating the file
       const parentDir = path.dirname(filePath);
-      await createDirectory(parentDir, true);
-      await writeFile(filePath, ''); // Create empty file if it doesn't exist
+      try {
+        await createDirectory(parentDir, true);
+      } catch (error: unknown) {
+        // If directory creation failed, convert to touch-specific error
+        if (error instanceof ConduitError) {
+          if (
+            error.errorCode === ErrorCode.ERR_FS_DIR_CREATE_FAILED ||
+            error.errorCode === ErrorCode.ERR_FS_WRITE_FAILED
+          ) {
+            // Extract the underlying error message
+            const match = error.message.match(/Error: (.+)$/);
+            const underlyingError = match ? match[1] : error.message;
+            throw new ConduitError(
+              ErrorCode.ERR_FS_TOUCH_FAILED,
+              `Failed to touch path: ${filePath}. Error: ${underlyingError}`
+            );
+          }
+          throw error;
+        }
+        throw error;
+      }
+
+      try {
+        await writeFile(filePath, ''); // Create empty file if it doesn't exist
+      } catch (error: unknown) {
+        // If write failed, convert to touch-specific error
+        if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_WRITE_FAILED) {
+          // Extract the underlying error message from the write error
+          const match = error.message.match(/Error: (.+)$/);
+          const underlyingError = match ? match[1] : error.message;
+          throw new ConduitError(
+            ErrorCode.ERR_FS_TOUCH_FAILED,
+            `Failed to touch path: ${filePath}. Error: ${underlyingError}`
+          );
+        }
+        throw error;
+      }
     } else {
+      // Check if the path is a directory
+      const stats = await getStats(filePath);
+      if (stats.isDirectory()) {
+        throw new ConduitError(
+          ErrorCode.ERR_FS_PATH_IS_DIR,
+          `Path ${filePath} is a directory, cannot touch.`
+        );
+      }
       const now = new Date();
       await fs.utimes(filePath, now, now);
     }
   } catch (error: unknown) {
+    // If it's already a ConduitError, re-throw it
+    if (error instanceof ConduitError) {
+      throw error;
+    }
     const nodeError = error as NodeError;
     logger.error(`Error touching file ${filePath}: ${nodeError.message}`);
     throw new ConduitError(
-      ErrorCode.OPERATION_FAILED,
-      `Failed to touch file: ${filePath}. Error: ${nodeError.message}`
+      ErrorCode.ERR_FS_TOUCH_FAILED,
+      `Failed to touch path: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }

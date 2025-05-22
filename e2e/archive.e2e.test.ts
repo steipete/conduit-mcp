@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
+import { loadTestScenarios, TestScenario, ToolResult } from './utils/scenarioLoader';
 import path from 'path';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
@@ -125,8 +125,6 @@ describe('E2E Archive Operations', () => {
         expect(result.exitCode).toBe(scenario.expected_exit_code);
         expect(result.response).toBeDefined();
 
-
-
         if (scenario.should_show_notice) {
           expect(Array.isArray(result.response)).toBe(true);
           expect(result.response).toHaveLength(2);
@@ -188,22 +186,49 @@ describe('E2E Archive Operations', () => {
   });
 });
 
+interface ArchiveResult {
+  tool_name: string;
+  results: Array<{
+    status: string;
+    operation?: string;
+    archive_path?: string;
+    destination_path?: string;
+    format_used?: string;
+    entries_processed?: number;
+    compression_used?: string;
+    message?: string;
+    error_code?: string;
+    error_message?: string;
+    entries?: Array<{
+      path: string;
+      type: string;
+      size?: number;
+      mode?: string;
+      date?: string;
+    }>;
+    error?: string;
+  }>;
+}
+
 /**
  * Helper function to verify archive operation results
  */
-function verifyArchiveResults(actual: any, expected: any) {
+function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined) {
   if (!expected) return;
 
+  const actualTyped = actual as ArchiveResult;
+  const expectedTyped = expected as ArchiveResult;
+
   // Handle basic response structure
-  expect(actual.tool_name).toBe(expected.tool_name);
-  expect(Array.isArray(actual.results)).toBe(true);
+  expect(actualTyped.tool_name).toBe(expectedTyped.tool_name);
+  expect(Array.isArray(actualTyped.results)).toBe(true);
 
-  if (expected.results && Array.isArray(expected.results)) {
-    expect(actual.results).toHaveLength(expected.results.length);
+  if (expectedTyped.results && Array.isArray(expectedTyped.results)) {
+    expect(actualTyped.results).toHaveLength(expectedTyped.results.length);
 
-    for (let i = 0; i < expected.results.length; i++) {
-      const expectedResult = expected.results[i];
-      const actualResult = actual.results[i];
+    for (let i = 0; i < expectedTyped.results.length; i++) {
+      const expectedResult = expectedTyped.results[i];
+      const actualResult = actualTyped.results[i];
 
       expect(actualResult.status).toBe(expectedResult.status);
 
@@ -242,22 +267,30 @@ function verifyArchiveResults(actual: any, expected: any) {
         if (expectedResult.message) {
           const expectedMessage = expectedResult.message;
           const actualMessage = actualResult.message;
-          
+
           // Check if messages match exactly or if one is missing a trailing period
-          const expectedNormalized = expectedMessage.endsWith('.') ? expectedMessage : expectedMessage + '.';
-          const actualNormalized = actualMessage.endsWith('.') ? actualMessage : actualMessage + '.';
-          
+          const expectedNormalized = expectedMessage.endsWith('.')
+            ? expectedMessage
+            : expectedMessage + '.';
+          const actualNormalized = actualMessage.endsWith('.')
+            ? actualMessage
+            : actualMessage + '.';
+
           expect(actualNormalized).toBe(expectedNormalized);
         }
       } else if (expectedResult.status === 'error') {
         // Check error details - be flexible about specific error codes for path validation
         if (expectedResult.error_code) {
-          if (expectedResult.error_code === 'ERR_INVALID_PARAMETER' && 
-              (actualResult.error_code === 'ERR_FS_NOT_FOUND' || 
-               actualResult.error_code === 'ERR_FS_ACCESS_DENIED' ||
-               actualResult.error_code === 'ERR_FS_PERMISSION_DENIED')) {
+          if (
+            expectedResult.error_code === 'ERR_INVALID_PARAMETER' &&
+            (actualResult.error_code === 'ERR_FS_NOT_FOUND' ||
+              actualResult.error_code === 'ERR_FS_ACCESS_DENIED' ||
+              actualResult.error_code === 'ERR_FS_PERMISSION_DENIED')
+          ) {
             // Accept file system errors as parameter validation errors
-            expect(actualResult.error_code).toMatch(/ERR_(FS_NOT_FOUND|FS_ACCESS_DENIED|FS_PERMISSION_DENIED|INVALID_PARAMETER)/);
+            expect(actualResult.error_code).toMatch(
+              /ERR_(FS_NOT_FOUND|FS_ACCESS_DENIED|FS_PERMISSION_DENIED|INVALID_PARAMETER)/
+            );
           } else {
             expect(actualResult.error_code).toBe(expectedResult.error_code);
           }

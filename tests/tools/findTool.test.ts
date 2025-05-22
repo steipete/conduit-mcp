@@ -10,7 +10,7 @@ import {
   fileSystemOps,
 } from '@/internal';
 import { findEntries } from '@/operations/findOps';
-import { vi, type MockedFunction } from 'vitest';
+import { vi, type MockedFunction, type Mocked } from 'vitest';
 
 // Mocks
 vi.mock('@/internal', async (importOriginal) => {
@@ -31,11 +31,11 @@ vi.mock('@/operations/findOps', () => ({
   findEntries: vi.fn(),
 }));
 
-const mockedConduitConfig = conduitConfig as vi.Mocked<ConduitServerConfig>;
+const mockedConduitConfig = conduitConfig as Mocked<ConduitServerConfig>;
 const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<
   typeof validateAndResolvePath
 >;
-const mockedFileSystemOps = fileSystemOps as vi.Mocked<typeof fileSystemOps>;
+const mockedFileSystemOps = fileSystemOps as Mocked<typeof fileSystemOps>;
 const mockedFindEntries = findEntries as MockedFunction<typeof findEntries>;
 
 describe('FindTool', () => {

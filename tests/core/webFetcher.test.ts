@@ -1,4 +1,4 @@
-import { vi, Mocked } from 'vitest';
+import { vi, Mocked, MockedFunction } from 'vitest';
 import { fetchUrlContent, cleanHtmlToMarkdown } from '@/core/webFetcher';
 // Removed unused conduitConfig import
 import logger from '@/utils/logger';
@@ -248,7 +248,7 @@ describe('webFetcher', () => {
     const mockMarkdown = '# Title\n\nSome text.';
 
     let mockReadabilityInstance: {
-      parse: vi.MockedFunction<() => { title?: string; content?: string } | null>;
+      parse: MockedFunction<() => { title?: string; content?: string } | null>;
     };
 
     beforeEach(() => {

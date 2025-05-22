@@ -26,10 +26,9 @@ const createErrorArchiveResultItem = (
 
 export const createArchive = async (
   params: ArchiveTool.CreateArchiveParams,
-  config: ConduitServerConfig
+  _config: ConduitServerConfig
 ): Promise<ArchiveTool.ArchiveResultItem> => {
   const { archive_path, source_paths, compression, options } = params;
-  const { workspaceRoot } = config;
 
   let absoluteArchivePath: string;
   let resolvedSourcePaths: string[] = [];
@@ -56,12 +55,7 @@ export const createArchive = async (
     }
   } catch (error: unknown) {
     if (error instanceof ConduitError) {
-      return createErrorArchiveResultItem(
-        'create',
-        error.message,
-        error.errorCode,
-        error.stack
-      );
+      return createErrorArchiveResultItem('create', error.message, error.errorCode, error.stack);
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     return createErrorArchiveResultItem(
@@ -108,7 +102,7 @@ export const createArchive = async (
 
         if (stats.isDirectory()) {
           const dirBaseName = path.basename(source_paths[i]);
-          const entryZipPath = options?.prefix 
+          const entryZipPath = options?.prefix
             ? path.join(options.prefix, dirBaseName)
             : dirBaseName;
           zip.addLocalFolder(absoluteSourcePath, entryZipPath);
@@ -123,7 +117,7 @@ export const createArchive = async (
       // Assuming tar.gz or tar
       // Use the parent directory of the first source as the cwd to preserve relative structure
       const firstSourceParent = path.dirname(resolvedSourcePaths[0]);
-      const tarOptions: tar.CreateOptions & tar.FileOptions = {
+      const tarOptions: tar.CreateOptions & { file: string } = {
         gzip: compression === 'gzip' || archive_path.endsWith('.gz'), // prefer .gz in name
         file: absoluteArchivePath,
         cwd: firstSourceParent,
@@ -177,12 +171,18 @@ export const createArchive = async (
 };
 
 export const extractArchive = async (
-  params: ArchiveTool.ExtractArchiveParams | (Omit<ArchiveTool.ExtractArchiveParams, 'target_path'> & { destination_path: string }),
+  params:
+    | ArchiveTool.ExtractArchiveParams
+    | (Omit<ArchiveTool.ExtractArchiveParams, 'target_path'> & { destination_path: string }),
   _config: ConduitServerConfig
 ): Promise<ArchiveTool.ArchiveResultItem> => {
   const { archive_path, options } = params;
   // Support both target_path and destination_path for compatibility
-  const target_path = 'target_path' in params ? params.target_path : (params as any).destination_path;
+  const target_path =
+    'target_path' in params
+      ? params.target_path
+      : (params as ArchiveTool.ExtractArchiveParams & { destination_path?: string })
+          .destination_path;
 
   let absoluteArchivePath: string;
   let absoluteTargetPath: string;
@@ -201,12 +201,7 @@ export const extractArchive = async (
     });
   } catch (error: unknown) {
     if (error instanceof ConduitError) {
-      return createErrorArchiveResultItem(
-        'extract',
-        error.message,
-        error.errorCode,
-        error.stack
-      );
+      return createErrorArchiveResultItem('extract', error.message, error.errorCode, error.stack);
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     return createErrorArchiveResultItem(
@@ -267,13 +262,13 @@ export const extractArchive = async (
       }
     } else if (inferredFormat === 'tar.gz' || inferredFormat === 'tar') {
       // Extract tar.gz or tar archive
-      const tarOptions: tar.ExtractOptions & tar.FileOptions = {
+      const tarOptions: tar.ExtractOptions & { file: string } = {
         file: absoluteArchivePath,
         cwd: absoluteTargetPath,
         strip: options?.strip_components ?? 0,
       };
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, _stat: tar.FileStat) => {
+        tarOptions.filter = (entryPath: string, _stat: fs.Stats) => {
           const normalizedEntryPath = entryPath.startsWith('./')
             ? entryPath.substring(2)
             : entryPath;
@@ -317,7 +312,7 @@ export const extractArchive = async (
 };
 
 export const archiveToolHandler = async (
-  params: ArchiveTool.Params | any, // Allow more flexible params for compatibility
+  params: ArchiveTool.Params, // Archive tool parameters
   config: ConduitServerConfig,
   toolName: string = 'ArchiveTool'
 ): Promise<ArchiveTool.Response> => {

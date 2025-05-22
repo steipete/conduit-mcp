@@ -17,7 +17,7 @@
             {
               "path": "{{TEMP_DIR}}/test-put.txt",
               "content": "Hello, Conduit Writer!",
-              "input_encoding": "utf8",
+              "input_encoding": "text",
               "write_mode": "overwrite"
             }
           ]
@@ -64,6 +64,7 @@
             {
               "path": "{{TEMP_DIR}}/test-append.txt",
               "content": "Appended line.",
+              "input_encoding": "text",
               "write_mode": "append"
             }
           ]
@@ -144,6 +145,7 @@
             {
               "path": "{{TEMP_DIR}}/test-new-eie.txt",
               "content": "New file content",
+              "input_encoding": "text",
               "write_mode": "error_if_exists"
             }
           ]
@@ -190,6 +192,7 @@
             {
               "path": "{{TEMP_DIR}}/test-existing-eie.txt",
               "content": "New content",
+              "input_encoding": "text",
               "write_mode": "error_if_exists"
             }
           ]
@@ -223,7 +226,8 @@
           "entries": [
             {
               "path": "{{TEMP_DIR}}/new_parent/new_child/test-parent.txt",
-              "content": "Content in nested dir"
+              "content": "Content in nested dir",
+              "input_encoding": "text"
             }
           ]
         }
@@ -296,7 +300,8 @@
           "entries": [
             {
               "path": "/etc/forbidden_write.txt",
-              "content": "Secret content"
+              "content": "Secret content",
+              "input_encoding": "text"
             }
           ]
         }
@@ -309,8 +314,8 @@
             "status": "error",
             "action_performed": "put",
             "path": "/etc/forbidden_write.txt",
-            "error_code": "ERR_FS_WRITE_FAILED",
-            "error_message": "Failed to write file: /etc/forbidden_write.txt. Error: EACCES: permission denied, open '/etc/forbidden_write.txt'"
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Parent directory access denied for creation: /etc/forbidden_write.txt"
           }
         ]
       },
@@ -318,6 +323,1432 @@
       "env_vars": {
         "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
       }
+    },
+    {
+      "name": "write_mkdir_single_dir_success",
+      "description": "Successfully create a single new directory.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "mkdir",
+          "entries": [{ "path": "{{TEMP_DIR}}/new_single_dir" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "mkdir",
+            "path": "{{TEMP_DIR}}/new_single_dir",
+            "message": "Directory created."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path_type": "directory",
+          "path": "{{TEMP_DIR}}/new_single_dir",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_mkdir_nested_dirs_recursive_success",
+      "description": "Successfully create nested directories with recursive: true.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "mkdir",
+          "entries": [
+            { "path": "{{TEMP_DIR}}/parent_dir/child_dir/grandchild_dir", "recursive": true }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "mkdir",
+            "path": "{{TEMP_DIR}}/parent_dir/child_dir/grandchild_dir",
+            "message": "Directory created."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path_type": "directory",
+          "path": "{{TEMP_DIR}}/parent_dir/child_dir/grandchild_dir",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_mkdir_already_exists_success",
+      "description": "Attempt to create a directory that already exists (should succeed idempotently).",
+      "setup_files": [{ "path": "existing_dir_for_mkdir/", "content_type": "directory" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "mkdir",
+          "entries": [{ "path": "{{TEMP_DIR}}/existing_dir_for_mkdir", "recursive": true }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "mkdir",
+            "path": "{{TEMP_DIR}}/existing_dir_for_mkdir",
+            "message": "Directory created."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path_type": "directory",
+          "path": "{{TEMP_DIR}}/existing_dir_for_mkdir",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_mkdir_path_is_file_error",
+      "description": "Attempt to create a directory where a file with the same name exists.",
+      "setup_files": [{ "path": "path_is_a_file.txt", "content": "I am a file." }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "mkdir",
+          "entries": [{ "path": "{{TEMP_DIR}}/path_is_a_file.txt" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "mkdir",
+            "path": "{{TEMP_DIR}}/path_is_a_file.txt",
+            "error_code": "ERR_FS_PATH_IS_FILE",
+            "error_message": "Path {{TEMP_DIR}}/path_is_a_file.txt is a file, expected a directory or non-existent path for mkdir."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_mkdir_path_not_allowed_error",
+      "description": "Attempt to create a directory outside allowed paths.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "mkdir",
+          "entries": [{ "path": "/tmp/forbidden_dir/another_dir", "recursive": true }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "mkdir",
+            "path": "/tmp/forbidden_dir/another_dir",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Access to path is denied: /tmp/forbidden_dir/another_dir"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_mkdir_invalid_path_error",
+      "description": "Attempt to create a directory with an invalid path (e.g. null byte).",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "mkdir",
+          "entries": [{ "path": "{{TEMP_DIR}}/invalid_path\u0000dir", "recursive": true }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "mkdir",
+            "path": "{{TEMP_DIR}}/invalid_path\u0000dir",
+            "error_code": "ERR_FS_DIR_CREATE_FAILED",
+            "error_message": "Failed to create directory: {{TEMP_DIR}}/invalid_path\u0000dir. Error: The argument 'path' must be a string, Uint8Array, or URL without null bytes. Received '{{TEMP_DIR_FORWARD_SLASH}}/invalid_path\\x00dir'"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_file_success",
+      "description": "Successfully copy a file to a new destination.",
+      "setup_files": [
+        { "path": "source_file_to_copy.txt", "content": "This is the source content." }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_to_copy.txt",
+              "destination_path": "{{TEMP_DIR}}/destination_file_copied.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_file_to_copy.txt",
+            "destination_path": "{{TEMP_DIR}}/destination_file_copied.txt",
+            "message": "Path copied successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/destination_file_copied.txt",
+          "expected_content": "This is the source content."
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_file_to_copy.txt",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_file_overwrite_true_success",
+      "description": "Successfully copy a file, overwriting an existing destination file with overwrite: true.",
+      "setup_files": [
+        { "path": "source_for_overwrite.txt", "content": "New Content" },
+        { "path": "dest_to_overwrite.txt", "content": "Old Content" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_for_overwrite.txt",
+              "destination_path": "{{TEMP_DIR}}/dest_to_overwrite.txt",
+              "overwrite": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_for_overwrite.txt",
+            "destination_path": "{{TEMP_DIR}}/dest_to_overwrite.txt",
+            "message": "Path copied successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_to_overwrite.txt",
+          "expected_content": "New Content"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_file_overwrite_false_fail",
+      "description": "Fail to copy a file if destination exists and overwrite: false.",
+      "setup_files": [
+        { "path": "source_no_overwrite.txt", "content": "Source Data" },
+        { "path": "dest_exists_no_overwrite.txt", "content": "Existing Data" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_no_overwrite.txt",
+              "destination_path": "{{TEMP_DIR}}/dest_exists_no_overwrite.txt",
+              "overwrite": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_no_overwrite.txt",
+            "destination_path": "{{TEMP_DIR}}/dest_exists_no_overwrite.txt",
+            "error_code": "ERR_FS_DESTINATION_EXISTS",
+            "error_message": "Destination path {{TEMP_DIR}}/dest_exists_no_overwrite.txt already exists and overwrite is false."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_exists_no_overwrite.txt",
+          "expected_content": "Existing Data"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_directory_recursive_success",
+      "description": "Successfully copy an entire directory recursively to a new destination.",
+      "setup_files": [
+        { "path": "source_dir_to_copy/file1.txt", "content": "File 1 content" },
+        { "path": "source_dir_to_copy/subdir/file2.txt", "content": "File 2 content" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_dir_to_copy",
+              "destination_path": "{{TEMP_DIR}}/dest_dir_copied"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_dir_to_copy",
+            "destination_path": "{{TEMP_DIR}}/dest_dir_copied",
+            "message": "Path copied successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_copied/file1.txt",
+          "expected_content": "File 1 content"
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_copied/subdir/file2.txt",
+          "expected_content": "File 2 content"
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_dir_to_copy/file1.txt",
+          "should_exist": true
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_dir_to_copy/subdir/file2.txt",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_directory_merge_success",
+      "description": "Successfully copy a directory, merging with an existing destination directory (overwrite files).",
+      "setup_files": [
+        { "path": "source_dir_merge/new_file.txt", "content": "New file for merge" },
+        { "path": "source_dir_merge/common_file.txt", "content": "Source version of common" },
+        { "path": "dest_dir_exists_merge/old_file.txt", "content": "Old file in dest" },
+        { "path": "dest_dir_exists_merge/common_file.txt", "content": "Dest version of common" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_dir_merge",
+              "destination_path": "{{TEMP_DIR}}/dest_dir_exists_merge",
+              "overwrite": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_dir_merge",
+            "destination_path": "{{TEMP_DIR}}/dest_dir_exists_merge",
+            "message": "Path copied successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_exists_merge/new_file.txt",
+          "expected_content": "New file for merge"
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_exists_merge/common_file.txt",
+          "expected_content": "Source version of common"
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_exists_merge/old_file.txt",
+          "expected_content": "Old file in dest"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_source_not_found_error",
+      "description": "Fail to copy if the source path does not exist.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/non_existent_source.txt",
+              "destination_path": "{{TEMP_DIR}}/some_destination.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/non_existent_source.txt",
+            "destination_path": "{{TEMP_DIR}}/some_destination.txt",
+            "error_code": "ERR_FS_NOT_FOUND",
+            "error_message": "Path not found: {{TEMP_DIR}}/non_existent_source.txt (resolved to {{TEMP_DIR_FORWARD_SLASH}}/non_existent_source.txt)"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_source_path_not_allowed_error",
+      "description": "Fail to copy if the source path is outside allowed read paths.",
+      "setup_files": [{ "path": "dummy_dest_dir/", "content_type": "directory" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "/etc/passwd",
+              "destination_path": "{{TEMP_DIR}}/dummy_dest_dir/passwd_copy"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "copy",
+            "source_path": "/etc/passwd",
+            "destination_path": "{{TEMP_DIR}}/dummy_dest_dir/passwd_copy",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Access to path is denied: /etc/passwd"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_destination_path_not_allowed_error",
+      "description": "Fail to copy if the destination path is outside allowed write paths.",
+      "setup_files": [{ "path": "source_file_for_denied_dest.txt", "content": "Harmless content" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_for_denied_dest.txt",
+              "destination_path": "/etc/forbidden_copy.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_file_for_denied_dest.txt",
+            "destination_path": "/etc/forbidden_copy.txt",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Parent directory access denied for creation: /etc/forbidden_copy.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_dir_to_file_path_error",
+      "description": "Fail to copy if trying to copy a directory to a path where a file exists.",
+      "setup_files": [
+        { "path": "source_dir_for_file_conflict/", "content_type": "directory" },
+        { "path": "dest_is_a_file.txt", "content": "I am a file, not a dir." }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_dir_for_file_conflict",
+              "destination_path": "{{TEMP_DIR}}/dest_is_a_file.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_dir_for_file_conflict",
+            "destination_path": "{{TEMP_DIR}}/dest_is_a_file.txt",
+            "error_code": "ERR_FS_COPY_FAILED",
+            "error_message": "Failed to copy path: Cannot overwrite non-directory {{TEMP_DIR}}/dest_is_a_file.txt with directory {{TEMP_DIR}}/source_dir_for_file_conflict"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_file_to_dir_path_target_is_dir_error",
+      "description": "Fail to copy a file to a path where a directory exists if not copying INTO it (i.e. dest path ends with /). This variant explicitly errors if dest is a dir and not treated as such.",
+      "setup_files": [
+        { "path": "source_file_for_dir_conflict.txt", "content": "File content" },
+        { "path": "dest_is_a_dir_fs_copy/", "content_type": "directory" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_for_dir_conflict.txt",
+              "destination_path": "{{TEMP_DIR}}/dest_is_a_dir_fs_copy"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_file_for_dir_conflict.txt",
+            "destination_path": "{{TEMP_DIR}}/dest_is_a_dir_fs_copy",
+            "error_code": "ERR_FS_COPY_TARGET_IS_DIR",
+            "error_message": "Cannot copy file {{TEMP_DIR}}/source_file_for_dir_conflict.txt onto directory {{TEMP_DIR}}/dest_is_a_dir_fs_copy. To copy into a directory, ensure the destination path ends with a slash or is explicitly identified as a directory target."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/dest_is_a_dir_fs_copy/source_file_for_dir_conflict.txt",
+          "should_exist": false
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_copy_file_into_dir_success",
+      "description": "Successfully copy a file into an existing directory (destination path ends with / or is identified as directory).",
+      "setup_files": [
+        { "path": "source_file_to_copy_into_dir.txt", "content": "Copy me into the dir!" },
+        { "path": "target_directory_for_copy/", "content_type": "directory" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "copy",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_to_copy_into_dir.txt",
+              "destination_path": "{{TEMP_DIR}}/target_directory_for_copy/"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "copy",
+            "source_path": "{{TEMP_DIR}}/source_file_to_copy_into_dir.txt",
+            "destination_path": "{{TEMP_DIR}}/target_directory_for_copy/source_file_to_copy_into_dir.txt",
+            "message": "Path copied successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/target_directory_for_copy/source_file_to_copy_into_dir.txt",
+          "expected_content": "Copy me into the dir!"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_file_success",
+      "description": "Successfully move a file to a new destination.",
+      "setup_files": [{ "path": "source_file_to_move.txt", "content": "Content to be moved." }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_to_move.txt",
+              "destination_path": "{{TEMP_DIR}}/destination_file_moved.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_file_to_move.txt",
+            "destination_path": "{{TEMP_DIR}}/destination_file_moved.txt",
+            "message": "Path moved successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/destination_file_moved.txt",
+          "expected_content": "Content to be moved."
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_file_to_move.txt",
+          "should_exist": false
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_file_overwrite_true_success",
+      "description": "Successfully move a file, overwriting an existing destination file with overwrite: true.",
+      "setup_files": [
+        { "path": "source_for_move_overwrite.txt", "content": "New Moved Content" },
+        { "path": "dest_to_move_overwrite.txt", "content": "Old Content at Dest" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_for_move_overwrite.txt",
+              "destination_path": "{{TEMP_DIR}}/dest_to_move_overwrite.txt",
+              "overwrite": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_for_move_overwrite.txt",
+            "destination_path": "{{TEMP_DIR}}/dest_to_move_overwrite.txt",
+            "message": "Path moved successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_to_move_overwrite.txt",
+          "expected_content": "New Moved Content"
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_for_move_overwrite.txt",
+          "should_exist": false
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_file_overwrite_false_fail",
+      "description": "Fail to move a file if destination exists and overwrite: false.",
+      "setup_files": [
+        { "path": "source_no_move_overwrite.txt", "content": "Source Data for Move" },
+        { "path": "dest_exists_no_move_overwrite.txt", "content": "Existing Data at Dest" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_no_move_overwrite.txt",
+              "destination_path": "{{TEMP_DIR}}/dest_exists_no_move_overwrite.txt",
+              "overwrite": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_no_move_overwrite.txt",
+            "destination_path": "{{TEMP_DIR}}/dest_exists_no_move_overwrite.txt",
+            "error_code": "ERR_FS_DESTINATION_EXISTS",
+            "error_message": "Destination path {{TEMP_DIR}}/dest_exists_no_move_overwrite.txt already exists and overwrite is false."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_exists_no_move_overwrite.txt",
+          "expected_content": "Existing Data at Dest"
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_no_move_overwrite.txt",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_directory_success",
+      "description": "Successfully move an entire directory to a new destination.",
+      "setup_files": [
+        { "path": "source_dir_to_move/file1_in_moved_dir.txt", "content": "Content file 1" },
+        {
+          "path": "source_dir_to_move/subdir_in_moved/file2_in_moved_dir.txt",
+          "content": "Content file 2"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_dir_to_move",
+              "destination_path": "{{TEMP_DIR}}/dest_dir_moved"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_dir_to_move",
+            "destination_path": "{{TEMP_DIR}}/dest_dir_moved",
+            "message": "Path moved successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_moved/file1_in_moved_dir.txt",
+          "expected_content": "Content file 1"
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/dest_dir_moved/subdir_in_moved/file2_in_moved_dir.txt",
+          "expected_content": "Content file 2"
+        },
+        { "type": "path_exists", "path": "{{TEMP_DIR}}/source_dir_to_move", "should_exist": false }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_source_not_found_error",
+      "description": "Fail to move if the source path does not exist.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/non_existent_source_for_move.txt",
+              "destination_path": "{{TEMP_DIR}}/any_move_destination.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/non_existent_source_for_move.txt",
+            "destination_path": "{{TEMP_DIR}}/any_move_destination.txt",
+            "error_code": "ERR_FS_NOT_FOUND",
+            "error_message": "Path not found: {{TEMP_DIR}}/non_existent_source_for_move.txt (resolved to {{TEMP_DIR_FORWARD_SLASH}}/non_existent_source_for_move.txt)"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_source_path_not_allowed_error",
+      "description": "Fail to move if the source path is outside allowed read/write paths.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "/etc/passwd",
+              "destination_path": "{{TEMP_DIR}}/passwd_move_attempt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "move",
+            "source_path": "/etc/passwd",
+            "destination_path": "{{TEMP_DIR}}/passwd_move_attempt",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Access to path is denied: /etc/passwd"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_destination_path_not_allowed_error",
+      "description": "Fail to move if the destination path is outside allowed write paths.",
+      "setup_files": [
+        { "path": "source_file_for_denied_move_dest.txt", "content": "Move me if you can" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_for_denied_move_dest.txt",
+              "destination_path": "/etc/forbidden_move_dest.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_file_for_denied_move_dest.txt",
+            "destination_path": "/etc/forbidden_move_dest.txt",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Parent directory access denied for creation: /etc/forbidden_move_dest.txt"
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_file_for_denied_move_dest.txt",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_dir_to_file_path_error",
+      "description": "Fail to move if trying to move a directory to a path where a file exists.",
+      "setup_files": [
+        { "path": "source_dir_for_move_file_conflict/", "content_type": "directory" },
+        { "path": "dest_is_a_file_for_move.txt", "content": "I am a file, not a dir for move." }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_dir_for_move_file_conflict",
+              "destination_path": "{{TEMP_DIR}}/dest_is_a_file_for_move.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_dir_for_move_file_conflict",
+            "destination_path": "{{TEMP_DIR}}/dest_is_a_file_for_move.txt",
+            "error_code": "ERR_FS_MOVE_FAILED",
+            "error_message": "Failed to move path: Cannot overwrite non-directory {{TEMP_DIR}}/dest_is_a_file_for_move.txt with directory {{TEMP_DIR}}/source_dir_for_move_file_conflict"
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_dir_for_move_file_conflict",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_file_to_dir_path_target_is_dir_error",
+      "description": "Fail to move a file to a path where a directory exists if not moving INTO it.",
+      "setup_files": [
+        { "path": "source_file_for_move_dir_conflict.txt", "content": "File content for move" },
+        { "path": "dest_is_a_dir_for_move/", "content_type": "directory" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_for_move_dir_conflict.txt",
+              "destination_path": "{{TEMP_DIR}}/dest_is_a_dir_for_move"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_file_for_move_dir_conflict.txt",
+            "destination_path": "{{TEMP_DIR}}/dest_is_a_dir_for_move",
+            "error_code": "ERR_FS_MOVE_TARGET_IS_DIR",
+            "error_message": "Cannot move file {{TEMP_DIR}}/source_file_for_move_dir_conflict.txt onto directory {{TEMP_DIR}}/dest_is_a_dir_for_move. To move into a directory, ensure the destination path ends with a slash."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_file_for_move_dir_conflict.txt",
+          "should_exist": true
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/dest_is_a_dir_for_move/source_file_for_move_dir_conflict.txt",
+          "should_exist": false
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_move_file_into_dir_success",
+      "description": "Successfully move a file into an existing directory.",
+      "setup_files": [
+        { "path": "source_file_to_move_into_dir.txt", "content": "Move me into the dir now!" },
+        { "path": "target_directory_for_move/", "content_type": "directory" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "move",
+          "entries": [
+            {
+              "source_path": "{{TEMP_DIR}}/source_file_to_move_into_dir.txt",
+              "destination_path": "{{TEMP_DIR}}/target_directory_for_move/"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "move",
+            "source_path": "{{TEMP_DIR}}/source_file_to_move_into_dir.txt",
+            "destination_path": "{{TEMP_DIR}}/target_directory_for_move/source_file_to_move_into_dir.txt",
+            "message": "Path moved successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/target_directory_for_move/source_file_to_move_into_dir.txt",
+          "expected_content": "Move me into the dir now!"
+        },
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/source_file_to_move_into_dir.txt",
+          "should_exist": false
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_delete_file_success",
+      "description": "Successfully delete a single file.",
+      "setup_files": [{ "path": "file_to_delete.txt", "content": "Delete me." }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "delete",
+          "entries": [{ "path": "{{TEMP_DIR}}/file_to_delete.txt" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "delete",
+            "path": "{{TEMP_DIR}}/file_to_delete.txt",
+            "message": "Path deleted successfully."
+          }
+        ]
+      },
+      "assertions": [
+        { "type": "path_exists", "path": "{{TEMP_DIR}}/file_to_delete.txt", "should_exist": false }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_delete_empty_directory_success",
+      "description": "Successfully delete an empty directory.",
+      "setup_files": [{ "path": "empty_dir_to_delete/", "content_type": "directory" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "delete",
+          "entries": [{ "path": "{{TEMP_DIR}}/empty_dir_to_delete" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "delete",
+            "path": "{{TEMP_DIR}}/empty_dir_to_delete",
+            "message": "Path deleted successfully."
+          }
+        ]
+      },
+      "assertions": [
+        { "type": "path_exists", "path": "{{TEMP_DIR}}/empty_dir_to_delete", "should_exist": false }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_delete_non_empty_directory_recursive_true_success",
+      "description": "Successfully delete a non-empty directory with recursive: true.",
+      "setup_files": [
+        { "path": "non_empty_dir_to_delete/file1.txt", "content": "File in dir" },
+        { "path": "non_empty_dir_to_delete/subdir/file2.txt", "content": "Another file" }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "delete",
+          "entries": [{ "path": "{{TEMP_DIR}}/non_empty_dir_to_delete", "recursive": true }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "delete",
+            "path": "{{TEMP_DIR}}/non_empty_dir_to_delete",
+            "message": "Path deleted successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/non_empty_dir_to_delete",
+          "should_exist": false
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_delete_non_empty_directory_recursive_false_fail",
+      "description": "Fail to delete a non-empty directory if recursive: false.",
+      "setup_files": [{ "path": "non_empty_dir_fail/file_inside.txt", "content": "Content here" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "delete",
+          "entries": [{ "path": "{{TEMP_DIR}}/non_empty_dir_fail", "recursive": false }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "delete",
+            "path": "{{TEMP_DIR}}/non_empty_dir_fail",
+            "error_code": "ERR_FS_DIR_NOT_EMPTY",
+            "error_message": "Directory {{TEMP_DIR}}/non_empty_dir_fail is not empty and recursive is false."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/non_empty_dir_fail/file_inside.txt",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_delete_path_not_found_fail",
+      "description": "Fail to delete if the path does not exist.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "delete",
+          "entries": [{ "path": "{{TEMP_DIR}}/non_existent_path_to_delete" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "delete",
+            "path": "{{TEMP_DIR}}/non_existent_path_to_delete",
+            "error_code": "ERR_FS_NOT_FOUND",
+            "error_message": "Path not found: {{TEMP_DIR}}/non_existent_path_to_delete (resolved to {{TEMP_DIR_FORWARD_SLASH}}/non_existent_path_to_delete)"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_delete_path_not_allowed_fail",
+      "description": "Fail to delete if path is outside allowed write paths.",
+      "setup_files": [{ "path": "actual_file_in_temp.txt", "content": "this is fine" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "delete",
+          "entries": [{ "path": "/etc/hosts" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "delete",
+            "path": "/etc/hosts",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Access to path /etc/hosts for deletion is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: {{TEMP_DIR}}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_touch_new_file_success",
+      "description": "Successfully touch a new file, creating an empty file.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "touch",
+          "entries": [{ "path": "{{TEMP_DIR}}/touched_new_file.txt" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "touch",
+            "path": "{{TEMP_DIR}}/touched_new_file.txt",
+            "message": "Path touched successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/touched_new_file.txt",
+          "should_exist": true
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/touched_new_file.txt",
+          "expected_content": ""
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_touch_existing_file_success",
+      "description": "Successfully touch an existing file, updating its modification timestamp.",
+      "setup_files": [{ "path": "existing_file_to_touch.txt", "content": "Some old content." }],
+      "pre_run_delay_ms": 100,
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "touch",
+          "entries": [{ "path": "{{TEMP_DIR}}/existing_file_to_touch.txt" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "touch",
+            "path": "{{TEMP_DIR}}/existing_file_to_touch.txt",
+            "message": "Path touched successfully."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path": "{{TEMP_DIR}}/existing_file_to_touch.txt",
+          "should_exist": true
+        },
+        {
+          "type": "custom_logic",
+          "name": "check_timestamp_updated",
+          "description": "Verify that the modification timestamp of the file was updated.",
+          "setup_path": "{{TEMP_DIR}}/existing_file_to_touch.txt"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_touch_path_not_allowed_fail",
+      "description": "Fail to touch if path is outside allowed write paths.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "touch",
+          "entries": [{ "path": "/etc/forbidden_touch" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "touch",
+            "path": "/etc/forbidden_touch",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Access to path /etc/forbidden_touch for creation is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: {{TEMP_DIR}}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_touch_path_is_directory_fail",
+      "description": "Fail to touch if a directory exists at the path.",
+      "setup_files": [{ "path": "dir_exists_for_touch/", "content_type": "directory" }],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "touch",
+          "entries": [{ "path": "{{TEMP_DIR}}/dir_exists_for_touch" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "touch",
+            "path": "{{TEMP_DIR}}/dir_exists_for_touch",
+            "error_code": "ERR_FS_PATH_IS_DIR",
+            "error_message": "Path {{TEMP_DIR}}/dir_exists_for_touch is a directory, cannot touch."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "path_exists",
+          "path_type": "directory",
+          "path": "{{TEMP_DIR}}/dir_exists_for_touch",
+          "should_exist": true
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "write_touch_invalid_path_fail",
+      "description": "Fail to touch if an invalid path is given (e.g. null byte).",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "touch",
+          "entries": [{ "path": "{{TEMP_DIR}}/invalid_touch_path\u0000file.txt" }]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "touch",
+            "path": "{{TEMP_DIR}}/invalid_touch_path\u0000file.txt",
+            "error_code": "ERR_FS_TOUCH_FAILED",
+            "error_message": "Failed to touch path: {{TEMP_DIR}}/invalid_touch_path\u0000file.txt. Error: The argument 'path' must be a string, Uint8Array, or URL without null bytes. Received '{{TEMP_DIR_FORWARD_SLASH}}/invalid_touch_path\\x00file.txt'"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
     }
   ]
 }

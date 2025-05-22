@@ -535,36 +535,81 @@ describe('fileSystemOps', () => {
     const dirPath = '/new/directory';
 
     it('should create directory non-recursively by default', async () => {
-      mockFs.mkdir.mockResolvedValue(undefined); // Or path if supported by mock
+      // Mock that directory doesn't exist
+      mockFs.access.mockRejectedValue(new Error('ENOENT'));
+      mockFs.mkdir.mockResolvedValue(undefined);
+
       await createDirectory(dirPath);
       expect(mockFs.mkdir).toHaveBeenCalledWith(dirPath, { recursive: false });
     });
 
     it('should create directory recursively if specified', async () => {
+      // Mock that directory doesn't exist
+      mockFs.access.mockRejectedValue(new Error('ENOENT'));
       mockFs.mkdir.mockResolvedValue(undefined);
+
       await createDirectory(dirPath, true);
       expect(mockFs.mkdir).toHaveBeenCalledWith(dirPath, { recursive: true });
     });
 
     it('should be idempotent and log debug if directory already exists (EEXIST)', async () => {
-      const error = Object.assign(new Error('Directory exists'), {
-        code: 'EEXIST',
-      }) as NodeJS.ErrnoException;
-      mockFs.mkdir.mockRejectedValue(error);
+      // Mock that directory exists and is a directory
+      mockFs.access.mockResolvedValue(undefined);
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        isSymbolicLink: () => false,
+        size: 0,
+        mode: 0o755,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
+
       await expect(createDirectory(dirPath)).resolves.toBeUndefined();
       expect(logger.debug).toHaveBeenCalledWith(
         `Directory already exists (idempotent success): ${dirPath}`
       );
+      expect(mockFs.mkdir).not.toHaveBeenCalled();
+    });
+
+    it('should throw ERR_FS_PATH_IS_FILE when path exists but is a file', async () => {
+      // Mock that path exists and is a file
+      mockFs.access.mockResolvedValue(undefined);
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        size: 100,
+        mode: 0o644,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
+
+      try {
+        await createDirectory(dirPath);
+        expect.fail('Should have thrown an error');
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConduitError);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_PATH_IS_FILE);
+        expect((e as ConduitError).message).toContain(
+          `Path ${dirPath} is a file, expected a directory or non-existent path for mkdir.`
+        );
+      }
     });
 
     it('should throw ERR_FS_DIR_CREATE_FAILED for other fs.mkdir errors', async () => {
       const dirPath = '/test/new_dir';
+      // Mock that directory doesn't exist
+      mockFs.access.mockRejectedValue(new Error('ENOENT'));
+      // Mock mkdir failing with permission error
       const error = Object.assign(new Error('Permission denied'), {
         code: 'EACCES',
       }) as NodeJS.ErrnoException;
       mockFs.mkdir.mockRejectedValue(error);
+
       try {
         await createDirectory(dirPath);
+        expect.fail('Should have thrown an error');
       } catch (e) {
         expect(e).toBeInstanceOf(ConduitError);
         expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_DIR_CREATE_FAILED);
@@ -600,13 +645,31 @@ describe('fileSystemOps', () => {
       expect(mockFs.unlink).not.toHaveBeenCalled();
     });
 
-    it('should delete a directory using fs.rm (non-recursive by default for rm call structure in code)', async () => {
+    it('should delete an empty directory using fs.rm when recursive is false', async () => {
       // mockFs.lstat is a MockFunction, so mockResolvedValue already handles PathLike correctly
       mockFs.lstat.mockResolvedValue({ isDirectory: () => true } as Stats);
+      mockFs.readdir.mockResolvedValue([]); // Empty directory
       mockFs.rm.mockResolvedValue(undefined);
       await deletePath(dirPath, false); // Recursive false
       expect(mockFs.lstat).toHaveBeenCalledWith(dirPath);
-      expect(mockFs.rm).toHaveBeenCalledWith(dirPath, { recursive: false, force: false });
+      expect(mockFs.readdir).toHaveBeenCalledWith(dirPath);
+      expect(mockFs.rm).toHaveBeenCalledWith(dirPath, { recursive: false });
+    });
+
+    it('should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false', async () => {
+      mockFs.lstat.mockResolvedValue({ isDirectory: () => true } as Stats);
+      mockFs.readdir.mockResolvedValue(['file1.txt', 'file2.txt']); // Non-empty directory
+
+      await expect(deletePath(dirPath, false)).rejects.toThrow(
+        expect.objectContaining({
+          errorCode: 'ERR_FS_DIR_NOT_EMPTY',
+          message: `Directory ${dirPath} is not empty and recursive is false.`,
+        })
+      );
+
+      expect(mockFs.lstat).toHaveBeenCalledWith(dirPath);
+      expect(mockFs.readdir).toHaveBeenCalledWith(dirPath);
+      expect(mockFs.rm).not.toHaveBeenCalled();
     });
 
     it('should be idempotent and log debug if path does not exist (ENOENT on lstat)', async () => {
@@ -1231,10 +1294,26 @@ describe('fileSystemOps', () => {
     const filePath = '/path/to/some/file.txt';
 
     it('should create an empty file if it does not exist', async () => {
-      // Mock pathExists to return false initially
-      // pathExists itself uses fs.access, so we can mock fs.access
-      // mockFs.access is a MockFunction, so mockRejectedValueOnce already handles PathLike correctly
-      mockFs.access.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+      // Mock pathExists to return false initially for the file
+      mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
+        if (p === filePath) {
+          throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+        }
+        // Parent directory exists (for createDirectory call)
+        return undefined;
+      });
+
+      // Mock stat for parent directory check (createDirectory calls this)
+      mockFs.stat.mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        isSymbolicLink: () => false,
+        size: 0,
+        mode: 0o755,
+        mtime: new Date(),
+        birthtime: new Date(),
+      } as Stats);
+
       mockFs.writeFile.mockResolvedValue(undefined); // For the writeFile call
 
       await touchFile(filePath);
@@ -1269,7 +1348,7 @@ describe('fileSystemOps', () => {
       expect((utimesArgs[2] as Date).getTime()).toBeLessThanOrEqual(afterCall.getTime());
     });
 
-    it('should throw ERR_FS_OPERATION_FAILED if writeFile fails during creation', async () => {
+    it('should throw ERR_FS_TOUCH_FAILED if writeFile fails during creation', async () => {
       // mockFs.access is a MockFunction, so mockRejectedValueOnce already handles PathLike correctly
       mockFs.access.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const writeError = new Error('Disk quota exceeded');
@@ -1283,17 +1362,17 @@ describe('fileSystemOps', () => {
         await touchFile(filePath);
       } catch (e) {
         expect(e).toBeInstanceOf(ConduitError);
-        expect((e as ConduitError).errorCode).toBe(ErrorCode.OPERATION_FAILED);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_TOUCH_FAILED);
         // The message comes from the writeFile wrapper if it throws, or the touchFile wrapper if utimes throws.
         // If writeFile in touchFile throws, the message will be about writeFile.
         // The actual fsOps.writeFile creates its own error message.
         // So, we check if the error thrown by touchFile has the correct code and its message indicates the underlying error.
-        expect((e as ConduitError).message).toContain(`Failed to touch file: ${filePath}.`);
+        expect((e as ConduitError).message).toContain(`Failed to touch path: ${filePath}.`);
         // It might be better to check e.originalError or e.cause if available and set by ConduitError
       }
     });
 
-    it('should throw ERR_FS_OPERATION_FAILED if utimes fails', async () => {
+    it('should throw ERR_FS_TOUCH_FAILED if utimes fails', async () => {
       // mockFs.access is a MockFunction, so mockResolvedValue already handles PathLike correctly
       mockFs.access.mockResolvedValue(undefined);
       const utimesError = new Error('Operation not permitted');
@@ -1304,10 +1383,26 @@ describe('fileSystemOps', () => {
         await touchFile(filePath);
       } catch (e) {
         expect(e).toBeInstanceOf(ConduitError);
-        expect((e as ConduitError).errorCode).toBe(ErrorCode.OPERATION_FAILED);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_TOUCH_FAILED);
         expect((e as ConduitError).message).toContain(
-          `Failed to touch file: ${filePath}. Error: ${utimesError.message}`
+          `Failed to touch path: ${filePath}. Error: ${utimesError.message}`
         );
+      }
+    });
+
+    it('should throw ERR_FS_PATH_IS_DIR if the path is a directory', async () => {
+      // mockFs.access is a MockFunction, so mockResolvedValue already handles PathLike correctly
+      mockFs.access.mockResolvedValue(undefined);
+      const stats = { isDirectory: () => true, isFile: () => false } as Stats;
+      mockFs.stat.mockResolvedValue(stats);
+
+      await expect(touchFile(filePath)).rejects.toThrow(ConduitError);
+      try {
+        await touchFile(filePath);
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConduitError);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_PATH_IS_DIR);
+        expect((e as ConduitError).message).toBe(`Path ${filePath} is a directory, cannot touch.`);
       }
     });
   });

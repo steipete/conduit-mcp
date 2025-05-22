@@ -1,23 +1,40 @@
 import fs from 'fs';
 import path from 'path';
 
+// Generic tool result structure
+export interface ToolResult {
+  tool_name: string;
+  results?: Array<{
+    status: string;
+    [key: string]: any;
+  }>;
+  [key: string]: any;
+}
+
 export interface TestScenario {
   name: string;
   description: string;
   request_payload: unknown;
   expected_exit_code: number;
-  expected_stdout?: unknown;
+  expected_stdout?: ToolResult;
   expected_stderr?: {
     contains?: string;
   };
   should_show_notice?: boolean;
   notice_code?: string;
   env_vars?: Record<string, string>;
+  pre_run_delay_ms?: number;
   setup_files?: Array<{
     path: string;
-    content: string;
+    content?: string;
     base_dir?: string;
     encoding?: string;
+    content_type?: string;
+    archive_type?: string;
+    entries?: Array<{
+      path: string;
+      content?: string;
+    }>;
   }>;
   mocked_responses?: Array<{
     url_pattern: string;
@@ -56,6 +73,16 @@ export interface TestScenario {
     type: 'file_exists' | 'file_not_exists' | 'directory_exists' | 'directory_not_exists';
     path: string;
     content?: string;
+  }>;
+  assertions?: Array<{
+    type: string;
+    name?: string;
+    path?: string;
+    expected_content?: string;
+    should_exist?: boolean;
+    archive_path?: string;
+    expected_entries?: string[];
+    setup_path?: string;
   }>;
 }
 

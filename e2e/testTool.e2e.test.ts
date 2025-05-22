@@ -70,7 +70,7 @@ describe('E2E Test Tool Operations', () => {
 
   scenarios.forEach((scenario: TestScenario) => {
     describe('Dynamic Test Tool Scenarios', () => {
-      it(scenario.description || scenario.name, async () => {
+      it(`${scenario.description || scenario.name}`, async () => {
         const result = await runConduitMCPScript(scenario.request_payload, scenario.env_vars || {});
 
         expect(result.exitCode).toBe(scenario.expected_exit_code);

@@ -1,34 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios } from './utils/scenarioLoader';
+import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
 import path from 'path';
 import fs from 'fs';
-
-// Enhanced scenario interface to support new features
-interface EnhancedTestScenario {
-  name: string;
-  description: string;
-  request_payload: unknown;
-  expected_exit_code: number;
-  expected_stdout: unknown;
-  should_show_notice?: boolean;
-  notice_code?: string;
-  env_vars?: Record<string, string>;
-  setup_filesystem?: Array<{
-    type: 'createFile' | 'createDirectory' | 'createSymlink' | 'createBinaryFile';
-    path: string;
-    content?: string;
-    target?: string;
-    link?: string;
-    encoding?: string;
-    mtime?: string;
-    ctime?: string;
-    binary_content?: number[];
-    filename_pattern?: string;
-  }>;
-  cleanup_filesystem?: string[];
-}
 
 describe('E2E Find Operations', () => {
   let testWorkspaceDir: string;
@@ -47,7 +22,7 @@ describe('E2E Find Operations', () => {
   });
 
   // Helper function to set up filesystem for a scenario
-  function setupFilesystem(setup: EnhancedTestScenario['setup_filesystem'], tempDir: string) {
+  function setupFilesystem(setup: TestScenario['setup_filesystem'], tempDir: string) {
     if (!setup) return;
 
     for (const item of setup) {
@@ -186,12 +161,15 @@ describe('E2E Find Operations', () => {
   }
 
   // Helper function to verify results against expected output
-  function verifyResults(actual: unknown[], expected: unknown[]) {
+  function verifyResults(actual: unknown, expected: unknown) {
     expect(actual).toBeDefined();
     expect(Array.isArray(actual)).toBe(true);
 
-    for (const expectedItem of expected) {
-      const matchingItems = actual.filter((item) => {
+    const actualArray = actual as Array<any>;
+    const expectedArray = expected as Array<any>;
+
+    for (const expectedItem of expectedArray) {
+      const matchingItems = actualArray.filter((item) => {
         let matches = true;
 
         // Check type if specified
@@ -219,16 +197,16 @@ describe('E2E Find Operations', () => {
 
       expect(matchingItems.length).toBeGreaterThan(
         0,
-        `Expected to find item matching: ${JSON.stringify(expectedItem)}, but found: ${JSON.stringify(actual.map((i) => ({ name: i.name, type: i.type, path: i.path })))}`
+        `Expected to find item matching: ${JSON.stringify(expectedItem)}, but found: ${JSON.stringify(actualArray.map((i) => ({ name: i.name, type: i.type, path: i.path })))}`
       );
     }
 
     // For scenarios, we allow additional results as long as all expected ones are found
     // Only verify exact count if there are specific expectations that rule out extra results
-    if (expected.length === 0) {
-      expect(actual.length).toBe(0);
+    if (expectedArray.length === 0) {
+      expect(actualArray.length).toBe(0);
     } else {
-      expect(actual.length).toBeGreaterThanOrEqual(expected.length);
+      expect(actualArray.length).toBeGreaterThanOrEqual(expectedArray.length);
     }
   }
 
@@ -303,13 +281,14 @@ describe('E2E Find Operations', () => {
       expect(result.response).toBeDefined();
 
       // Should be the direct tool response object (no notice)
-      expect(result.response.status).toBe('error');
-      expect(result.response.error_message).toContain('Path not found');
+      const response = result.response as any;
+      expect(response.status).toBe('error');
+      expect(response.error_message).toContain('Path not found');
     });
   });
 
   describe('Scenario-based Tests', () => {
-    const scenarios = loadTestScenarios('findTool.scenarios.json') as EnhancedTestScenario[];
+    const scenarios = loadTestScenarios('findTool.scenarios.json');
 
     scenarios.forEach((scenario) => {
       it(`${scenario.name}: ${scenario.description}`, async () => {
@@ -347,46 +326,47 @@ describe('E2E Find Operations', () => {
         if (scenario.should_show_notice) {
           if (Array.isArray(result.response)) {
             expect(result.response).toHaveLength(2);
-            const notice = result.response[0];
+            const notice = result.response[0] as any;
             expect(notice.type).toBe('info_notice');
             if (scenario.notice_code) {
               expect(notice.notice_code).toBe(scenario.notice_code);
             }
             // Use the actual tool response for further verification
-            const toolResponse = result.response[1];
-            expect(toolResponse.tool_name).toBe(scenario.expected_stdout.tool_name);
+            const toolResponse = result.response[1] as any;
+            expect(toolResponse.tool_name).toBe(scenario.expected_stdout?.tool_name);
           }
         } else {
           // Verify the main response
-          if (scenario.expected_stdout.tool_name) {
-            expect(result.response.tool_name).toBe(scenario.expected_stdout.tool_name);
+          const response = result.response as any;
+          if (scenario.expected_stdout?.tool_name) {
+            expect(response.tool_name).toBe(scenario.expected_stdout.tool_name);
           }
 
           // Verify results if expected
-          if (scenario.expected_stdout.results) {
+          if (scenario.expected_stdout?.results) {
             // Special handling for case-insensitive filesystem scenarios
             if (scenario.name === 'case_insensitive_filename_search') {
               // On case-insensitive filesystems, files with names differing only in case
               // are the same file, so we expect at least 1 file containing "test"
-              expect(result.response.results).toBeDefined();
-              expect(Array.isArray(result.response.results)).toBe(true);
-              expect(result.response.results.length).toBeGreaterThanOrEqual(1);
-              const hasTestFile = result.response.results.some(
+              expect(response.results).toBeDefined();
+              expect(Array.isArray(response.results)).toBe(true);
+              expect(response.results.length).toBeGreaterThanOrEqual(1);
+              const hasTestFile = response.results.some(
                 (r: { type: string; name: string }) =>
                   r.type === 'file' && r.name.toLowerCase().includes('test')
               );
               expect(hasTestFile).toBe(true);
             } else {
-              verifyResults(result.response.results, scenario.expected_stdout.results);
+              verifyResults(response.results, scenario.expected_stdout.results);
             }
           }
 
           // Handle error expectations
-          if (result.response.status === 'error') {
-            expect(scenario.expected_stdout.status).toBe('error');
-            if (scenario.expected_stdout.error_message) {
-              expect(result.response.error_message).toContain(
-                scenario.expected_stdout.error_message
+          if (response.status === 'error') {
+            expect(scenario.expected_stdout?.status).toBe('error');
+            if ((scenario.expected_stdout as any)?.error_message) {
+              expect(response.error_message).toContain(
+                (scenario.expected_stdout as any).error_message
               );
             }
           }

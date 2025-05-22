@@ -59,17 +59,13 @@ export async function makeDirectory(
         return createErrorMkdirResultItem(
           entry.path,
           ErrorCode.ERR_FS_PATH_IS_FILE,
-          `Path exists but is a file, not a directory: ${entry.path}`
+          `Path ${absoluteTargetPath} is a file, expected a directory or non-existent path for mkdir.`
         );
       }
     }
 
     // Path does not exist, create it.
-    // fileSystemOps.ensureDirectoryExists handles recursive creation if underlying fs-extra.ensureDir is used.
-    // The 'recursive' flag from MkdirEntry is thus implicitly handled if ensureDirectoryExists is always recursive.
-    // If strict non-recursive behavior is needed when entry.recursive is false, this needs adjustment.
-    // For now, assuming ensureDirectoryExists is suitable.
-    await fileSystemOps.ensureDirectoryExists(absoluteTargetPath);
+    await fileSystemOps.createDirectory(absoluteTargetPath, recursive);
     operationLogger.info(`Successfully created directory: ${absoluteTargetPath}`);
 
     return {
