@@ -218,12 +218,14 @@ This command runs all E2E tests in the `e2e/` directory using Vitest with a spec
 E2E tests are scenario-driven, using JSON scenario files to define inputs and expected outputs:
 
 1. **Define scenarios**: Create or update `*.scenarios.json` files in `e2e/scenarios/` with test cases that specify:
+
    - MCP request payloads
    - Expected response structures
    - Filesystem setup requirements
    - Validation criteria
 
 2. **Implement test logic**: Add corresponding test implementations in the appropriate `*.e2e.test.ts` file that:
+
    - Load scenarios using `scenarioLoader.ts`
    - Execute tests using `e2eTestRunner.ts`
    - Validate results against expected outcomes

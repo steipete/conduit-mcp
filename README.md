@@ -17,6 +17,7 @@ _A sleek Model Context Protocol server that helps your AI assistant navigate the
 - 📁 **Organize files** with military precision
 - 🔍 **Track down specific files** using advanced search techniques
 - 📦 **Pack and unpack archives** like a pro moving service
+- ⚡ **Process operations in batches** for maximum efficiency
 
 Unlike those lazy house cats, this server works 24/7 and never knocks things off your desk! 😸
 
@@ -69,9 +70,11 @@ CONDUIT_ALLOWED_PATHS="~/Documents:~/Projects"
 
 ### 🔍 The `read` Tool - Master Detective Cat
 
-Your cat can investigate files and URLs with four different specialties:
+Your cat can investigate files and URLs with three different specialties:
 
 #### Content Reading (`operation: "content"`)
+
+Read and process content from files or URLs in various formats.
 
 ```json
 {
@@ -89,14 +92,23 @@ Your cat can investigate files and URLs with four different specialties:
 - `"markdown"` - Web pages get the full spa treatment! 🧖‍♀️
 - `"checksum"` - Generate cryptographic fingerprints
 
+**Parameters:**
+- `sources`: `string[]` (Required) - Array of file paths or URLs
+- `format?`: `string` (Optional) - Output format
+- `checksum_algorithm?`: `string` (Optional) - `"md5" | "sha1" | "sha256" | "sha512"`
+- `offset?`: `integer` (Optional) - Byte offset to start reading from
+- `length?`: `integer` (Optional) - Number of bytes to read
+
 **Special Powers:**
 
-- 🌐 **Web Page Cleaning**: Turns messy HTML into beautiful Markdown
-- 🖼️ **Smart Image Compression**: Automatically compresses large images
+- 🌐 **Web Page Cleaning**: Turns messy HTML into beautiful Markdown using Mozilla Readability
+- 🖼️ **Smart Image Compression**: Automatically compresses large images with Sharp
 - 📐 **Partial Reading**: Read specific byte ranges with `offset` and `length`
 - 🔒 **Checksum Calculation**: SHA256, MD5, SHA1, or SHA512
 
 #### Metadata Inspection (`operation: "metadata"`)
+
+Get detailed information about files or URLs without reading their content.
 
 ```json
 {
@@ -106,25 +118,32 @@ Your cat can investigate files and URLs with four different specialties:
 }
 ```
 
-Gets you the full dossier: size, type, timestamps, permissions, and more!
+**Returns:** File size, MIME type, timestamps, permissions, HTTP headers (for URLs), and more!
 
 #### File Comparison (`operation: "diff"`)
+
+Compare two files and see exactly what changed.
 
 ```json
 {
   "tool": "read",
   "operation": "diff",
-  "sources": ["~/file1.txt", "~/file2.txt"]
+  "sources": ["~/file1.txt", "~/file2.txt"],
+  "diff_format": "unified"
 }
 ```
 
-Shows exactly what changed between two files - perfect for code reviews!
+**Parameters:**
+- `sources`: `string[2]` (Required) - Exactly two file paths
+- `diff_format?`: `string` (Optional) - Currently supports `"unified"`
 
 ### ✏️ The `write` Tool - Master Builder Cat
 
-Your cat can modify the file system with surgical precision:
+Your cat can modify the file system with surgical precision through various actions:
 
-#### File Operations
+#### File Operations (`action: "put"`)
+
+Write content to files with different encoding and write modes.
 
 ```json
 {
@@ -134,7 +153,48 @@ Your cat can modify the file system with surgical precision:
     {
       "path": "~/Documents/new_file.txt",
       "content": "Hello from your digital cat! 🐱",
-      "write_mode": "overwrite"
+      "write_mode": "overwrite",
+      "input_encoding": "text"
+    }
+  ]
+}
+```
+
+**Parameters for `put`:**
+- `path`: `string` (Required) - Target file path
+- `content`: `string` (Required) - Content to write
+- `input_encoding?`: `"text" | "base64"` (Optional, default: `"text"`)
+- `write_mode?`: `"overwrite" | "append" | "error_if_exists"` (Optional, default: `"overwrite"`)
+
+#### Directory Operations (`action: "mkdir"`)
+
+Create directories with optional recursive creation.
+
+```json
+{
+  "tool": "write",
+  "action": "mkdir",
+  "entries": [
+    {
+      "path": "~/Documents/new_folder/subfolder",
+      "recursive": true
+    }
+  ]
+}
+```
+
+#### File Management (`action: "copy" | "move" | "delete"`)
+
+Copy, move, or delete files and directories.
+
+```json
+{
+  "tool": "write",
+  "action": "copy",
+  "entries": [
+    {
+      "source_path": "~/file.txt",
+      "destination_path": "~/backup/"
     }
   ]
 }
@@ -151,12 +211,29 @@ Your cat can modify the file system with surgical precision:
 
 #### Archive Operations
 
+Create and extract archives in multiple formats.
+
+**Create Archive (`action: "archive"`):**
+
 ```json
 {
   "tool": "write",
   "action": "archive",
   "source_paths": ["~/Documents/folder1", "~/Documents/file1.txt"],
   "archive_path": "~/backup.zip",
+  "format": "zip",
+  "recursive_source_listing": true
+}
+```
+
+**Extract Archive (`action: "unarchive"`):**
+
+```json
+{
+  "tool": "write",
+  "action": "unarchive",
+  "archive_path": "~/backup.zip",
+  "destination_path": "~/restored/",
   "format": "zip"
 }
 ```
@@ -165,7 +242,9 @@ Your cat can modify the file system with surgical precision:
 
 ### 📋 The `list` Tool - Inventory Cat
 
-#### Directory Listing
+#### Directory Listing (`operation: "entries"`)
+
+Explore directory structures with recursive capabilities.
 
 ```json
 {
@@ -177,14 +256,21 @@ Your cat can modify the file system with surgical precision:
 }
 ```
 
+**Parameters:**
+- `path`: `string` (Required) - Directory to list
+- `recursive_depth?`: `integer` (Optional, default: `0`) - How deep to recurse
+- `calculate_recursive_size?`: `boolean` (Optional, default: `false`) - Calculate total size of directories
+
 **Special Features:**
 
 - 🌳 **Recursive Exploration**: Dive deep into folder structures
-- 📊 **Size Calculation**: Get total size of directories
+- 📊 **Size Calculation**: Get total size of directories and their contents
 - 🔗 **Symlink Detection**: Identifies and follows symbolic links
 - ⏱️ **Smart Timeouts**: Won't get stuck calculating huge directories
 
-#### System Information
+#### System Information (`operation: "system_info"`)
+
+Get information about the server and file system.
 
 ```json
 {
@@ -194,58 +280,70 @@ Your cat can modify the file system with surgical precision:
 }
 ```
 
-Learn about your cat's capabilities and current configuration!
+**Info Types:**
+- `"server_capabilities"` - Server version, configuration, supported features
+- `"filesystem_stats"` - File system statistics for a given path
 
 ### 🔎 The `find` Tool - Bloodhound Cat
 
-The most sophisticated search tool - your cat can find ANYTHING:
-
-#### Name-Based Search
+The most sophisticated search tool - your cat can find ANYTHING using multiple criteria:
 
 ```json
 {
   "tool": "find",
   "base_path": "~/Documents",
+  "recursive": true,
   "match_criteria": [
     {
       "type": "name_pattern",
       "pattern": "*.{pdf,doc,docx}"
-    }
-  ]
-}
-```
-
-#### Content Search
-
-```json
-{
-  "tool": "find",
-  "base_path": "~/Projects",
-  "match_criteria": [
-    {
-      "type": "content_pattern",
-      "pattern": "TODO|FIXME",
-      "is_regex": true,
-      "case_sensitive": false
-    }
-  ]
-}
-```
-
-#### Metadata Filtering
-
-```json
-{
-  "tool": "find",
-  "base_path": "~/Documents",
-  "match_criteria": [
+    },
     {
       "type": "metadata_filter",
       "attribute": "size_bytes",
       "operator": "gt",
       "value": 1048576
     }
-  ]
+  ],
+  "entry_type_filter": "file"
+}
+```
+
+**Parameters:**
+- `base_path`: `string` (Required) - Starting directory
+- `recursive?`: `boolean` (Optional, default: `true`) - Search subdirectories
+- `match_criteria`: `object[]` (Required) - Array of search criteria (ALL must match)
+- `entry_type_filter?`: `"file" | "directory" | "any"` (Optional) - Filter by entry type
+
+#### Search Criteria Types
+
+**Name Pattern Matching:**
+```json
+{
+  "type": "name_pattern",
+  "pattern": "*.txt"
+}
+```
+
+**Content Search:**
+```json
+{
+  "type": "content_pattern",
+  "pattern": "TODO|FIXME",
+  "is_regex": true,
+  "case_sensitive": false,
+  "file_types_to_search": [".js", ".ts", ".py"]
+}
+```
+
+**Metadata Filtering:**
+```json
+{
+  "type": "metadata_filter",
+  "attribute": "modified_at_iso",
+  "operator": "after",
+  "value": "2023-01-01T00:00:00Z",
+  "case_sensitive": false
 }
 ```
 
@@ -257,6 +355,22 @@ The most sophisticated search tool - your cat can find ANYTHING:
 - 📅 **Date filtering**: Find files by creation/modification dates
 - 📏 **Size filtering**: Find large files, empty files, etc.
 - 🎭 **MIME type filtering**: Search by file type
+
+### 🧪 The `test` Tool - Quality Assurance Cat
+
+A debugging tool for testing the MCP server functionality.
+
+```json
+{
+  "tool": "test",
+  "operation": "echo",
+  "params_to_echo": {"message": "Hello, world!"}
+}
+```
+
+**Operations:**
+- `"echo"` - Echo back provided parameters for testing
+- `"generate_error"` - Generate specific error codes for testing error handling
 
 ## 🎛️ Configuring Your Cat
 
@@ -277,9 +391,11 @@ CONDUIT_LOG_FILE_PATH="/tmp/conduit-mcp.log"  # or "NONE" to disable
 
 ```bash
 # Resource limits (keep your cat well-behaved)
-CONDUIT_MAX_FILE_READ_BYTES="52428800"      # 50MB max file reads
-CONDUIT_MAX_URL_DOWNLOAD_BYTES="20971520"   # 20MB max downloads
-CONDUIT_HTTP_TIMEOUT_MS="30000"             # 30 second timeouts
+CONDUIT_MAX_PAYLOAD_SIZE_BYTES="10485760"      # 10MB max incoming requests
+CONDUIT_MAX_FILE_READ_BYTES="52428800"         # 50MB max file reads
+CONDUIT_MAX_FILE_READ_BYTES_FIND="524288"      # 512KB max for find content search
+CONDUIT_MAX_URL_DOWNLOAD_SIZE_BYTES="20971520" # 20MB max downloads
+CONDUIT_HTTP_TIMEOUT_MS="30000"                # 30 second timeouts
 
 # Image compression (make photos diet-friendly)
 CONDUIT_IMAGE_COMPRESSION_THRESHOLD_BYTES="1048576"  # 1MB threshold
@@ -367,6 +483,7 @@ Your cat is well-mannered and provides detailed error information:
 - `ERR_INVALID_PARAMETER` - Bad input data
 - `ERR_RESOURCE_LIMIT_EXCEEDED` - Size/timeout limits hit
 - `ERR_ARCHIVE_*` - Archive operation failures
+- `ERR_MARKDOWN_*` - Web content processing issues
 
 ## 🛠️ Development & Testing
 
@@ -376,7 +493,7 @@ Your cat is well-mannered and provides detailed error information:
 npm test                # Run all tests
 npm run test:coverage   # With coverage report
 npm run test:unit       # Unit tests only
-npm run test:integration # Integration tests
+npm run test:e2e        # End-to-end tests
 ```
 
 ### Building
@@ -416,7 +533,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🐱 Fun Facts About Your Digital Cat
 
-- **Line Count**: ~14,000 lines of carefully crafted TypeScript
+- **Line Count**: ~17,200 lines of carefully crafted TypeScript
 - **Dependencies**: Only the finest NPM packages (axios, sharp, jsdom, etc.)
 - **Test Coverage**: >90% (this cat is thoroughly tested!)
 - **Protocols**: 100% MCP compliant
@@ -437,7 +554,7 @@ Perfect for AI assistants that need to:
 
 ## 🆘 Support & Community
 
-- 📚 **Documentation**: You're reading it! (Plus the technical spec)
+- 📚 **Documentation**: You're reading it! (Plus the technical spec in `/docs/spec.md`)
 - 🐛 **Issues**: GitHub Issues for bugs and feature requests
 - 💬 **Discussions**: GitHub Discussions for questions and ideas
 - 📧 **Contact**: Open source project - community driven!
