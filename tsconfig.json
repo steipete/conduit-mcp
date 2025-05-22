@@ -21,11 +21,7 @@
     "types": ["node", "vitest/globals"]
   },
   "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts",
-    "e2e/**/*.ts",
-    "vitest.config.ts",
-    "vitest.config.e2e.ts"
+    "src/**/*.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

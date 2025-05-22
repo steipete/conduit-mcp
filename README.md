@@ -36,7 +36,7 @@ Just tell your MCP client about your new digital pet:
   "mcpServers": {
     "conduit_mcp": {
       "command": "npx",
-      "args": ["-y", "conduit-mcp@1.0.0"],
+      "args": ["-y", "@steipete/conduit-mcp@beta"],
       "env": {
         "CONDUIT_ALLOWED_PATHS": "~/Documents:~/Projects",
         "LOG_LEVEL": "INFO"
