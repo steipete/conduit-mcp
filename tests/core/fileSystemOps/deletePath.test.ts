@@ -89,8 +89,8 @@ describe('deletePath', () => {
   it('should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false', async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
     mockFs.readdir.mockResolvedValue([
-      createDirent('file1.txt', true, false),
-      createDirent('file2.txt', true, false),
+      'file1.txt',
+      'file2.txt',
     ]);
 
     await expect(deletePath(dirPath, false)).rejects.toThrow(

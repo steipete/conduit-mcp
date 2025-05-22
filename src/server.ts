@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import readline from 'node:readline';
 import {
   logger,

@@ -615,8 +615,7 @@ export async function createEntryInfo(
         logger.error(`Failed to readlink ${fullPath}: ${nodeError.message}`);
         throw new ConduitError(
           ErrorCode.OPERATION_FAILED,
-          `Failed to read symlink target for ${fullPath}. Error: ${nodeError.message}`,
-          nodeError
+          `Failed to read symlink target for ${fullPath}. Error: ${nodeError.message}`
         );
       }
     }
@@ -624,13 +623,13 @@ export async function createEntryInfo(
     const entry = {
       name: name || path.basename(fullPath),
       path: fullPath,
-      type: isSymlink
+      type: (isSymlink
         ? 'symlink'
         : effectiveStats.isDirectory()
           ? 'directory'
           : effectiveStats.isFile()
             ? 'file'
-            : 'other',
+            : 'other') as 'file' | 'directory' | 'symlink' | 'other',
       size_bytes: effectiveStats.isFile() && !isSymlink ? effectiveStats.size : undefined,
       created_at: formatToISO8601UTC(effectiveStats.birthtime),
       modified_at: formatToISO8601UTC(effectiveStats.mtime),

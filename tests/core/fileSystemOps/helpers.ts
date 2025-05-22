@@ -2,7 +2,7 @@ import { vi, type MockedFunction } from 'vitest';
 import type { Stats } from 'fs';
 
 // Helper to create Dirent-like objects for tests
-export const createDirent = (name: string, isFile: boolean, isDirectory: boolean): import('fs').Dirent =>
+export const createDirent = (name: string, isFile: boolean, isDirectory: boolean): import('fs').Dirent<string> =>
   ({
     name,
     isFile: () => isFile,
@@ -12,7 +12,7 @@ export const createDirent = (name: string, isFile: boolean, isDirectory: boolean
     isCharacterDevice: () => false,
     isFIFO: () => false,
     isSocket: () => false,
-  }) as import('fs').Dirent;
+  }) as import('fs').Dirent<string>;
 
 // Define the mock functions object that will be used by vi.mock and exported
 const fsMockFunctions = {
@@ -47,7 +47,7 @@ export const mockFs = fsMockFunctions as {
   rm: MockedFunction<typeof import('fs/promises').rm>;
   rmdir: MockedFunction<typeof import('fs/promises').rmdir>;
   unlink: MockedFunction<typeof import('fs/promises').unlink>;
-  readdir: MockedFunction<typeof import('fs/promises').readdir>;
+  readdir: MockedFunction<(path: string, options?: any) => Promise<string[] | import('fs').Dirent[]>>;
   cp: MockedFunction<typeof import('fs/promises').cp>;
   rename: MockedFunction<typeof import('fs/promises').rename>;
   utimes: MockedFunction<typeof import('fs/promises').utimes>;

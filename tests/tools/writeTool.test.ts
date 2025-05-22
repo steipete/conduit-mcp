@@ -53,9 +53,17 @@ vi.mock('@/internal', async (importOriginal) => {
     handleBatchPut: vi.fn(async (params: WriteTool.PutParams, _cfg: ConduitServerConfig) => {
       const results = await Promise.all(
         params.entries.map(async (entry) => {
-          const absPath = path.join(mockedConduitConfig.workspaceRoot, entry.path.startsWith('/') ? entry.path.substring(1) : entry.path);
+          const absPath = path.join(
+            mockedConduitConfig.workspaceRoot,
+            entry.path.startsWith('/') ? entry.path.substring(1) : entry.path
+          );
           try {
-            const bytes = (await fileSystemOps.writeFile(absPath, entry.content, undefined, 'overwrite')) as number;
+            const bytes = (await fileSystemOps.writeFile(
+              absPath,
+              entry.content,
+              undefined,
+              'overwrite'
+            )) as number;
             return {
               status: 'success',
               action_performed: 'put',
@@ -78,12 +86,25 @@ vi.mock('@/internal', async (importOriginal) => {
     handleBatchMkdir: vi.fn(async (params: WriteTool.MkdirParams, _cfg: ConduitServerConfig) => {
       const results = await Promise.all(
         params.entries.map(async (entry) => {
-          const absPath = path.join(mockedConduitConfig.workspaceRoot, entry.path.startsWith('/') ? entry.path.substring(1) : entry.path);
+          const absPath = path.join(
+            mockedConduitConfig.workspaceRoot,
+            entry.path.startsWith('/') ? entry.path.substring(1) : entry.path
+          );
           try {
             await fileSystemOps.createDirectory(absPath, entry.recursive ?? false);
-            return { status: 'success', action_performed: 'mkdir', path: entry.path } as WriteTool.WriteResultSuccess;
+            return {
+              status: 'success',
+              action_performed: 'mkdir',
+              path: entry.path,
+            } as WriteTool.WriteResultSuccess;
           } catch (err: any) {
-            return { status: 'error', action_performed: 'mkdir', path: entry.path, error_code: ErrorCode.OPERATION_FAILED, error_message: err?.message ?? 'error' } as WriteTool.WriteResultItem;
+            return {
+              status: 'error',
+              action_performed: 'mkdir',
+              path: entry.path,
+              error_code: ErrorCode.OPERATION_FAILED,
+              error_message: err?.message ?? 'error',
+            } as WriteTool.WriteResultItem;
           }
         })
       );
@@ -92,13 +113,33 @@ vi.mock('@/internal', async (importOriginal) => {
     handleBatchCopy: vi.fn(async (params: WriteTool.CopyParams, _cfg: ConduitServerConfig) => {
       const results = await Promise.all(
         params.entries.map(async (entry) => {
-          const absSrc = path.join(mockedConduitConfig.workspaceRoot, entry.source_path.startsWith('/') ? entry.source_path.substring(1) : entry.source_path);
-          const absDst = path.join(mockedConduitConfig.workspaceRoot, entry.destination_path.startsWith('/') ? entry.destination_path.substring(1) : entry.destination_path);
+          const absSrc = path.join(
+            mockedConduitConfig.workspaceRoot,
+            entry.source_path.startsWith('/') ? entry.source_path.substring(1) : entry.source_path
+          );
+          const absDst = path.join(
+            mockedConduitConfig.workspaceRoot,
+            entry.destination_path.startsWith('/')
+              ? entry.destination_path.substring(1)
+              : entry.destination_path
+          );
           try {
             await fileSystemOps.copyPath(absSrc, absDst);
-            return { status: 'success', action_performed: 'copy', source_path: entry.source_path, destination_path: entry.destination_path } as WriteTool.WriteResultSuccess;
+            return {
+              status: 'success',
+              action_performed: 'copy',
+              source_path: entry.source_path,
+              destination_path: entry.destination_path,
+            } as WriteTool.WriteResultSuccess;
           } catch (err: any) {
-            return { status: 'error', action_performed: 'copy', source_path: entry.source_path, destination_path: entry.destination_path, error_code: ErrorCode.OPERATION_FAILED, error_message: err?.message ?? 'error' } as WriteTool.WriteResultItem;
+            return {
+              status: 'error',
+              action_performed: 'copy',
+              source_path: entry.source_path,
+              destination_path: entry.destination_path,
+              error_code: ErrorCode.OPERATION_FAILED,
+              error_message: err?.message ?? 'error',
+            } as WriteTool.WriteResultItem;
           }
         })
       );
@@ -114,16 +155,27 @@ vi.mock('@/operations/archiveOps', () => ({
 }));
 
 // Import mocked modules
-import { conduitConfig, fileSystemOps, securityHandler, ConduitServerConfig, calculateChecksum as internalCalculateChecksum, validateAndResolvePath as internalValidateAndResolvePath } from '@/internal';
+import {
+  conduitConfig,
+  fileSystemOps,
+  securityHandler,
+  ConduitServerConfig,
+  calculateChecksum as internalCalculateChecksum,
+  validateAndResolvePath as internalValidateAndResolvePath,
+} from '@/internal';
 import { createArchive, extractArchive } from '@/operations/archiveOps';
 
 const mockedConduitConfig = conduitConfig as Mocked<ConduitServerConfig>;
 const mockedFsOps = fileSystemOps as Mocked<typeof fileSystemOps>;
 const mockedSecurityHandler = securityHandler as Mocked<typeof securityHandler>;
-const mockedValidateAndResolvePathDirect = internalValidateAndResolvePath as MockedFunction<typeof internalValidateAndResolvePath>;
+const mockedValidateAndResolvePathDirect = internalValidateAndResolvePath as MockedFunction<
+  typeof internalValidateAndResolvePath
+>;
 const mockedCreateArchive = createArchive as MockedFunction<typeof createArchive>;
 const mockedExtractArchive = extractArchive as MockedFunction<typeof extractArchive>;
-const mockedCalculateChecksum = internalCalculateChecksum as MockedFunction<typeof internalCalculateChecksum>;
+const mockedCalculateChecksum = internalCalculateChecksum as MockedFunction<
+  typeof internalCalculateChecksum
+>;
 
 describe('WriteTool', () => {
   beforeEach(() => {
@@ -144,7 +196,11 @@ describe('WriteTool', () => {
     mockedFsOps.deletePath.mockResolvedValue(undefined);
     mockedFsOps.touchFile.mockResolvedValue(undefined);
     mockedFsOps.pathExists.mockResolvedValue(false); // Default: path does not exist (good for creation tests)
-    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false, isFile: () => true, size: 0 } as any); // Default: path is a file
+    mockedFsOps.getStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      size: 0,
+    } as any); // Default: path is a file
     mockedCalculateChecksum.mockResolvedValue('mocked-checksum');
 
     // Ensure conduitConfig is reset and re-applied if modified in tests (though here it's fairly static)
@@ -195,14 +251,10 @@ describe('WriteTool', () => {
         action: 'put',
         entries: [{ path: '/file.txt', content: 'Hello', input_encoding: 'text' }],
       };
-      console.log('validateAndResolvePath identity', internalValidateAndResolvePath === mockedValidateAndResolvePathDirect);
-      console.log('validateAndResolvePath impl set?', mockedValidateAndResolvePathDirect.getMockImplementation() !== undefined);
       const response = (await writeToolHandler(
         params,
         mockedConduitConfig
       )) as WriteTool.DefinedBatchResponse;
-      console.log('PUT RESPONSE', JSON.stringify(response, null, 2)); // debug
-      console.log('validate calls', mockedValidateAndResolvePathDirect.mock.calls.length);
       const result = response.results;
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
@@ -246,7 +298,10 @@ describe('WriteTool', () => {
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
       expect(result[0].action_performed).toBe('copy');
-      expect(mockedFsOps.copyPath).toHaveBeenCalledWith('/mocked/workspace/src.txt', '/mocked/workspace/dest.txt');
+      expect(mockedFsOps.copyPath).toHaveBeenCalledWith(
+        '/mocked/workspace/src.txt',
+        '/mocked/workspace/dest.txt'
+      );
     });
 
     it('should report individual errors in batch operations', async () => {
