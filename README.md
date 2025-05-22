@@ -1,7 +1,5 @@
 # conduit-mcp 🐱
 
-![conduit-mcp logo](assets/logo.png)
-
 ![conduit-mcp banner](assets/banner.png)
 
 **The purr-fect MCP server for feline-fast file operations, web prowling, and data hunting! 🐾**
