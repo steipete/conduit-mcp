@@ -159,7 +159,7 @@ export namespace WriteTool {
 
   export interface PutEntry extends BaseWriteEntry {
     content: string; // Can be text or base64 encoded binary
-    input_encoding?: 'text' | 'base64';
+    input_encoding?: InputEncoding;
     write_mode?: 'overwrite' | 'append' | 'error_if_exists';
     checksum_algorithm?: string;
   }
@@ -180,6 +180,7 @@ export namespace WriteTool {
   export interface MoveEntry {
     source_path: string;
     destination_path: string;
+    overwrite?: boolean;
   }
 
   export interface DeleteEntry {
@@ -226,12 +227,15 @@ export namespace WriteTool {
     archive_path: string;
     format?: ArchiveFormat | string; // Allow string for broader compatibility
     recursive_source_listing?: boolean;
+    options?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
   }
   export interface UnarchiveParams {
     action: 'unarchive';
     archive_path: string;
     destination_path: string;
     format?: ArchiveFormat | string;
+    options?: Record<string, unknown>;
   }
 
   export type Parameters =

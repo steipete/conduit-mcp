@@ -1,40 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios } from './utils/scenarioLoader';
+import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
+import {
+  DirectoryEntry,
+  ListCapabilitiesResponse,
+  ListFilesystemStatsResponse,
+  ToolResponse,
+  isNoticeResponse,
+  isToolResponse,
+  assertListToolResponse,
+} from './utils/types';
 import path from 'path';
 import fs from 'fs';
-
-interface DirectoryEntry {
-  name: string;
-  type: 'file' | 'directory';
-  size_bytes?: number;
-  modified?: string;
-  mode?: string;
-}
-
-interface TestScenario {
-  name: string;
-  description: string;
-  setup_files?: Array<{
-    path: string;
-    content?: string;
-    content_type?: string;
-    base_dir?: string;
-    encoding?: string;
-  }>;
-  request_payload: unknown;
-  expected_exit_code: number;
-  expected_stdout?: unknown;
-  should_show_notice?: boolean;
-  notice_code?: string;
-  env_vars?: Record<string, string>;
-  assertions?: Array<{
-    type: string;
-    name: string;
-    comment?: string;
-  }>;
-}
+import type { BufferEncoding } from './utils/types';
 
 describe('E2E List Operations', () => {
   let testWorkspaceDir: string;
@@ -89,7 +68,9 @@ describe('E2E List Operations', () => {
             if (file.content_type === 'directory') {
               fs.mkdirSync(fullPath, { recursive: true });
             } else {
-              fs.writeFileSync(fullPath, file.content || '', { encoding: file.encoding || 'utf8' });
+              fs.writeFileSync(fullPath, file.content || '', {
+                encoding: (file.encoding as BufferEncoding) || 'utf8',
+              });
             }
           }
         }
@@ -110,27 +91,32 @@ describe('E2E List Operations', () => {
         const processedEnvVars = substitutePlaceholders(scenario.env_vars || {}, substitutions);
 
         // Execute the test
-        const result = await runConduitMCPScript(processedRequestPayload as object, processedEnvVars as Record<string, string>);
+        const result = await runConduitMCPScript(
+          processedRequestPayload as object,
+          processedEnvVars as Record<string, string>
+        );
 
         // Assert exit code
         expect(result.exitCode).toBe(scenario.expected_exit_code);
         expect(result.response).toBeDefined();
 
         // Handle notice expectations
-        let actualToolResponse;
+        let actualToolResponse: ToolResponse;
         if (scenario.should_show_notice) {
-          expect(Array.isArray(result.response)).toBe(true);
-          expect(result.response).toHaveLength(2);
-
-          const notice = (result.response as any[])[0];
-          expect(notice.type).toBe('info_notice');
-          if (scenario.notice_code) {
-            expect(notice.notice_code).toBe(scenario.notice_code);
+          expect(isNoticeResponse(result.response)).toBe(true);
+          if (isNoticeResponse(result.response)) {
+            const [notice, toolResponse] = result.response;
+            expect(notice.type).toBe('info_notice');
+            if (scenario.notice_code) {
+              expect(notice.notice_code).toBe(scenario.notice_code);
+            }
+            actualToolResponse = toolResponse;
+          } else {
+            throw new Error('Expected notice response');
           }
-
-          actualToolResponse = (result.response as any[])[1];
         } else {
-          actualToolResponse = result.response;
+          expect(isToolResponse(result.response)).toBe(true);
+          actualToolResponse = result.response as ToolResponse;
         }
 
         // Handle custom logic assertions
@@ -140,43 +126,45 @@ describe('E2E List Operations', () => {
               switch (assertion.name) {
                 case 'check_list_entries_basic': {
                   // Check if results is an array (direct results format) or has entries property
-                  const entries = Array.isArray((actualToolResponse as any).results)
-                    ? (actualToolResponse as any).results
-                    : (actualToolResponse as any).results.entries;
+                  assertListToolResponse(actualToolResponse);
+                  const entries: DirectoryEntry[] = Array.isArray(actualToolResponse.results)
+                    ? actualToolResponse.results
+                    : (actualToolResponse.results as { entries: DirectoryEntry[] }).entries;
 
                   expect(Array.isArray(entries)).toBe(true);
 
                   // Filter out hidden files and check we have the expected visible entries
-                  const visibleEntries = entries.filter(
-                    (e: DirectoryEntry) => !e.name.startsWith('.')
-                  );
+                  const visibleEntries = entries.filter((e) => !e.name.startsWith('.'));
                   expect(visibleEntries.length).toBe(3);
 
-                  const entryNames = visibleEntries.map((e: DirectoryEntry) => e.name).sort();
+                  const entryNames = visibleEntries.map((e) => e.name).sort();
                   expect(entryNames).toEqual(['file1.txt', 'file2.log', 'subdir1']);
 
                   // Check types and sizes
-                  const file1 = visibleEntries.find((e: DirectoryEntry) => e.name === 'file1.txt');
-                  expect(file1.type).toBe('file');
-                  expect(file1.size_bytes).toBe(5);
+                  const file1 = visibleEntries.find((e) => e.name === 'file1.txt');
+                  expect(file1?.type).toBe('file');
+                  expect(file1?.size_bytes).toBe(5);
 
-                  const file2 = visibleEntries.find((e: DirectoryEntry) => e.name === 'file2.log');
-                  expect(file2.type).toBe('file');
-                  expect(file2.size_bytes).toBe(5);
+                  const file2 = visibleEntries.find((e) => e.name === 'file2.log');
+                  expect(file2?.type).toBe('file');
+                  expect(file2?.size_bytes).toBe(5);
 
-                  const subdir = visibleEntries.find((e: DirectoryEntry) => e.name === 'subdir1');
-                  expect(subdir.type).toBe('directory');
+                  const subdir = visibleEntries.find((e) => e.name === 'subdir1');
+                  expect(subdir?.type).toBe('directory');
 
                   // Ensure hidden files are not in the visible entries (but may be in the full list)
-                  const hiddenFileInVisible = visibleEntries.find(
-                    (e: DirectoryEntry) => e.name === '.hiddenfile'
-                  );
+                  const hiddenFileInVisible = visibleEntries.find((e) => e.name === '.hiddenfile');
                   expect(hiddenFileInVisible).toBeUndefined();
                   break;
                 }
 
                 case 'validate_server_capabilities': {
-                  const results = (actualToolResponse as any).results;
+                  assertListToolResponse(actualToolResponse);
+                  const capabilitiesResponse = actualToolResponse as ListCapabilitiesResponse;
+                  if (!capabilitiesResponse.results) {
+                    throw new Error('Missing results in capabilities response');
+                  }
+                  const results = capabilitiesResponse.results;
 
                   // Check server_version
                   expect(typeof results.server_version).toBe('string');
@@ -237,7 +225,12 @@ describe('E2E List Operations', () => {
                 }
 
                 case 'validate_filesystem_stats': {
-                  const results = (actualToolResponse as any).results;
+                  assertListToolResponse(actualToolResponse);
+                  const statsResponse = actualToolResponse as ListFilesystemStatsResponse;
+                  if (!statsResponse.results) {
+                    throw new Error('Missing results in filesystem stats response');
+                  }
+                  const results = statsResponse.results;
 
                   if (results.path_queried) {
                     expect(results.path_queried).toBe(testWorkspaceDir);
@@ -273,23 +266,32 @@ describe('E2E List Operations', () => {
             // Handle specific cases that need flexible matching
             if (scenario.name === 'list_entries_empty_dir_success') {
               // For empty directory, check the structure matches but allow for different response formats
-              expect((actualToolResponse as any).tool_name).toBe('list');
-              if (Array.isArray((actualToolResponse as any).results)) {
-                expect((actualToolResponse as any).results).toEqual([]);
+              assertListToolResponse(actualToolResponse);
+              expect(actualToolResponse.tool_name).toBe('list');
+              if (Array.isArray(actualToolResponse.results)) {
+                expect(actualToolResponse.results).toEqual([]);
               } else {
-                expect((actualToolResponse as any).results.entries).toEqual([]);
+                expect(
+                  (actualToolResponse.results as { entries: DirectoryEntry[] }).entries
+                ).toEqual([]);
               }
             } else if (
-              (actualToolResponse as any).status === 'error' &&
-              (processedExpectedStdout as any).status === 'error'
+              actualToolResponse.status === 'error' &&
+              (processedExpectedStdout as { status?: string }).status === 'error'
             ) {
               // For error scenarios, check error_code and partial error_message match
-              expect((actualToolResponse as any).status).toBe((processedExpectedStdout as any).status);
-              expect((actualToolResponse as any).error_code).toBe((processedExpectedStdout as any).error_code);
+              const actualResponse = actualToolResponse;
+              const expectedResponse = processedExpectedStdout as {
+                error_code?: string;
+                error_message?: string;
+                [key: string]: unknown;
+              };
+              expect(actualResponse.status).toBe(expectedResponse.status);
+              expect(actualResponse.error_code).toBe(expectedResponse.error_code);
 
               // Handle different error message formats
-              const expectedMsg = (processedExpectedStdout as any).error_message;
-              const actualMsg = (actualToolResponse as any).error_message;
+              const expectedMsg = expectedResponse.error_message as string;
+              const actualMsg = actualResponse.error_message as string;
 
               if (expectedMsg.includes('Access to path') && actualMsg.includes('Access to path')) {
                 // For access denied errors, just check the path is mentioned

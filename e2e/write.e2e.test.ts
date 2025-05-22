@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
 import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
+import { isNoticeResponse, type BufferEncoding } from './utils/types';
 import path from 'path';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
@@ -54,13 +55,13 @@ describe('E2E Write Operations', () => {
       expect(result.response).toHaveLength(2);
 
       // First element should be the info notice
-      const infoNotice = (result.response as any[])[0];
+      const infoNotice = (result.response as unknown[])[0] as Record<string, unknown>;
       expect(infoNotice.type).toBe('info_notice');
       expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
       expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
 
       // Second element should be the actual tool response object
-      const actualToolResponse = (result.response as any[])[1];
+      const actualToolResponse = (result.response as unknown[])[1] as Record<string, unknown>;
       expect(actualToolResponse.tool_name).toBe('write');
       expect(Array.isArray(actualToolResponse.results)).toBe(true);
       expect(actualToolResponse.results).toHaveLength(1);
@@ -95,11 +96,13 @@ describe('E2E Write Operations', () => {
       expect(result.response).toBeDefined();
 
       // Should be the direct tool response object (no notice)
-      expect((result.response as any).tool_name).toBe('write');
-      expect(Array.isArray((result.response as any).results)).toBe(true);
-      expect((result.response as any).results).toHaveLength(1);
-      expect((result.response as any).results[0].status).toBe('success');
-      expect((result.response as any).results[0].path).toBe(testFile);
+      const response = result.response as Record<string, unknown>;
+      expect(response.tool_name).toBe('write');
+      expect(Array.isArray(response.results)).toBe(true);
+      const results = response.results as Array<Record<string, unknown>>;
+      expect(results).toHaveLength(1);
+      expect(results[0].status).toBe('success');
+      expect(results[0].path).toBe(testFile);
     });
   });
 
@@ -178,7 +181,9 @@ describe('E2E Write Operations', () => {
               fs.mkdirSync(filePath, { recursive: true });
             } else {
               // Regular file
-              fs.writeFileSync(filePath, file.content || '', { encoding: file.encoding || 'utf8' });
+              fs.writeFileSync(filePath, file.content || '', {
+                encoding: (file.encoding as BufferEncoding) || 'utf8',
+              });
             }
           }
         }
@@ -213,7 +218,7 @@ describe('E2E Write Operations', () => {
               assertion.setup_path
             ) {
               const resolvedSetupPath = substituteTemplateValues(
-                assertion.setup_path,
+                assertion.setup_path as string,
                 testWorkspaceDir
               ) as string;
               if (fs.existsSync(resolvedSetupPath)) {
@@ -230,26 +235,27 @@ describe('E2E Write Operations', () => {
         }
 
         // Run the test
-        const result = await runConduitMCPScript(processedRequestPayload as object, processedEnvVars as Record<string, string>);
+        const result = await runConduitMCPScript(
+          processedRequestPayload as object,
+          processedEnvVars as Record<string, string>
+        );
 
         // Assertions
         expect(result.exitCode).toBe(scenario.expected_exit_code);
         expect(result.response).toBeDefined();
 
         if (scenario.should_show_notice) {
-          expect(Array.isArray(result.response)).toBe(true);
-          expect(result.response).toHaveLength(2);
-
-          // First element should be the info notice
-          const infoNotice = (result.response as any[])[0];
-          expect(infoNotice.type).toBe('info_notice');
-          if (scenario.notice_code) {
-            expect(infoNotice.notice_code).toBe(scenario.notice_code);
+          expect(isNoticeResponse(result.response)).toBe(true);
+          if (isNoticeResponse(result.response)) {
+            const [infoNotice, actualToolResponse] = result.response;
+            expect(infoNotice.type).toBe('info_notice');
+            if (scenario.notice_code) {
+              expect(infoNotice.notice_code).toBe(scenario.notice_code);
+            }
+            verifyScenarioResults(actualToolResponse, processedExpectedStdout);
+          } else {
+            throw new Error('Expected notice response');
           }
-
-          // Second element should be the actual tool response
-          const actualToolResponse = (result.response as any[])[1];
-          verifyScenarioResults(actualToolResponse, processedExpectedStdout);
         } else {
           verifyScenarioResults(result.response, processedExpectedStdout);
         }
@@ -257,21 +263,26 @@ describe('E2E Write Operations', () => {
         // Post-run assertions
         if (scenario.assertions) {
           for (const assertion of scenario.assertions) {
-            const processedAssertion = substituteTemplateValues(assertion, testWorkspaceDir);
+            const processedAssertion = substituteTemplateValues(
+              assertion,
+              testWorkspaceDir
+            ) as Record<string, unknown>;
 
             if (processedAssertion.type === 'file_content') {
-              expect(fs.existsSync(processedAssertion.path)).toBe(true);
-              const actualContent = fs.readFileSync(processedAssertion.path, 'utf8');
+              expect(fs.existsSync(processedAssertion.path as string)).toBe(true);
+              const actualContent = fs.readFileSync(processedAssertion.path as string, 'utf8');
               expect(actualContent).toBe(processedAssertion.expected_content);
             } else if (processedAssertion.type === 'file_exists') {
-              expect(fs.existsSync(processedAssertion.path)).toBe(processedAssertion.should_exist);
+              expect(fs.existsSync(processedAssertion.path as string)).toBe(
+                processedAssertion.should_exist
+              );
             } else if (processedAssertion.type === 'file_not_exists') {
-              expect(fs.existsSync(processedAssertion.path)).toBe(false);
+              expect(fs.existsSync(processedAssertion.path as string)).toBe(false);
             } else if (processedAssertion.type === 'archive_contains') {
-              expect(fs.existsSync(processedAssertion.archive_path)).toBe(true);
+              expect(fs.existsSync(processedAssertion.archive_path as string)).toBe(true);
 
-              const archivePath = processedAssertion.archive_path;
-              const expectedEntries = processedAssertion.expected_entries;
+              const archivePath = processedAssertion.archive_path as string;
+              const expectedEntries = processedAssertion.expected_entries as string[];
 
               if (archivePath.endsWith('.zip')) {
                 // Handle ZIP archives
@@ -292,7 +303,7 @@ describe('E2E Write Operations', () => {
             } else if (processedAssertion.type === 'custom_logic') {
               // Handle custom logic assertions
               if (processedAssertion.name === 'check_timestamp_updated') {
-                const resolvedSetupPath = processedAssertion.setup_path;
+                const resolvedSetupPath = processedAssertion.setup_path as string;
                 expect(fs.existsSync(resolvedSetupPath)).toBe(true);
 
                 const initialTimestamp = timestampTracking.get(resolvedSetupPath);
@@ -340,21 +351,25 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
     // Handle error scenarios - check for server error response format
     if (actualTyped.isError) {
       // Handle scenarios that expect isError format
-      expect(actual.isError).toBe(true);
-      if (expected.error.code) {
-        expect(actual.error.code).toBe(expected.error.code);
+      expect(actualTyped.isError).toBe(true);
+      if (expectedTyped.error?.code) {
+        expect(actualTyped.error?.code).toBe(expectedTyped.error.code);
       }
-      if (expected.error.message_contains) {
-        expect(actual.error.message).toContain(expected.error.message_contains);
+      if ((expectedTyped.error as Record<string, unknown>)?.message_contains) {
+        expect(actualTyped.error?.message).toContain(
+          (expectedTyped.error as Record<string, unknown>).message_contains
+        );
       }
     } else if (actualTyped.status === 'error') {
       // Handle actual server error response format
-      expect(actual.status).toBe('error');
-      if (expected.error.code) {
-        expect(actual.error_code).toBe(expected.error.code);
+      expect(actualTyped.status).toBe('error');
+      if (expectedTyped.error?.code) {
+        expect(actualTyped.error_code).toBe(expectedTyped.error.code);
       }
-      if (expected.error.message_contains) {
-        expect(actual.error_message).toContain(expected.error.message_contains);
+      if ((expectedTyped.error as Record<string, unknown>)?.message_contains) {
+        expect(actualTyped.error_message).toContain(
+          (expectedTyped.error as Record<string, unknown>).message_contains
+        );
       }
     } else {
       throw new Error(`Expected error but got: ${JSON.stringify(actual)}`);
@@ -367,21 +382,21 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
     // The actual response is a direct error, not wrapped in tool response
     // But expected might be in tool response format, so we need to handle this
     if (
-      expected.tool_name === 'write' &&
-      expected.results &&
-      expected.results[0] &&
-      expected.results[0].status === 'error'
+      expectedTyped.tool_name === 'write' &&
+      expectedTyped.results &&
+      expectedTyped.results[0] &&
+      expectedTyped.results[0].status === 'error'
     ) {
-      const expectedResult = expected.results[0];
-      expect(actual.status).toBe('error');
+      const expectedResult = expectedTyped.results[0] as Record<string, unknown>;
+      expect(actualTyped.status).toBe('error');
       if (expectedResult.error_code) {
         // Be flexible with error codes as server implementation may use different codes
-        expect(actual.error_code).toBeDefined();
+        expect(actualTyped.error_code).toBeDefined();
       }
       if (expectedResult.error_message) {
         // Be flexible with error messages as server implementation may use different wording
-        expect(actual.error_message).toBeDefined();
-        expect(actual.error_message.length).toBeGreaterThan(0);
+        expect(actualTyped.error_message).toBeDefined();
+        expect(actualTyped.error_message?.length).toBeGreaterThan(0);
         // Could add more specific checks here if needed, but for now just verify we have an error message
       }
       return;
@@ -389,15 +404,15 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
   }
 
   // Handle tool response scenarios
-  expect(actual.tool_name).toBe(expected.tool_name);
-  expect(Array.isArray(actual.results)).toBe(true);
+  expect(actualTyped.tool_name).toBe(expectedTyped.tool_name);
+  expect(Array.isArray(actualTyped.results)).toBe(true);
 
-  if (expected.results && Array.isArray(expected.results)) {
-    expect(actual.results.length).toBeGreaterThanOrEqual(expected.results.length);
+  if (expectedTyped.results && Array.isArray(expectedTyped.results)) {
+    expect(actualTyped.results!.length).toBeGreaterThanOrEqual(expectedTyped.results.length);
 
-    for (let i = 0; i < expected.results.length; i++) {
-      const expectedResult = expected.results[i];
-      const actualResult = actual.results[i];
+    for (let i = 0; i < expectedTyped.results.length; i++) {
+      const expectedResult = expectedTyped.results[i] as Record<string, unknown>;
+      const actualResult = actualTyped.results![i] as Record<string, unknown>;
 
       expect(actualResult.status).toBe(expectedResult.status);
 

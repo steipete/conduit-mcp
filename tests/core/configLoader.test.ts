@@ -35,7 +35,7 @@ describe('configLoader', () => {
         return JSON.stringify({ version: 'test-version-1.2.3' });
       }
       // Call the original implementation for other files
-      const actualFs = vi.importActual('fs') as typeof fs;
+      const actualFs = vi.importActual('fs') as unknown as typeof fs;
       return actualFs.readFileSync(filePath, encoding);
     });
 

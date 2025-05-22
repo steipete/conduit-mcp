@@ -95,7 +95,7 @@ describe('E2E Archive Operations', () => {
               }
             } else {
               // Regular file
-              fs.writeFileSync(filePath, file.content, file.encoding || 'utf8');
+              fs.writeFileSync(filePath, file.content || '', file.encoding || 'utf8');
             }
           }
         }
@@ -119,7 +119,7 @@ describe('E2E Archive Operations', () => {
         );
 
         // Run the test
-        const result = await runConduitMCPScript(processedRequestPayload, processedEnvVars);
+        const result = await runConduitMCPScript(processedRequestPayload, processedEnvVars as Record<string, string>);
 
         // Assertions
         expect(result.exitCode).toBe(scenario.expected_exit_code);
@@ -130,23 +130,23 @@ describe('E2E Archive Operations', () => {
           expect(result.response).toHaveLength(2);
 
           // First element should be the info notice
-          const infoNotice = result.response[0];
+          const infoNotice = result.response[0] as any;
           expect(infoNotice.type).toBe('info_notice');
           if (scenario.notice_code) {
             expect(infoNotice.notice_code).toBe(scenario.notice_code);
           }
 
           // Second element should be the actual tool response
-          const actualToolResponse = result.response[1];
-          verifyArchiveResults(actualToolResponse, processedExpectedStdout);
+          const actualToolResponse = result.response[1] as ToolResult;
+          verifyArchiveResults(actualToolResponse, processedExpectedStdout as ToolResult);
         } else {
-          verifyArchiveResults(result.response, processedExpectedStdout);
+          verifyArchiveResults(result.response as ToolResult, processedExpectedStdout as ToolResult);
         }
 
         // Post-run assertions
         if (scenario.assertions) {
           for (const assertion of scenario.assertions) {
-            const processedAssertion = substituteTemplateValues(assertion, testWorkspaceDir);
+            const processedAssertion = substituteTemplateValues(assertion, testWorkspaceDir) as Assertion;
 
             if (processedAssertion.type === 'file_content') {
               expect(fs.existsSync(processedAssertion.path)).toBe(true);
@@ -272,9 +272,9 @@ function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined)
           const expectedNormalized = expectedMessage.endsWith('.')
             ? expectedMessage
             : expectedMessage + '.';
-          const actualNormalized = actualMessage.endsWith('.')
+          const actualNormalized = actualMessage?.endsWith('.')
             ? actualMessage
-            : actualMessage + '.';
+            : (actualMessage || '') + '.';
 
           expect(actualNormalized).toBe(expectedNormalized);
         }

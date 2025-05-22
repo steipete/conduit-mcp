@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
+import { TestToolResponse, isNoticeResponse, isToolResponse } from './utils/types';
 
 describe('E2E Test Tool Operations', () => {
   const scenarios = loadTestScenarios('testTool.scenarios.json');
@@ -22,23 +23,22 @@ describe('E2E Test Tool Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      expect(Array.isArray(result.response)).toBe(true);
+      expect(isNoticeResponse(result.response)).toBe(true);
 
-      // Should have 2 elements: info notice + actual tool response
-      expect(result.response).toHaveLength(2);
+      if (isNoticeResponse(result.response)) {
+        const [infoNotice, actualToolResponse] = result.response;
+        expect(infoNotice.type).toBe('info_notice');
+        expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
+        expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
 
-      // First element should be the info notice
-      const infoNotice = (result.response as any[])[0];
-      expect(infoNotice.type).toBe('info_notice');
-      expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-      expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
-
-      // Second element should be the actual tool response object
-      const actualToolResponse = (result.response as any[])[1];
-      expect(actualToolResponse.tool_name).toBe('test');
-      expect(actualToolResponse.results).toBeDefined();
-      expect(actualToolResponse.results.status).toBe('success');
-      expect(actualToolResponse.results.echoed_params).toBe('Hello, World!');
+        // Second element should be the actual tool response object
+        expect(actualToolResponse.tool_name).toBe('test');
+        const testResponse = actualToolResponse as TestToolResponse;
+        expect(testResponse.results).toBeDefined();
+        expect(testResponse.results?.[0]?.status).toBe('success');
+        const firstResult = testResponse.results?.[0] as { status: string; echoed_params?: string };
+        expect(firstResult?.echoed_params).toBe('Hello, World!');
+      }
     });
 
     it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
@@ -61,10 +61,13 @@ describe('E2E Test Tool Operations', () => {
       expect(result.response).toBeDefined();
 
       // Should be the direct tool response object (no notice)
-      expect((result.response as any).tool_name).toBe('test');
-      expect((result.response as any).results).toBeDefined();
-      expect((result.response as any).results.status).toBe('success');
-      expect((result.response as any).results.echoed_params).toBe('No notice test');
+      expect(isToolResponse(result.response)).toBe(true);
+      const response = result.response as TestToolResponse;
+      expect(response.tool_name).toBe('test');
+      expect(response.results).toBeDefined();
+      expect(response.results?.[0]?.status).toBe('success');
+      const firstResult = response.results?.[0] as { status: string; echoed_params?: string };
+      expect(firstResult?.echoed_params).toBe('No notice test');
     });
   });
 
@@ -77,17 +80,15 @@ describe('E2E Test Tool Operations', () => {
         expect(result.response).toBeDefined();
 
         if (scenario.should_show_notice) {
-          expect(Array.isArray(result.response)).toBe(true);
-          expect(result.response).toHaveLength(2);
-
-          const infoNotice = result.response[0];
-          expect(infoNotice.type).toBe('info_notice');
-          if (scenario.notice_code) {
-            expect(infoNotice.notice_code).toBe(scenario.notice_code);
+          expect(isNoticeResponse(result.response)).toBe(true);
+          if (isNoticeResponse(result.response)) {
+            const [infoNotice, actualToolResponse] = result.response;
+            expect(infoNotice.type).toBe('info_notice');
+            if (scenario.notice_code) {
+              expect(infoNotice.notice_code).toBe(scenario.notice_code);
+            }
+            expect(actualToolResponse).toEqual(scenario.expected_stdout);
           }
-
-          const actualToolResponse = result.response[1];
-          expect(actualToolResponse).toEqual(scenario.expected_stdout);
         } else {
           expect(result.response).toEqual(scenario.expected_stdout);
         }

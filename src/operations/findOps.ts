@@ -174,7 +174,7 @@ function matchesMetadataFilter(
   const operationLogger = logger.child({ component: 'findOps' });
   const attributeName = criterion.attribute === 'entry_type' ? 'type' : criterion.attribute;
 
-  const entryRecord = entryInfo as Record<string, unknown>;
+  const entryRecord = entryInfo as unknown as Record<string, unknown>;
   const attributeValue = entryRecord[attributeName];
 
   if (

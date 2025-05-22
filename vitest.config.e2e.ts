@@ -24,7 +24,12 @@ export default defineConfig({
     hookTimeout: 10000, // 10 seconds for setup/teardown
 
     // Run tests serially to avoid conflicts with server processes
-    threads: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     maxConcurrency: 1,
 
     // Retry failed tests once (network/timing issues)

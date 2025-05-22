@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
 import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
+import type { BufferEncoding } from './utils/types';
 import path from 'path';
 import fs from 'fs';
 
@@ -45,13 +46,13 @@ describe('E2E Read Operations', () => {
       expect(result.response).toHaveLength(2);
 
       // First element should be the info notice
-      const infoNotice = (result.response as any[])[0];
+      const infoNotice = (result.response as unknown[])[0] as Record<string, unknown>;
       expect(infoNotice.type).toBe('info_notice');
       expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
       expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
 
       // Second element should be the actual tool response object
-      const actualToolResponse = (result.response as any[])[1];
+      const actualToolResponse = (result.response as unknown[])[1] as Record<string, unknown>;
       expect(actualToolResponse.tool_name).toBe('read');
       expect(Array.isArray(actualToolResponse.results)).toBe(true);
       expect(actualToolResponse.results).toHaveLength(1);
@@ -83,11 +84,12 @@ describe('E2E Read Operations', () => {
       expect(result.response).toBeDefined();
 
       // Should be the direct tool response object (no notice)
-      expect((result.response as any).tool_name).toBe('read');
-      expect(Array.isArray((result.response as any).results)).toBe(true);
-      expect((result.response as any).results).toHaveLength(1);
+      const response = result.response as Record<string, unknown>;
+      expect(response.tool_name).toBe('read');
+      expect(Array.isArray(response.results)).toBe(true);
+      expect(response.results).toHaveLength(1);
 
-      const toolResponseItem = (result.response as any).results[0];
+      const toolResponseItem = (response.results as unknown[])[0] as Record<string, unknown>;
       expect(toolResponseItem.status).toBe('error');
       expect(toolResponseItem.error_message).toContain('Path not found');
     });
@@ -111,7 +113,9 @@ describe('E2E Read Operations', () => {
               fs.mkdirSync(parentDir, { recursive: true });
             }
 
-            fs.writeFileSync(filePath, file.content || '', { encoding: file.encoding || 'utf8' });
+            fs.writeFileSync(filePath, file.content || '', {
+              encoding: (file.encoding as BufferEncoding) || 'utf8',
+            });
           }
         }
       });
@@ -138,7 +142,10 @@ describe('E2E Read Operations', () => {
         );
 
         // Run the test
-        const result = await runConduitMCPScript(processedRequestPayload as object, processedEnvVars as Record<string, string>);
+        const result = await runConduitMCPScript(
+          processedRequestPayload as object,
+          processedEnvVars as Record<string, string>
+        );
 
         // Assertions
         expect(result.exitCode).toBe(scenario.expected_exit_code);
@@ -149,14 +156,14 @@ describe('E2E Read Operations', () => {
           expect(result.response).toHaveLength(2);
 
           // First element should be the info notice
-          const infoNotice = (result.response as any[])[0];
+          const infoNotice = (result.response as unknown[])[0] as Record<string, unknown>;
           expect(infoNotice.type).toBe('info_notice');
           if (scenario.notice_code) {
             expect(infoNotice.notice_code).toBe(scenario.notice_code);
           }
 
           // Second element should be the actual tool response
-          const actualToolResponse = (result.response as any[])[1];
+          const actualToolResponse = (result.response as unknown[])[1];
           expect(actualToolResponse).toEqual(processedExpectedStdout);
         } else {
           expect(result.response).toEqual(processedExpectedStdout);

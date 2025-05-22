@@ -658,7 +658,10 @@ describe('fileSystemOps', () => {
 
     it('should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false', async () => {
       mockFs.lstat.mockResolvedValue({ isDirectory: () => true } as Stats);
-      mockFs.readdir.mockResolvedValue(['file1.txt', 'file2.txt']); // Non-empty directory
+      mockFs.readdir.mockResolvedValue([
+        'file1.txt',
+        'file2.txt',
+      ] as unknown as import('fs').Dirent[]); // Non-empty directory
 
       await expect(deletePath(dirPath, false)).rejects.toThrow(
         expect.objectContaining({
@@ -732,7 +735,7 @@ describe('fileSystemOps', () => {
 
     it('should return an array of entry names on success', async () => {
       // mockFs.readdir is a MockFunction, so mockResolvedValue already handles PathLike correctly
-      mockFs.readdir.mockResolvedValue(entries as import('fs').Dirent[]); // fs.readdir returns string[] or Dirent[]
+      mockFs.readdir.mockResolvedValue(entries as unknown as import('fs').Dirent[]); // fs.readdir returns string[] or Dirent[]
       const result = await listDirectory(dirPath);
       expect(result).toEqual(entries);
       expect(mockFs.readdir).toHaveBeenCalledWith(dirPath);
@@ -1136,13 +1139,15 @@ describe('fileSystemOps', () => {
       mockFs.unlink.mockReset();
       mockFs.mkdir
         .mockReset()
-        .mockImplementation(async (p: import('fs').PathLike, options: { recursive?: boolean }) => {
-          if (p === parentOfFinalDest && options.recursive) {
-            parentDirCreated = true; // Update our state to show dir was created
-            return undefined;
+        .mockImplementation(
+          async (p: import('fs').PathLike, options: import('fs').MakeDirectoryOptions) => {
+            if (p === parentOfFinalDest && options.recursive) {
+              parentDirCreated = true; // Update our state to show dir was created
+              return undefined;
+            }
+            throw new Error(`Unexpected mkdir call: ${p}`);
           }
-          throw new Error(`Unexpected mkdir call: ${p}`);
-        });
+        );
       mockFs.rename.mockReset().mockResolvedValue(undefined);
 
       await movePath(sourcePath, destFilePath);
@@ -1742,27 +1747,20 @@ describe('fileSystemOps', () => {
 
       const testMaxDepth = 2;
 
-      mockFs.readdir.mockImplementation(async (p: import('fs').PathLike) => {
-        const pathStr = p.toString();
-        if (pathStr === baseDir)
-          return [
-            createDirent('file1.txt', true, false),
-            createDirent('sub1', false, true),
-          ] as import('fs').Dirent[];
-        if (pathStr === path.join(baseDir, 'sub1'))
-          return [
-            createDirent('file2.txt', true, false),
-            createDirent('sub2', false, true),
-          ] as import('fs').Dirent[];
-        if (pathStr === path.join(baseDir, 'sub1', 'sub2'))
-          return [
-            createDirent('file3.txt', true, false),
-            createDirent('sub3', false, true),
-          ] as import('fs').Dirent[];
-        if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'sub3'))
-          return [createDirent('file4.txt', true, false)] as import('fs').Dirent[]; // Beyond maxDepth for sub2 call
-        throw new Error(`Unexpected readdir call: ${pathStr}`);
-      });
+      mockFs.readdir.mockImplementation(
+        async (p: import('fs').PathLike): Promise<import('fs').Dirent[]> => {
+          const pathStr = p.toString();
+          if (pathStr === baseDir)
+            return [createDirent('file1.txt', true, false), createDirent('sub1', false, true)];
+          if (pathStr === path.join(baseDir, 'sub1'))
+            return [createDirent('file2.txt', true, false), createDirent('sub2', false, true)];
+          if (pathStr === path.join(baseDir, 'sub1', 'sub2'))
+            return [createDirent('file3.txt', true, false), createDirent('sub3', false, true)];
+          if (pathStr === path.join(baseDir, 'sub1', 'sub2', 'sub3'))
+            return [createDirent('file4.txt', true, false)]; // Beyond maxDepth for sub2 call
+          throw new Error(`Unexpected readdir call: ${pathStr}`);
+        }
+      );
 
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
@@ -1839,21 +1837,22 @@ describe('fileSystemOps', () => {
     });
 
     it('should handle timeout during subdirectory recursion and propagate note', async () => {
-      mockFs.readdir.mockImplementation(async (p: import('fs').PathLike) => {
-        const pathStr = p.toString();
-        if (pathStr === baseDir)
-          return [createDirent('sub_causes_timeout', false, true)] as import('fs').Dirent[];
-        if (pathStr === path.join(baseDir, 'sub_causes_timeout')) {
-          vi.advanceTimersByTime(timeoutMs + 1); // Timeout happens when trying to read this dir
-          // OR timeout happens *inside* this dir's processing. Let's simulate it inside.
-          return [createDirent('inner_file.txt', true, false)] as import('fs').Dirent[];
+      mockFs.readdir.mockImplementation(
+        async (p: import('fs').PathLike): Promise<import('fs').Dirent[]> => {
+          const pathStr = p.toString();
+          if (pathStr === baseDir) return [createDirent('sub_causes_timeout', false, true)];
+          if (pathStr === path.join(baseDir, 'sub_causes_timeout')) {
+            vi.advanceTimersByTime(timeoutMs + 1); // Timeout happens when trying to read this dir
+            // OR timeout happens *inside* this dir's processing. Let's simulate it inside.
+            return [createDirent('inner_file.txt', true, false)];
+          }
+          if (pathStr === path.join(baseDir, 'sub_causes_timeout', 'inner_file.txt')) {
+            // This stat call would happen *after* the timeout check in the loop for 'inner_file.txt'
+            return { size: 50 } as Stats;
+          }
+          throw new Error(`Unexpected readdir call: ${pathStr}`);
         }
-        if (pathStr === path.join(baseDir, 'sub_causes_timeout', 'inner_file.txt')) {
-          // This stat call would happen *after* the timeout check in the loop for 'inner_file.txt'
-          return { size: 50 } as Stats;
-        }
-        throw new Error(`Unexpected readdir call: ${pathStr}`);
-      });
+      );
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
         if (pathStr === path.join(baseDir, 'sub_causes_timeout', 'inner_file.txt')) {

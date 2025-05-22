@@ -117,7 +117,7 @@ export const createArchive = async (
       // Assuming tar.gz or tar
       // Use the parent directory of the first source as the cwd to preserve relative structure
       const firstSourceParent = path.dirname(resolvedSourcePaths[0]);
-      const tarOptions: tar.CreateOptions & { file: string } = {
+      const tarOptions: tar.CreateOptions & tar.FileOptions = {
         gzip: compression === 'gzip' || archive_path.endsWith('.gz'), // prefer .gz in name
         file: absoluteArchivePath,
         cwd: firstSourceParent,
@@ -195,7 +195,7 @@ export const extractArchive = async (
     });
 
     // Validate destination path
-    absoluteTargetPath = await validateAndResolvePath(target_path, {
+    absoluteTargetPath = await validateAndResolvePath(target_path || '.', {
       forCreation: true,
       checkAllowed: true,
     });
@@ -262,13 +262,13 @@ export const extractArchive = async (
       }
     } else if (inferredFormat === 'tar.gz' || inferredFormat === 'tar') {
       // Extract tar.gz or tar archive
-      const tarOptions: tar.ExtractOptions & { file: string } = {
+      const tarOptions: tar.ExtractOptions & tar.FileOptions = {
         file: absoluteArchivePath,
         cwd: absoluteTargetPath,
         strip: options?.strip_components ?? 0,
       };
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, _stat: fs.Stats) => {
+        tarOptions.filter = (entryPath: string, _stat: tar.FileStat) => {
           const normalizedEntryPath = entryPath.startsWith('./')
             ? entryPath.substring(2)
             : entryPath;
@@ -292,8 +292,8 @@ export const extractArchive = async (
       status: 'success',
       operation: 'extract',
       archive_path,
-      target_path,
-      destination_path: target_path, // Add for compatibility with scenarios
+      target_path: target_path || '.',
+      destination_path: target_path || '.', // Add for compatibility with scenarios
       format_used: inferredFormat,
       entries_extracted: -1, // Placeholder, actual counting is complex and not implemented
       options_applied: params.options,
@@ -326,15 +326,15 @@ export const archiveToolHandler = async (
         resultItem = await extractArchive(params, config);
         break;
       default: {
-        const exhaustiveCheck: never = params;
-        logger.error('Unhandled archive operation:', exhaustiveCheck);
-        const unknownParams = params as Record<string, unknown>;
-        const operation = unknownParams.operation || 'unknown_operation_type';
+        // TypeScript exhaustiveness check
+        const _exhaustiveCheck: never = params;
+        void _exhaustiveCheck;
+        // This code should be unreachable, but handle it gracefully
         resultItem = createErrorArchiveResultItem(
-          operation as string, // Provide a fallback string
+          'create', // Provide a fallback operation
           'Invalid or unsupported archive operation.',
           ErrorCode.UNSUPPORTED_OPERATION,
-          `Operation type '${operation}' is not supported by archiveToolHandler.`
+          `Unexpected operation type in archiveToolHandler.`
         );
         break;
       }
@@ -342,12 +342,13 @@ export const archiveToolHandler = async (
   } catch (error: unknown) {
     logger.error('Unexpected error in archiveToolHandler:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const operation = (params as Record<string, unknown>)?.operation || 'unknown';
+    // Determine operation from params for error reporting
+    const operation = 'operation' in params ? params.operation : 'create';
     resultItem = createErrorArchiveResultItem(
-      operation as 'create' | 'extract',
+      operation,
       `An unexpected error occurred: ${errorMessage || 'Unknown error'}`,
       ErrorCode.INTERNAL_ERROR,
-      error.stack
+      error instanceof Error ? error.stack : undefined
     );
   }
 
