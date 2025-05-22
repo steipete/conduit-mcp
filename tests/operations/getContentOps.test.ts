@@ -109,13 +109,13 @@ describe('getContentOps', () => {
 
   beforeEach(() => {
     mockReset(mockedLogger);
-    // @ts-ignore - This might be an issue if loggerMock.child is not a mock itself.
+    // @ts-expect-error - This might be an issue if loggerMock.child is not a mock itself.
     // The new loggerMock setup ensures .child returns the mock, so this should be fine.
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      // @ts-ignore
+      // @ts-expect-error
       mockedLogger.child.mockReset();
     }
-    // @ts-ignore
+    // @ts-expect-error
     mockedLogger.child.mockReturnValue(mockedLogger);
 
     // Reset the conduitConfig mock

@@ -70,7 +70,8 @@ describe('securityHandler', () => {
     // Default mock implementations for fs operations
     mockFs.lstat.mockImplementation(async (p: PathLike) => {
       const pStr = p.toString();
-      if (pStr.includes('nonexistent')) throw { code: 'ENOENT' };
+      if (pStr.includes('nonexistent'))
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       if (pStr.includes('symlinkloop')) throw new Error('Too many symbolic links');
       return {
         isSymbolicLink: () => pStr.includes('symlink') && !pStr.includes('symlink_target'),
@@ -115,12 +116,14 @@ describe('securityHandler', () => {
         return path.resolve('/allowed/path1/relative_target.txt');
       if (pStr.includes('symlink_to_relative_disallowed_resolved'))
         return path.resolve('/outside/file.txt');
-      if (pStr.includes('nonexistent')) throw { code: 'ENOENT' };
+      if (pStr.includes('nonexistent'))
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       return path.resolve(pStr); // Default realpath mock
     });
     mockFs.stat.mockImplementation(async (p: PathLike) => {
       const pStr = p.toString();
-      if (pStr.includes('nonexistent')) throw { code: 'ENOENT' };
+      if (pStr.includes('nonexistent'))
+        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
       return {
         isFile: () => true,
         isDirectory: () => false,
@@ -228,7 +231,7 @@ describe('securityHandler', () => {
     it('should succeed if path does not exist but isExistenceRequired is false and path is in allowed dir', async () => {
       const userPath = '/allowed/path1/newfile.txt';
       // Mock realpath to throw ENOENT, simulating non-existence
-      mockFs.realpath.mockRejectedValueOnce({ code: 'ENOENT' });
+      mockFs.realpath.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       const resolved = await validateAndResolvePath(userPath, { isExistenceRequired: false });
       // It should return the path.resolve() version, not the realpath, as realpath failed.
       expect(resolved).toBe(path.resolve(userPath));
@@ -236,7 +239,7 @@ describe('securityHandler', () => {
 
     it('should deny if path does not exist, isExistenceRequired is false, but path is in disallowed dir', async () => {
       const userPath = '/disallowed/path/newfile.txt';
-      mockFs.realpath.mockRejectedValueOnce({ code: 'ENOENT' });
+      mockFs.realpath.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
       await expect(
         validateAndResolvePath(userPath, { isExistenceRequired: false })
       ).rejects.toThrow(
@@ -339,7 +342,7 @@ describe('securityHandler', () => {
       mockConduitConfig.allowedPaths = [homeDir]; // Allow the home directory
       mockConduitConfig.resolvedAllowedPaths = [homeDir]; // Allow the home directory
       // Simulate realpath throwing ENOENT because new_file.txt doesn't exist
-      mockFs.realpath.mockRejectedValue({ code: 'ENOENT' });
+      mockFs.realpath.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       const resolved = await validateAndResolvePath(userPath, { isExistenceRequired: false });
       expect(mockOs.homedir).toHaveBeenCalled();
@@ -360,7 +363,7 @@ describe('securityHandler', () => {
         mockFs.realpath.mockImplementation(async (p: PathLike) => {
           const pStr = p.toString();
           if (pStr === '/allowed/path1') return '/allowed/path1'; // Parent exists
-          throw { code: 'ENOENT' }; // File doesn't exist
+          throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); // File doesn't exist
         });
 
         const resolved = await validateAndResolvePath(userPath, { forCreation: true });
@@ -371,7 +374,7 @@ describe('securityHandler', () => {
       it('should throw ERR_FS_DIR_NOT_FOUND if parent directory does not exist', async () => {
         const userPath = '/allowed/path1/subdir/newfile.txt';
         // Mock parent directory doesn't exist
-        mockFs.realpath.mockRejectedValue({ code: 'ENOENT' });
+        mockFs.realpath.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
         await expect(validateAndResolvePath(userPath, { forCreation: true })).rejects.toThrow(
           new ConduitError(
@@ -409,7 +412,7 @@ describe('securityHandler', () => {
           const pStr = p.toString();
           if (pStr === '/allowed/path1/subdir') return '/allowed/path1/subdir';
           if (pStr === '/allowed/path1') return '/allowed/path1';
-          throw { code: 'ENOENT' };
+          throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
         });
 
         // Mock tilde expansion to resolve to allowed area by mocking os.homedir

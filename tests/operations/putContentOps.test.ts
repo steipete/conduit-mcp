@@ -22,7 +22,7 @@ import * as path from 'path';
 vi.mock('@/internal', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/internal')>();
   const loggerForInternalMock = mockDeep<import('pino').Logger>();
-  loggerForInternalMock.child.mockReturnValue(loggerForInternalMock as any);
+  loggerForInternalMock.child.mockReturnValue(loggerForInternalMock as import('pino').Logger);
 
   // Create a plain config object that will be used as conduitConfig
   const plainTestConfig: ConduitServerConfig = {
@@ -104,7 +104,7 @@ describe('putContentOps', () => {
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
       mockedLogger.child.mockReset();
     }
-    mockedLogger.child.mockReturnValue(mockedLogger as any);
+    mockedLogger.child.mockReturnValue(mockedLogger as import('pino').Logger);
 
     mockedLogger.info.mockImplementation((msg, ...args) =>
       console.log('[TEST INFO]', msg, ...args)
@@ -272,7 +272,7 @@ describe('putContentOps', () => {
       const entry: WriteTool.PutEntry = {
         path: testFilePath,
         input_encoding: 'text',
-        content: undefined as any, // Explicitly undefined
+        content: undefined as unknown as string, // Explicitly undefined
       };
       const result = await putContent(entry, testConfig);
       expect(result.status).toBe('error');
@@ -287,7 +287,7 @@ describe('putContentOps', () => {
     it('should return error for unsupported input_encoding type', async () => {
       const entry: WriteTool.PutEntry = {
         path: testFilePath,
-        input_encoding: 'utf16' as any, // Unsupported
+        input_encoding: 'utf16' as WriteTool.InputEncoding, // Unsupported
         content: 'test',
       };
       const result = await putContent(entry, testConfig);
@@ -348,7 +348,7 @@ describe('putContentOps', () => {
       const entry: WriteTool.PutEntry = {
         path: testFilePath,
         input_encoding: 'base64',
-        content: 12345 as any, // Not a string
+        content: 12345 as unknown as string, // Not a string
       };
       const result = await putContent(entry, testConfig);
       expect(result.status).toBe('error');
@@ -543,7 +543,7 @@ describe('putContentOps', () => {
       const entry: WriteTool.PutEntry = {
         path: testFilePath,
         input_encoding: 'text',
-        content: undefined as any, // Explicitly undefined
+        content: undefined as unknown as string, // Explicitly undefined
       };
       mockedFsOps.pathExists.mockResolvedValue(false);
       testConfig.maxFileReadBytes = 1024;
@@ -563,7 +563,7 @@ describe('putContentOps', () => {
     it('should return INVALID_PARAMETER for an unsupported input_encoding value', async () => {
       const entry: WriteTool.PutEntry = {
         path: testFilePath,
-        input_encoding: 'utf16-le' as any, // Unsupported
+        input_encoding: 'utf16-le' as WriteTool.InputEncoding, // Unsupported
         content: 'test',
       };
       mockedFsOps.pathExists.mockResolvedValue(false);
@@ -659,7 +659,7 @@ describe('putContentOps', () => {
       const entry: WriteTool.PutEntry = {
         path: testFilePath,
         input_encoding: 'base64',
-        content: 12345 as any, // Not a string
+        content: 12345 as unknown as string, // Not a string
       };
       mockedFsOps.pathExists.mockResolvedValue(false);
       testConfig.maxFileReadBytes = 1024;

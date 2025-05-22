@@ -85,7 +85,7 @@ describe('diffOps', () => {
     mockReset(mockedFsOps);
 
     // The child mock setup for logger needs to ensure it returns the parent mock correctly after reset
-    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
+    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(mockedLogger);
 
     // Set up config after reset
     Object.assign(mockedConfig, defaultTestConfig);
@@ -110,7 +110,7 @@ describe('diffOps', () => {
     const mockFileStats = {
       isFile: () => true,
       isDirectory: () => false,
-    } as any;
+    } as import('fs').Stats;
 
     it('should return a text diff for two different files', async () => {
       // Mock validateAndResolvePath for both files
@@ -240,7 +240,7 @@ describe('diffOps', () => {
     const mockFileStats = {
       isFile: () => true,
       isDirectory: () => false,
-    } as any;
+    } as import('fs').Stats;
 
     it('should return a text diff for a file and a URL', async () => {
       // Mock validateAndResolvePath for the file path only (URL should not be validated)

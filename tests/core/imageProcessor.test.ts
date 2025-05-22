@@ -2,7 +2,6 @@ import { vi, Mocked } from 'vitest';
 import { compressImageIfNecessary } from '@/core/imageProcessor';
 // import { conduitConfig } from '@/core/configLoader'; // Mocked
 import sharp from 'sharp';
-import logger from '@/utils/logger';
 
 // Mock sharp
 vi.mock('sharp');

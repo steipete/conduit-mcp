@@ -61,12 +61,12 @@ describe('mkdirOps', () => {
     // Set up default implementations
     mockedSecurityHandler.validateAndResolvePath.mockResolvedValue(absoluteTestDirPath);
     mockedFsOps.createDirectory.mockResolvedValue(undefined);
-    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false } as any);
+    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false } as import('fs').Stats);
     mockedFsOps.pathExists.mockResolvedValue(false);
     mockedFsOps.ensureDirectoryExists.mockResolvedValue(undefined);
 
     // Ensure logger.child returns the logger
-    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
+    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(mockedLogger);
   });
 
   afterEach(() => {
@@ -105,7 +105,7 @@ describe('mkdirOps', () => {
 
   it('should return success if directory already exists', async () => {
     mockedFsOps.pathExists.mockResolvedValue(true);
-    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => true } as any);
+    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => true } as import('fs').Stats);
 
     const entry: WriteTool.MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
@@ -118,7 +118,7 @@ describe('mkdirOps', () => {
 
   it('should return error if path exists and is a file', async () => {
     mockedFsOps.pathExists.mockResolvedValue(true);
-    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false } as any);
+    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false } as import('fs').Stats);
 
     const entry: WriteTool.MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
@@ -184,7 +184,7 @@ describe('mkdirOps', () => {
   });
 
   it('should return error if path is undefined', async () => {
-    const entry: WriteTool.MkdirEntry = { path: undefined as any }; // Test with undefined path
+    const entry: WriteTool.MkdirEntry = { path: undefined as unknown as string }; // Test with undefined path
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');

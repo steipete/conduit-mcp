@@ -79,11 +79,15 @@ describe('findOps', () => {
       ];
 
       // Set up mocks
-      (fileSystemOps.pathExists as any).mockImplementation(async () => true);
-      (fileSystemOps.getStats as any).mockImplementation(async () => createMockStats(false, true));
-      (fileSystemOps.listDirectory as any).mockImplementation(async () => ['file1.txt']);
-      (fileSystemOps.getLstats as any).mockImplementation(async () => createMockStats(true, false));
-      (fileSystemOps.createEntryInfo as any).mockImplementation(async () => mockEntries[0]);
+      vi.mocked(fileSystemOps.pathExists).mockImplementation(async () => true);
+      vi.mocked(fileSystemOps.getStats).mockImplementation(async () =>
+        createMockStats(false, true)
+      );
+      vi.mocked(fileSystemOps.listDirectory).mockImplementation(async () => ['file1.txt']);
+      vi.mocked(fileSystemOps.getLstats).mockImplementation(async () =>
+        createMockStats(true, false)
+      );
+      vi.mocked(fileSystemOps.createEntryInfo).mockImplementation(async () => mockEntries[0]);
 
       const params = {
         base_path: '/test/dir',
@@ -97,7 +101,7 @@ describe('findOps', () => {
 
     it('should throw error when findEntries returns ConduitError', async () => {
       // Mock path not existing
-      (fileSystemOps.pathExists as any).mockResolvedValue(false);
+      vi.mocked(fileSystemOps.pathExists).mockResolvedValue(false);
 
       const params = {
         base_path: '/nonexistent/path',
@@ -111,7 +115,7 @@ describe('findOps', () => {
 
   describe('findEntries error handling', () => {
     it('should return ConduitError when base path does not exist', async () => {
-      (fileSystemOps.pathExists as any).mockResolvedValue(false);
+      vi.mocked(fileSystemOps.pathExists).mockResolvedValue(false);
 
       const params = {
         base_path: '/nonexistent/path',
@@ -129,17 +133,17 @@ describe('findOps', () => {
 
   describe('findEntries with name_pattern', () => {
     it('should find files matching name pattern', async () => {
-      (fileSystemOps.pathExists as any).mockResolvedValue(true);
-      (fileSystemOps.getStats as any).mockResolvedValue(createMockStats(false, true));
-      (fileSystemOps.listDirectory as any).mockResolvedValue([
+      vi.mocked(fileSystemOps.pathExists).mockResolvedValue(true);
+      vi.mocked(fileSystemOps.getStats).mockResolvedValue(createMockStats(false, true));
+      vi.mocked(fileSystemOps.listDirectory).mockResolvedValue([
         'test.txt',
         'other.md',
         'readme.txt',
       ]);
-      (fileSystemOps.getLstats as any).mockResolvedValue(createMockStats(true, false));
+      vi.mocked(fileSystemOps.getLstats).mockResolvedValue(createMockStats(true, false));
 
       // Mock createEntryInfo for each file
-      (fileSystemOps.createEntryInfo as any)
+      vi.mocked(fileSystemOps.createEntryInfo)
         .mockResolvedValueOnce({
           name: 'test.txt',
           path: '/test/test.txt',

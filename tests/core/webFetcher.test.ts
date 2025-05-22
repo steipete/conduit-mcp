@@ -3,7 +3,7 @@ import { fetchUrlContent, cleanHtmlToMarkdown } from '@/core/webFetcher';
 // Removed unused conduitConfig import
 import logger from '@/utils/logger';
 import { ConduitError, ErrorCode } from '@/internal';
-import axios, { AxiosError, AxiosHeaders, isAxiosError } from 'axios';
+import axios, { AxiosHeaders } from 'axios';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
