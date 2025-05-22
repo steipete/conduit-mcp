@@ -38,6 +38,10 @@ export async function getStats(filePath: string): Promise<Stats> {
   try {
     return await fs.stat(filePath);
   } catch (error: unknown) {
+    // If the caught error is already a ConduitError, re-throw it directly
+    if (error instanceof ConduitError) {
+      throw error;
+    }
     const nodeError = error as NodeError;
     if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${filePath}`);
@@ -57,6 +61,10 @@ export async function getLstats(filePath: string): Promise<Stats> {
   try {
     return await fs.lstat(filePath);
   } catch (error: unknown) {
+    // If the caught error is already a ConduitError, re-throw it directly
+    if (error instanceof ConduitError) {
+      throw error;
+    }
     const nodeError = error as NodeError;
     if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${filePath}`);
@@ -391,7 +399,7 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
       `copyPath caught error. typeof error: ${typeof error}, error: ${JSON.stringify(error)}, errorCode: ${(error as { errorCode?: string })?.errorCode}, code: ${(error as NodeError)?.code}, instanceof ConduitError: ${error instanceof ConduitError}`
     );
     // If it's a ConduitError or looks like one (has errorCode property)
-    if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
+    if (error instanceof ConduitError && error.errorCode && typeof error.errorCode === 'string') {
       logger.debug(
         `copyPath re-throwing error with known errorCode: ${(error as { errorCode: string }).errorCode}`
       );
@@ -442,6 +450,13 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
     if (await pathExists(finalDestinationPath)) {
       const finalDestStats = await getStats(finalDestinationPath);
       if (finalDestStats.isFile()) {
+        const sourceStats = await getStats(sourcePath);
+        if (sourceStats.isDirectory()) {
+          throw new ConduitError(
+            ErrorCode.ERR_FS_MOVE_TARGET_IS_FILE_SOURCE_IS_DIR,
+            `Cannot move directory ${sourcePath} to path ${finalDestinationPath} because target is a file.`
+          );
+        }
         logger.debug(
           `Destination file ${finalDestinationPath} exists, deleting for overwrite before move.`
         );
@@ -472,10 +487,13 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
 
     await fs.rename(sourcePath, finalDestinationPath);
   } catch (error: unknown) {
-    // If it's a ConduitError or looks like one (has errorCode property)
-    if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
-      throw error; // Re-throw ConduitErrors or errors that look like them
+    // If it's a ConduitError, re-throw it directly.
+    // This is the most crucial check to ensure specific ConduitErrors propagate.
+    if (error && (error as any).isConduitError === true) {
+      throw error;
     }
+
+    // If it wasn't a ConduitError, then proceed to handle it as a potential NodeError or generic error.
     const nodeError = error as NodeError;
     if (nodeError.code === 'ENOENT') {
       logger.error(
@@ -512,15 +530,13 @@ export async function touchFile(filePath: string): Promise<void> {
             error.errorCode === ErrorCode.ERR_FS_DIR_CREATE_FAILED ||
             error.errorCode === ErrorCode.ERR_FS_WRITE_FAILED
           ) {
-            // Extract the underlying error message
-            const match = error.message.match(/Error: (.+)$/);
-            const underlyingError = match ? match[1] : error.message;
+            // Use the full message of the caught ConduitError as the underlying detail
             throw new ConduitError(
               ErrorCode.ERR_FS_TOUCH_FAILED,
-              `Failed to touch path: ${filePath}. Error: ${underlyingError}`
+              `Failed to touch path: ${filePath}. Error: ${error.message}` // Use error.message directly
             );
           }
-          throw error;
+          throw error; // Re-throw other ConduitErrors
         }
         throw error;
       }
@@ -588,18 +604,24 @@ export async function createEntryInfo(
       try {
         const linkTarget = await fs.readlink(fullPath, { encoding: 'utf8' });
         symlinkReadTarget = linkTarget.toString();
-        effectiveStats = await fs.stat(fullPath);
-      } catch (e) {
-        effectiveStats = lstats;
-        if (!(e instanceof ConduitError) && (e as NodeError)?.code !== 'ENOENT') {
-          logger.debug(
-            `Symlink target stat/readlink failed for ${fullPath}: using lstat. Error: ${(e as Error).message}`
-          );
+        try {
+          effectiveStats = await fs.stat(fullPath);
+        } catch (targetStatError: unknown) {
+          logger.debug(`Symlink target ${symlinkReadTarget} for ${fullPath} could not be statted. Using link stats for dates/mode.`);
+          effectiveStats = lstats;
         }
+      } catch (readlinkError: unknown) {
+        const nodeError = readlinkError as NodeError;
+        logger.error(`Failed to readlink ${fullPath}: ${nodeError.message}`);
+        throw new ConduitError(
+          ErrorCode.OPERATION_FAILED,
+          `Failed to read symlink target for ${fullPath}. Error: ${nodeError.message}`,
+          nodeError
+        );
       }
     }
 
-    return {
+    const entry = {
       name: name || path.basename(fullPath),
       path: fullPath,
       type: isSymlink
@@ -617,20 +639,28 @@ export async function createEntryInfo(
       mime_type: effectiveStats.isFile() && !isSymlink ? await getMimeType(fullPath) : undefined,
       symlink_target: symlinkReadTarget,
     };
+
+    return entry;
   } catch (error: unknown) {
-    logger.error(
-      `[createEntryInfo] Caught error for path '${fullPath}'. Type: ${typeof error}, Is ConduitError: ${error instanceof ConduitError}, Code: ${(error as NodeError)?.code}, Message: ${(error as Error)?.message}, Stack: ${(error as Error)?.stack}`
-    );
-    if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
-      throw error;
+    // Check using the isConduitError property for robustness
+    if (error && (error as ConduitError).isConduitError === true) {
+      throw error; // Re-throw ConduitErrors directly
     }
-    const errorMessage = String(
-      (error as Error)?.message || 'Unknown error during entry info creation'
-    );
-    logger.error(`Failed to create entry info for ${fullPath}: ${errorMessage}`);
+    // If it wasn't a ConduitError, then proceed to handle it as a potential NodeError or generic error.
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
+      logger.error(
+        `ENOENT during createEntryInfo for ${fullPath}. Type: ${typeof error}, Is ConduitError: ${error instanceof ConduitError}, Code: ${(error as NodeError)?.code}, Message: ${(error as Error)?.message}, Stack: ${(error as Error)?.stack}`
+      );
+      throw new ConduitError(
+        ErrorCode.ERR_FS_NOT_FOUND,
+        `Could not get entry info for ${fullPath}. Error: ${nodeError.message}`
+      );
+    }
+    logger.error(`Error creating entry info for ${fullPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,
-      `Could not get entry info for ${fullPath}. Error: ${errorMessage}`
+      `Could not get entry info for ${fullPath}. Error: ${nodeError.message}`
     );
   }
 }
