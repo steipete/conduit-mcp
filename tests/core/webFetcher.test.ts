@@ -43,7 +43,6 @@ vi.mock('@/core/configLoader', () => {
 });
 
 // Define constants for use in tests
-const mockHttpTimeoutMs = 10000;
 const mockMaxUrlDownloadBytes = 5 * 1024 * 1024;
 
 const mockedAxios = axios as Mocked<typeof axios>;
@@ -246,7 +245,6 @@ describe('webFetcher', () => {
       '<html><body><article><h1>Title</h1><p>Some text.</p><script>alert("bad")</script></article></body></html>';
     const mockPageUrl = 'http://example.com/article';
     const mockArticleContent = '<h1>Title</h1><p>Some text.</p>'; // Content Readability should extract (without script)
-    const mockCleanedHtml = '<h1>Title</h1><p>Some text.</p>'; // After our own script/style removal
     const mockMarkdown = '# Title\n\nSome text.';
 
     let mockReadabilityInstance: {

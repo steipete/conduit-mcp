@@ -50,14 +50,12 @@ Each scenario file should contain:
 These scenario files can be loaded and used by E2E tests to avoid hardcoding test data in the test files themselves.
 
 Example usage:
+
 ```typescript
 import scenarioData from './scenarios/read-text-file.json';
 
 it('should read text file', async () => {
-  const result = await runConduitMCPScript(
-    scenarioData.requestPayload,
-    scenarioData.envVars
-  );
+  const result = await runConduitMCPScript(scenarioData.requestPayload, scenarioData.envVars);
   // assertions...
 });
 ```

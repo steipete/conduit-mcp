@@ -12,11 +12,11 @@ export function ensureTempBaseExists(): void {
 
 export function createTempDir(basePath?: string): string {
   ensureTempBaseExists();
-  
+
   const tempDirBase = basePath || E2E_TEMP_BASE;
   const randomSuffix = randomBytes(8).toString('hex');
   const tempDirPath = path.join(tempDirBase, `temp_${randomSuffix}`);
-  
+
   fs.mkdirSync(tempDirPath, { recursive: true });
   return tempDirPath;
 }
@@ -40,15 +40,15 @@ export function cleanupTemp(targetPath: string): void {
   if (!fs.existsSync(targetPath)) {
     return;
   }
-  
+
   // Safety check: only allow cleanup within E2E temp area
   const resolvedPath = path.resolve(targetPath);
   const resolvedBase = path.resolve(E2E_TEMP_BASE);
-  
+
   if (!resolvedPath.startsWith(resolvedBase)) {
     throw new Error(`Cleanup path ${resolvedPath} is outside E2E temp area ${resolvedBase}`);
   }
-  
+
   const stat = fs.statSync(targetPath);
   if (stat.isDirectory()) {
     fs.rmSync(targetPath, { recursive: true, force: true });

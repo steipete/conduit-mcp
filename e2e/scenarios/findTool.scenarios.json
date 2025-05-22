@@ -26,7 +26,7 @@
             "path_contains": "component.tsx"
           },
           {
-            "type": "file", 
+            "type": "file",
             "name": "utils.ts",
             "path_contains": "utils.ts"
           },
@@ -45,7 +45,7 @@
           "content": "export const Component = () => <div>Hello</div>;"
         },
         {
-          "type": "createFile", 
+          "type": "createFile",
           "path": "src/utils/utils.ts",
           "content": "export const helper = () => 'utility';"
         },
@@ -56,7 +56,7 @@
         },
         {
           "type": "createFile",
-          "path": "config.json", 
+          "path": "config.json",
           "content": "{\"setting\": \"value\"}"
         },
         {
@@ -65,12 +65,7 @@
           "content": "# Project Documentation"
         }
       ],
-      "cleanup_filesystem": [
-        "src/",
-        "legacy/",
-        "config.json",
-        "readme.md"
-      ]
+      "cleanup_filesystem": ["src/", "legacy/", "config.json", "readme.md"]
     },
     {
       "name": "complex_glob_pattern_negation_simulation",
@@ -106,7 +101,7 @@
           },
           {
             "type": "file",
-            "name": "helper.ts", 
+            "name": "helper.ts",
             "path_contains": "helper.ts"
           }
         ]
@@ -129,11 +124,7 @@
           "content": "// This file should be excluded"
         }
       ],
-      "cleanup_filesystem": [
-        "main.ts",
-        "helper.ts", 
-        "test.ts"
-      ]
+      "cleanup_filesystem": ["main.ts", "helper.ts", "test.ts"]
     },
     {
       "name": "symbolic_links_following",
@@ -171,7 +162,7 @@
             "path_contains": "file_link.txt"
           },
           {
-            "type": "symlink", 
+            "type": "symlink",
             "name": "dir_link",
             "path_contains": "dir_link"
           }
@@ -199,17 +190,12 @@
           "link": "file_link.txt"
         },
         {
-          "type": "createSymlink", 
+          "type": "createSymlink",
           "target": "real_dir",
           "link": "dir_link"
         }
       ],
-      "cleanup_filesystem": [
-        "real_file.txt",
-        "real_dir/",
-        "file_link.txt",
-        "dir_link"
-      ]
+      "cleanup_filesystem": ["real_file.txt", "real_dir/", "file_link.txt", "dir_link"]
     },
     {
       "name": "deep_directory_structure",
@@ -217,7 +203,7 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER", 
+          "base_path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
           "match_criteria": [
             {
@@ -238,7 +224,7 @@
           },
           {
             "type": "file",
-            "name": "target_level10.txt", 
+            "name": "target_level10.txt",
             "path_contains": "level1/level2/level3/level4/level5/level6/level7/level8/level9/level10/target_level10.txt"
           }
         ]
@@ -256,14 +242,12 @@
           "content": "Found at level 10"
         },
         {
-          "type": "createFile", 
+          "type": "createFile",
           "path": "level1/level2/level3/other.txt",
           "content": "Not a target file"
         }
       ],
-      "cleanup_filesystem": [
-        "level1/"
-      ]
+      "cleanup_filesystem": ["level1/"]
     },
     {
       "name": "file_encoding_utf8_content_search",
@@ -284,7 +268,7 @@
       },
       "expected_exit_code": 0,
       "expected_stdout": {
-        "tool_name": "find", 
+        "tool_name": "find",
         "results": [
           {
             "type": "file",
@@ -303,7 +287,7 @@
         },
         {
           "type": "createFile",
-          "path": "english.txt", 
+          "path": "english.txt",
           "content": "This is just English text",
           "encoding": "utf-8"
         },
@@ -314,11 +298,7 @@
           "encoding": "utf-8"
         }
       ],
-      "cleanup_filesystem": [
-        "chinese.txt",
-        "english.txt",
-        "emoji.txt"
-      ]
+      "cleanup_filesystem": ["chinese.txt", "english.txt", "emoji.txt"]
     },
     {
       "name": "advanced_filter_combinations_size_and_content",
@@ -346,7 +326,7 @@
             },
             {
               "type": "metadata_filter",
-              "attribute": "size_bytes", 
+              "attribute": "size_bytes",
               "operator": "lt",
               "value": 200
             }
@@ -387,12 +367,7 @@
           "content": "ERROR: Wrong extension but has error content and correct size"
         }
       ],
-      "cleanup_filesystem": [
-        "application.log",
-        "debug.log", 
-        "system.log",
-        "access.txt"
-      ]
+      "cleanup_filesystem": ["application.log", "debug.log", "system.log", "access.txt"]
     },
     {
       "name": "timestamp_based_search_modified_after",
@@ -438,10 +413,7 @@
           "mtime": "2024-01-02T14:00:00Z"
         }
       ],
-      "cleanup_filesystem": [
-        "old_file.txt",
-        "recent_file.txt"
-      ]
+      "cleanup_filesystem": ["old_file.txt", "recent_file.txt"]
     },
     {
       "name": "timestamp_based_search_created_on_date",
@@ -487,10 +459,7 @@
           "ctime": "2024-01-16T10:30:00Z"
         }
       ],
-      "cleanup_filesystem": [
-        "created_today.txt",
-        "created_different_day.txt"
-      ]
+      "cleanup_filesystem": ["created_today.txt", "created_different_day.txt"]
     },
     {
       "name": "empty_content_search",
@@ -502,7 +471,7 @@
           "recursive": true,
           "match_criteria": [
             {
-              "type": "content_pattern", 
+              "type": "content_pattern",
               "pattern": "^\\s*$",
               "is_regex": true
             }
@@ -543,11 +512,7 @@
           "content": "This file has actual content"
         }
       ],
-      "cleanup_filesystem": [
-        "empty.txt",
-        "whitespace_only.txt", 
-        "has_content.txt"
-      ]
+      "cleanup_filesystem": ["empty.txt", "whitespace_only.txt", "has_content.txt"]
     },
     {
       "name": "special_regex_characters_content_search",
@@ -596,11 +561,7 @@
           "content": "2024-01-01 E Something went wrong"
         }
       ],
-      "cleanup_filesystem": [
-        "log_with_brackets.txt",
-        "log_without_brackets.txt",
-        "regex_match.txt"
-      ]
+      "cleanup_filesystem": ["log_with_brackets.txt", "log_without_brackets.txt", "regex_match.txt"]
     },
     {
       "name": "special_characters_in_filenames",
@@ -629,7 +590,7 @@
           },
           {
             "type": "file",
-            "name": "file-with-dashes.txt", 
+            "name": "file-with-dashes.txt",
             "path_contains": "file-with-dashes.txt"
           },
           {
@@ -683,7 +644,7 @@
         },
         {
           "type": "createFile",
-          "path": "文件.txt", 
+          "path": "文件.txt",
           "content": "Chinese filename"
         }
       ],
@@ -744,11 +705,7 @@
           "content": "All uppercase"
         }
       ],
-      "cleanup_filesystem": [
-        "TestFile.txt",
-        "testfile.txt",
-        "TESTFILE.TXT"
-      ]
+      "cleanup_filesystem": ["TestFile.txt", "testfile.txt", "TESTFILE.TXT"]
     },
     {
       "name": "case_insensitive_filename_search",
@@ -799,7 +756,7 @@
         },
         {
           "type": "createFile",
-          "path": "testfile.txt", 
+          "path": "testfile.txt",
           "content": "Lowercase"
         },
         {
@@ -813,12 +770,7 @@
           "content": "No match"
         }
       ],
-      "cleanup_filesystem": [
-        "TestFile.txt",
-        "testfile.txt",
-        "TESTFILE.TXT",
-        "document.txt"
-      ]
+      "cleanup_filesystem": ["TestFile.txt", "testfile.txt", "TESTFILE.TXT", "document.txt"]
     },
     {
       "name": "very_long_filename_search",
@@ -826,7 +778,7 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER", 
+          "base_path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
           "match_criteria": [
             {
@@ -861,10 +813,7 @@
           "content": "File with short name"
         }
       ],
-      "cleanup_filesystem": [
-        "a*.txt",
-        "short.txt"
-      ]
+      "cleanup_filesystem": ["a*.txt", "short.txt"]
     },
     {
       "name": "mixed_entry_types_filter",
@@ -923,18 +872,13 @@
           "content": "Regular file"
         }
       ],
-      "cleanup_filesystem": [
-        "test_dir/",
-        "config_dir/", 
-        "test_dir_file.txt",
-        "regular_file.txt"
-      ]
+      "cleanup_filesystem": ["test_dir/", "config_dir/", "test_dir_file.txt", "regular_file.txt"]
     },
     {
       "name": "regex_metadata_filter_complex",
       "description": "Test complex regex patterns in metadata filtering",
       "request_payload": {
-        "tool_name": "find", 
+        "tool_name": "find",
         "params": {
           "base_path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
@@ -1032,7 +976,7 @@
       "setup_filesystem": [
         {
           "type": "createFile",
-          "path": "code.js", 
+          "path": "code.js",
           "content": "function hello() { return 'world'; }"
         },
         {
@@ -1051,12 +995,7 @@
           "content": "/* Function comment in CSS */"
         }
       ],
-      "cleanup_filesystem": [
-        "code.js",
-        "utils.ts",
-        "document.txt",
-        "styles.css"
-      ]
+      "cleanup_filesystem": ["code.js", "utils.ts", "document.txt", "styles.css"]
     },
     {
       "name": "multiple_size_range_filters",
@@ -1076,7 +1015,7 @@
             {
               "type": "metadata_filter",
               "attribute": "size_bytes",
-              "operator": "lte", 
+              "operator": "lte",
               "value": 500
             }
           ]
@@ -1111,11 +1050,7 @@
           "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         }
       ],
-      "cleanup_filesystem": [
-        "small_file.txt",
-        "medium_file.txt",
-        "large_file.txt"
-      ]
+      "cleanup_filesystem": ["small_file.txt", "medium_file.txt", "large_file.txt"]
     },
     {
       "name": "empty_directory_search",
@@ -1145,9 +1080,7 @@
           "path": "empty_subdir"
         }
       ],
-      "cleanup_filesystem": [
-        "empty_subdir/"
-      ]
+      "cleanup_filesystem": ["empty_subdir/"]
     },
     {
       "name": "hidden_files_and_directories",
@@ -1159,7 +1092,7 @@
           "recursive": true,
           "match_criteria": [
             {
-              "type": "name_pattern", 
+              "type": "name_pattern",
               "pattern": ".*"
             }
           ]
@@ -1194,7 +1127,7 @@
       "should_show_notice": false,
       "setup_filesystem": [
         {
-          "type": "createFile", 
+          "type": "createFile",
           "path": ".hidden_file.txt",
           "content": "Hidden file content"
         },
@@ -1269,7 +1202,7 @@
         },
         {
           "type": "createFile",
-          "path": "script.js", 
+          "path": "script.js",
           "content": "const myFunc = function  processData( input )   {\n  return input.trim();\n};"
         },
         {
@@ -1283,12 +1216,7 @@
           "content": "This is not a function definition"
         }
       ],
-      "cleanup_filesystem": [
-        "code.js",
-        "script.js",
-        "arrow_func.js",
-        "text.txt"
-      ]
+      "cleanup_filesystem": ["code.js", "script.js", "arrow_func.js", "text.txt"]
     },
     {
       "name": "binary_files_content_search",
@@ -1337,11 +1265,7 @@
           "binary_content": [137, 80, 78, 71, 13, 10, 26, 10]
         }
       ],
-      "cleanup_filesystem": [
-        "document.txt",
-        "image.png",
-        "data.bin"
-      ]
+      "cleanup_filesystem": ["document.txt", "image.png", "data.bin"]
     },
     {
       "name": "large_file_content_search_limit",
@@ -1379,7 +1303,7 @@
           "content": "This small file contains findme keyword"
         },
         {
-          "type": "createFile", 
+          "type": "createFile",
           "path": "large_with_match.txt",
           "content": "This is a large file that contains findme somewhere in the middle of a lot of content. This file is designed to test content search in large files."
         },
@@ -1389,11 +1313,7 @@
           "content": "This small file has no keyword"
         }
       ],
-      "cleanup_filesystem": [
-        "small_with_match.txt",
-        "large_with_match.txt",
-        "small_no_match.txt"
-      ]
+      "cleanup_filesystem": ["small_with_match.txt", "large_with_match.txt", "small_no_match.txt"]
     },
     {
       "name": "invalid_regex_pattern_handling",
@@ -1425,9 +1345,7 @@
           "content": "This file has some content"
         }
       ],
-      "cleanup_filesystem": [
-        "test_file.txt"
-      ]
+      "cleanup_filesystem": ["test_file.txt"]
     },
     {
       "name": "search_with_all_entry_types",
@@ -1459,7 +1377,7 @@
             "path_contains": "test_file.txt"
           },
           {
-            "type": "directory", 
+            "type": "directory",
             "name": "test_dir",
             "path_contains": "test_dir"
           },
@@ -1558,11 +1476,7 @@
           "content": "Not empty"
         }
       ],
-      "cleanup_filesystem": [
-        "empty1.txt",
-        "empty2.log",
-        "has_content.txt"
-      ]
+      "cleanup_filesystem": ["empty1.txt", "empty2.log", "has_content.txt"]
     }
   ]
 }

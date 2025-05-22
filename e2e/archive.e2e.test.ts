@@ -29,8 +29,8 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: ['/nonexistent/file.txt'],
-          archive_path: '/nonexistent/archive.zip'
-        }
+          archive_path: '/nonexistent/archive.zip',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {});
@@ -44,13 +44,13 @@ describe('E2E Archive Operations', () => {
       if (Array.isArray(result.response)) {
         // Should have 2 elements: info notice + actual tool response
         expect(result.response).toHaveLength(2);
-        
+
         // First element should be the info notice
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
         expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
-        
+
         // Second element should be the actual tool response object
         const actualToolResponse = result.response[1];
         expect(actualToolResponse.tool_name).toBe('ArchiveTool');
@@ -76,12 +76,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [testFile],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -89,7 +89,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       // Should be the direct tool response object (no notice)
       expect(result.response.tool_name).toBe('ArchiveTool');
       expect(Array.isArray(result.response.results)).toBe(true);
@@ -103,14 +103,14 @@ describe('E2E Archive Operations', () => {
       // Create test directory structure
       const subDir = path.join(testWorkspaceDir, 'subdir');
       fs.mkdirSync(subDir, { recursive: true });
-      
+
       // Create test files
       fs.writeFileSync(path.join(testWorkspaceDir, 'file1.txt'), 'Hello World');
       fs.writeFileSync(path.join(testWorkspaceDir, 'file2.log'), 'Log content');
       fs.writeFileSync(path.join(subDir, 'nested-file.txt'), 'Nested content');
-      
+
       // Create binary file
-      const binaryContent = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      const binaryContent = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
       fs.writeFileSync(path.join(testWorkspaceDir, 'test.png'), binaryContent);
     });
 
@@ -123,12 +123,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [testFile],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -136,11 +136,11 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.tool_name).toBe('ArchiveTool');
       expect(Array.isArray(result.response.results)).toBe(true);
       expect(result.response.results).toHaveLength(1);
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
       expect(archiveResult.operation).toBe('create');
@@ -151,10 +151,10 @@ describe('E2E Archive Operations', () => {
       expect(archiveResult.checksum_sha256).toBeDefined();
       expect(archiveResult.compression_used).toBe('zip');
       expect(archiveResult.message).toContain('Archive created successfully');
-      
+
       // Verify archive file exists and is valid
       expect(fs.existsSync(archivePath)).toBe(true);
-      
+
       // Verify archive content
       const zip = new AdmZip(archivePath);
       const entries = zip.getEntries();
@@ -173,12 +173,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [file1, file2],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -186,18 +186,18 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
       expect(archiveResult.operation).toBe('create');
       expect(archiveResult.entries_processed).toBe(2);
-      
+
       // Verify archive content
       const zip = new AdmZip(archivePath);
       const entries = zip.getEntries();
       expect(entries.length).toBe(2);
-      
-      const entryNames = entries.map(e => e.entryName);
+
+      const entryNames = entries.map((e) => e.entryName);
       expect(entryNames).toContain('file1.txt');
       expect(entryNames).toContain('file2.log');
     });
@@ -211,12 +211,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [sourceDir],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -224,19 +224,19 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
       expect(archiveResult.operation).toBe('create');
       expect(archiveResult.entries_processed).toBe(1);
-      
+
       // Verify archive content
       const zip = new AdmZip(archivePath);
       const entries = zip.getEntries();
       expect(entries.length).toBeGreaterThan(0);
-      
+
       // Should contain the nested file
-      const hasNestedFile = entries.some(e => e.entryName.includes('nested-file.txt'));
+      const hasNestedFile = entries.some((e) => e.entryName.includes('nested-file.txt'));
       expect(hasNestedFile).toBe(true);
     });
 
@@ -250,12 +250,12 @@ describe('E2E Archive Operations', () => {
           operation: 'create',
           source_paths: [testFile],
           archive_path: archivePath,
-          compression: 'gzip'
-        }
+          compression: 'gzip',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -263,13 +263,13 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
       expect(archiveResult.operation).toBe('create');
       expect(archiveResult.format_used).toBe('tar.gz');
       expect(archiveResult.compression_used).toBe('gzip');
-      
+
       // Verify archive file exists and is valid
       expect(fs.existsSync(archivePath)).toBe(true);
     });
@@ -285,13 +285,13 @@ describe('E2E Archive Operations', () => {
           source_paths: [testFile],
           archive_path: archivePath,
           options: {
-            prefix: 'myprefix'
-          }
-        }
+            prefix: 'myprefix',
+          },
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -299,11 +299,11 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
       expect(archiveResult.options_applied?.prefix).toBe('myprefix');
-      
+
       // Verify archive content has prefix
       const zip = new AdmZip(archivePath);
       const entries = zip.getEntries();
@@ -314,7 +314,7 @@ describe('E2E Archive Operations', () => {
     it('should handle overwrite option correctly', async () => {
       const testFile = path.join(testWorkspaceDir, 'file1.txt');
       const archivePath = path.join(testWorkspaceDir, 'existing.zip');
-      
+
       // Create existing archive
       fs.writeFileSync(archivePath, 'existing content');
 
@@ -325,13 +325,13 @@ describe('E2E Archive Operations', () => {
           source_paths: [testFile],
           archive_path: archivePath,
           options: {
-            overwrite: false
-          }
-        }
+            overwrite: false,
+          },
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -339,7 +339,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('error');
       expect(archiveResult.error_message).toContain('Archive already exists');
@@ -355,12 +355,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [nonExistentFile],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -368,7 +368,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('error');
       expect(archiveResult.error_message).toContain('Path not found');
@@ -382,12 +382,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -395,7 +395,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('error');
       expect(archiveResult.error_message).toContain('source_paths cannot be empty');
@@ -413,11 +413,11 @@ describe('E2E Archive Operations', () => {
       const sourceDir = path.join(testWorkspaceDir, 'source');
       const subDir = path.join(sourceDir, 'subdir');
       fs.mkdirSync(subDir, { recursive: true });
-      
+
       fs.writeFileSync(path.join(sourceDir, 'file1.txt'), 'Content 1');
       fs.writeFileSync(path.join(sourceDir, 'file2.txt'), 'Content 2');
       fs.writeFileSync(path.join(subDir, 'nested.txt'), 'Nested content');
-      
+
       // Create ZIP archive
       zipArchivePath = path.join(testWorkspaceDir, 'test.zip');
       const zip = new AdmZip();
@@ -425,15 +425,18 @@ describe('E2E Archive Operations', () => {
       zip.addLocalFile(path.join(sourceDir, 'file2.txt'), '', 'file2.txt');
       zip.addLocalFolder(subDir, 'subdir');
       zip.writeZip(zipArchivePath);
-      
+
       // Create TAR.GZ archive
       tarArchivePath = path.join(testWorkspaceDir, 'test.tar.gz');
-      await tar.create({
-        gzip: true,
-        file: tarArchivePath,
-        cwd: sourceDir
-      }, ['file1.txt', 'file2.txt', 'subdir']);
-      
+      await tar.create(
+        {
+          gzip: true,
+          file: tarArchivePath,
+          cwd: sourceDir,
+        },
+        ['file1.txt', 'file2.txt', 'subdir']
+      );
+
       // Create extraction directory
       extractDir = path.join(testWorkspaceDir, 'extract');
       fs.mkdirSync(extractDir, { recursive: true });
@@ -445,12 +448,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'extract',
           archive_path: zipArchivePath,
-          target_path: extractDir
-        }
+          target_path: extractDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -458,7 +461,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('success');
       expect(extractResult.operation).toBe('extract');
@@ -466,16 +469,18 @@ describe('E2E Archive Operations', () => {
       expect(extractResult.target_path).toBe(extractDir);
       expect(extractResult.format_used).toBe('zip');
       expect(extractResult.message).toContain('Archive extracted successfully');
-      
+
       // Verify extracted files
       expect(fs.existsSync(path.join(extractDir, 'file1.txt'))).toBe(true);
       expect(fs.existsSync(path.join(extractDir, 'file2.txt'))).toBe(true);
       expect(fs.existsSync(path.join(extractDir, 'subdir', 'nested.txt'))).toBe(true);
-      
+
       // Verify file contents
       expect(fs.readFileSync(path.join(extractDir, 'file1.txt'), 'utf8')).toBe('Content 1');
       expect(fs.readFileSync(path.join(extractDir, 'file2.txt'), 'utf8')).toBe('Content 2');
-      expect(fs.readFileSync(path.join(extractDir, 'subdir', 'nested.txt'), 'utf8')).toBe('Nested content');
+      expect(fs.readFileSync(path.join(extractDir, 'subdir', 'nested.txt'), 'utf8')).toBe(
+        'Nested content'
+      );
     });
 
     it('should successfully extract a TAR.GZ archive', async () => {
@@ -487,12 +492,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'extract',
           archive_path: tarArchivePath,
-          target_path: extractTarDir
-        }
+          target_path: extractTarDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -500,12 +505,12 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('success');
       expect(extractResult.operation).toBe('extract');
       expect(extractResult.format_used).toBe('tar.gz');
-      
+
       // Verify extracted files
       expect(fs.existsSync(path.join(extractTarDir, 'file1.txt'))).toBe(true);
       expect(fs.existsSync(path.join(extractTarDir, 'file2.txt'))).toBe(true);
@@ -520,12 +525,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'extract',
           archive_path: zipArchivePath,
-          target_path: newExtractDir
-        }
+          target_path: newExtractDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -533,10 +538,10 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('success');
-      
+
       // Verify directory was created and files extracted
       expect(fs.existsSync(newExtractDir)).toBe(true);
       expect(fs.existsSync(path.join(newExtractDir, 'file1.txt'))).toBe(true);
@@ -554,13 +559,13 @@ describe('E2E Archive Operations', () => {
           archive_path: zipArchivePath,
           target_path: extractDir,
           options: {
-            overwrite: true
-          }
-        }
+            overwrite: true,
+          },
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -568,11 +573,11 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('success');
       expect(extractResult.options_applied?.overwrite).toBe(true);
-      
+
       // Verify file was overwritten
       expect(fs.readFileSync(existingFile, 'utf8')).toBe('Content 1');
     });
@@ -585,13 +590,13 @@ describe('E2E Archive Operations', () => {
           archive_path: zipArchivePath,
           target_path: extractDir,
           options: {
-            filter_paths: ['file1.txt']
-          }
-        }
+            filter_paths: ['file1.txt'],
+          },
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -599,10 +604,10 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('success');
-      
+
       // Verify only filtered file was extracted
       expect(fs.existsSync(path.join(extractDir, 'file1.txt'))).toBe(true);
       expect(fs.existsSync(path.join(extractDir, 'file2.txt'))).toBe(false);
@@ -617,12 +622,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'extract',
           archive_path: nonExistentArchive,
-          target_path: extractDir
-        }
+          target_path: extractDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -630,7 +635,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('error');
       expect(extractResult.error_message).toContain('Path not found');
@@ -645,12 +650,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'extract',
           archive_path: unsupportedArchive,
-          target_path: extractDir
-        }
+          target_path: extractDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -658,7 +663,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('error');
       expect(extractResult.error_message).toContain('Unsupported archive format');
@@ -674,12 +679,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'extract',
           archive_path: corruptedArchive,
-          target_path: extractDir
-        }
+          target_path: extractDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -687,7 +692,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const extractResult = result.response.results[0];
       expect(extractResult.status).toBe('error');
       expect(extractResult.error_message).toContain('Failed to extract archive');
@@ -702,12 +707,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: ['/etc/passwd'],
-          archive_path: '/tmp/forbidden.zip'
-        }
+          archive_path: '/tmp/forbidden.zip',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -715,7 +720,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('error');
       expect(archiveResult.error_message).toContain('Parent directory access denied');
@@ -727,12 +732,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'invalid_operation',
           source_paths: ['/some/file'],
-          archive_path: '/some/archive.zip'
-        }
+          archive_path: '/some/archive.zip',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -740,7 +745,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('error');
       expect(archiveResult.error_message).toContain('Invalid or unsupported archive operation');
@@ -751,13 +756,13 @@ describe('E2E Archive Operations', () => {
       const requestPayload = {
         tool_name: 'ArchiveTool',
         params: {
-          operation: 'create'
+          operation: 'create',
           // Missing source_paths and archive_path
-        }
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -765,7 +770,7 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('error');
       expect(archiveResult.error_message).toContain('Path must be a non-empty string');
@@ -778,7 +783,7 @@ describe('E2E Archive Operations', () => {
       const longFileName = 'a'.repeat(200) + '.txt';
       const longFilePath = path.join(testWorkspaceDir, longFileName);
       const archivePath = path.join(testWorkspaceDir, 'long-names.zip');
-      
+
       fs.writeFileSync(longFilePath, 'content');
 
       const requestPayload = {
@@ -786,12 +791,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [longFilePath],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -799,10 +804,10 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
-      
+
       // Verify archive was created
       expect(fs.existsSync(archivePath)).toBe(true);
     });
@@ -810,7 +815,7 @@ describe('E2E Archive Operations', () => {
     it('should handle empty directories in archives', async () => {
       const emptyDir = path.join(testWorkspaceDir, 'empty-dir');
       const archivePath = path.join(testWorkspaceDir, 'empty-dir.zip');
-      
+
       fs.mkdirSync(emptyDir);
 
       const requestPayload = {
@@ -818,12 +823,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: [emptyDir],
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -831,10 +836,10 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
-      
+
       // Verify archive was created
       expect(fs.existsSync(archivePath)).toBe(true);
     });
@@ -844,20 +849,20 @@ describe('E2E Archive Operations', () => {
         'file with spaces.txt',
         'file-with-dashes.txt',
         'file_with_underscores.txt',
-        'file.with.dots.txt'
+        'file.with.dots.txt',
       ];
-      
+
       const createdFiles: string[] = [];
-      specialFiles.forEach(fileName => {
+      specialFiles.forEach((fileName) => {
         try {
           const filePath = path.join(testWorkspaceDir, fileName);
           fs.writeFileSync(filePath, `Content of ${fileName}`);
           createdFiles.push(filePath);
-        } catch (e) {
+        } catch {
           // Skip files that can't be created on this filesystem
         }
       });
-      
+
       if (createdFiles.length === 0) {
         // Skip test if no files could be created
         return;
@@ -870,12 +875,12 @@ describe('E2E Archive Operations', () => {
         params: {
           operation: 'create',
           source_paths: createdFiles,
-          archive_path: archivePath
-        }
+          archive_path: archivePath,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -883,14 +888,14 @@ describe('E2E Archive Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const archiveResult = result.response.results[0];
       expect(archiveResult.status).toBe('success');
       expect(archiveResult.entries_processed).toBe(createdFiles.length);
-      
+
       // Verify archive was created and contains files
       expect(fs.existsSync(archivePath)).toBe(true);
-      
+
       const zip = new AdmZip(archivePath);
       const entries = zip.getEntries();
       expect(entries.length).toBe(createdFiles.length);

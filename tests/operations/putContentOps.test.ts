@@ -126,7 +126,7 @@ describe('putContentOps', () => {
     Object.keys(mockedFsOps).forEach((key) => {
       const method = mockedFsOps[key as keyof typeof mockedFsOps];
       if (typeof method === 'function' && 'mockReset' in method) {
-        (method as MockedFunction<any>).mockReset();
+        (method as MockedFunction<unknown>).mockReset();
       }
     });
     // Provide default implementations after reset if necessary, or let tests set them up.

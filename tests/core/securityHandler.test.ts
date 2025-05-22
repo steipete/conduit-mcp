@@ -398,14 +398,8 @@ describe('securityHandler', () => {
       });
 
       it('should handle tilde expansion in creation mode', async () => {
-        // Change mock to allow /mock/home temporarily
-        const originalAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
-        const originalResolvedAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
-
         // Update the config in the mock factory dynamically
         const userPath = '~/subdir/newfile.txt';
-        // Mock tilde expansion to resolve to an already allowed path
-        const expandedPath = '/allowed/path1/subdir/newfile.txt';
 
         // Mock parent directory exists and resolves correctly
         mockFs.realpath.mockImplementation(async (p: PathLike) => {

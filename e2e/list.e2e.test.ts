@@ -4,6 +4,18 @@ import { createTempDir } from './utils/tempFs';
 import path from 'path';
 import fs from 'fs';
 
+// Type definitions for list tool responses
+interface ListEntry {
+  name: string;
+  type: 'file' | 'directory';
+  path: string;
+  size_bytes?: number;
+  created_at: string;
+  modified_at: string;
+  mime_type?: string;
+  children?: ListEntry[];
+}
+
 describe('E2E List Operations', () => {
   let testWorkspaceDir: string;
 
@@ -26,8 +38,8 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'entries',
-          path: '/nonexistent/directory'
-        }
+          path: '/nonexistent/directory',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {});
@@ -37,17 +49,17 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       if (Array.isArray(result.response)) {
         // Should have 2 elements: info notice + actual tool response
         expect(result.response).toHaveLength(2);
-        
+
         // First element should be the info notice
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
         expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
-        
+
         // Second element should be the actual tool response object
         const actualToolResponse = result.response[1];
         expect(actualToolResponse.status).toBe('error');
@@ -64,12 +76,12 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'entries',
-          path: '/nonexistent/directory'
-        }
+          path: '/nonexistent/directory',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -77,7 +89,7 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       // Should be the direct tool response object (no notice)
       expect(result.response.status).toBe('error');
       expect(result.response.error_message).toContain('Path not found');
@@ -90,22 +102,22 @@ describe('E2E List Operations', () => {
       const subDir1 = path.join(testWorkspaceDir, 'subdir1');
       const subDir2 = path.join(testWorkspaceDir, 'subdir2');
       const nestedDir = path.join(subDir1, 'nested');
-      
+
       fs.mkdirSync(subDir1, { recursive: true });
       fs.mkdirSync(subDir2, { recursive: true });
       fs.mkdirSync(nestedDir, { recursive: true });
-      
+
       // Create test files
       fs.writeFileSync(path.join(testWorkspaceDir, 'file1.txt'), 'Hello World');
       fs.writeFileSync(path.join(testWorkspaceDir, 'file2.log'), 'Log content');
       fs.writeFileSync(path.join(subDir1, 'nested-file.txt'), 'Nested content');
       fs.writeFileSync(path.join(nestedDir, 'deep-file.txt'), 'Deep content');
-      
+
       // Create empty file for size testing
       fs.writeFileSync(path.join(testWorkspaceDir, 'empty.txt'), '');
-      
+
       // Create binary file
-      const binaryContent = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+      const binaryContent = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
       fs.writeFileSync(path.join(testWorkspaceDir, 'test.png'), binaryContent);
     });
 
@@ -115,12 +127,12 @@ describe('E2E List Operations', () => {
         params: {
           operation: 'entries',
           path: testWorkspaceDir,
-          recursive_depth: 0
-        }
+          recursive_depth: 0,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -128,25 +140,25 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       // Should be the direct tool response object (no notice due to CONDUIT_ALLOWED_PATHS)
       expect(result.response.tool_name).toBe('list');
       expect(Array.isArray(result.response.results)).toBe(true);
-      
+
       const entries = result.response.results;
       expect(entries.length).toBeGreaterThan(0);
-      
+
       // Check for expected entries
-      const entryNames = entries.map((entry: any) => entry.name);
+      const entryNames = entries.map((entry: ListEntry) => entry.name);
       expect(entryNames).toContain('file1.txt');
       expect(entryNames).toContain('file2.log');
       expect(entryNames).toContain('empty.txt');
       expect(entryNames).toContain('test.png');
       expect(entryNames).toContain('subdir1');
       expect(entryNames).toContain('subdir2');
-      
+
       // Verify entry structure
-      const file1 = entries.find((entry: any) => entry.name === 'file1.txt');
+      const file1 = entries.find((entry: ListEntry) => entry.name === 'file1.txt');
       expect(file1).toBeDefined();
       expect(file1.type).toBe('file');
       expect(file1.size_bytes).toBe(11); // "Hello World"
@@ -157,14 +169,14 @@ describe('E2E List Operations', () => {
       if (file1.mime_type) {
         expect(typeof file1.mime_type).toBe('string');
       }
-      
-      const subdir1 = entries.find((entry: any) => entry.name === 'subdir1');
+
+      const subdir1 = entries.find((entry: ListEntry) => entry.name === 'subdir1');
       expect(subdir1).toBeDefined();
-      expect(subdir1.type).toBe('directory');
-      expect(subdir1.path).toBe(path.join(testWorkspaceDir, 'subdir1'));
-      expect(subdir1.children).toBeUndefined(); // No children at depth 0
-      
-      const emptyFile = entries.find((entry: any) => entry.name === 'empty.txt');
+      expect(subdir1!.type).toBe('directory');
+      expect(subdir1!.path).toBe(path.join(testWorkspaceDir, 'subdir1'));
+      expect(subdir1!.children).toBeUndefined(); // No children at depth 0
+
+      const emptyFile = entries.find((entry: ListEntry) => entry.name === 'empty.txt');
       expect(emptyFile).toBeDefined();
       expect(emptyFile.type).toBe('file');
       expect(emptyFile.size_bytes).toBe(0);
@@ -176,12 +188,12 @@ describe('E2E List Operations', () => {
         params: {
           operation: 'entries',
           path: testWorkspaceDir,
-          recursive_depth: 2
-        }
+          recursive_depth: 2,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -189,33 +201,37 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.tool_name).toBe('list');
       expect(Array.isArray(result.response.results)).toBe(true);
-      
+
       const entries = result.response.results;
-      
+
       // Find subdir1 and check its children
-      const subdir1 = entries.find((entry: any) => entry.name === 'subdir1');
+      const subdir1 = entries.find((entry: ListEntry) => entry.name === 'subdir1');
       expect(subdir1).toBeDefined();
-      expect(subdir1.type).toBe('directory');
-      expect(Array.isArray(subdir1.children)).toBe(true);
-      expect(subdir1.children.length).toBeGreaterThan(0);
-      
+      expect(subdir1!.type).toBe('directory');
+      expect(Array.isArray(subdir1!.children)).toBe(true);
+      expect(subdir1!.children!.length).toBeGreaterThan(0);
+
       // Check for nested file
-      const nestedFile = subdir1.children.find((entry: any) => entry.name === 'nested-file.txt');
+      const nestedFile = subdir1!.children!.find(
+        (entry: ListEntry) => entry.name === 'nested-file.txt'
+      );
       expect(nestedFile).toBeDefined();
       expect(nestedFile.type).toBe('file');
       expect(nestedFile.size_bytes).toBe(14); // "Nested content"
-      
+
       // Check for nested directory
-      const nestedDir = subdir1.children.find((entry: any) => entry.name === 'nested');
+      const nestedDir = subdir1!.children!.find((entry: ListEntry) => entry.name === 'nested');
       expect(nestedDir).toBeDefined();
-      expect(nestedDir.type).toBe('directory');
-      expect(Array.isArray(nestedDir.children)).toBe(true);
-      
+      expect(nestedDir!.type).toBe('directory');
+      expect(Array.isArray(nestedDir!.children)).toBe(true);
+
       // Check deep file
-      const deepFile = nestedDir.children.find((entry: any) => entry.name === 'deep-file.txt');
+      const deepFile = nestedDir!.children!.find(
+        (entry: ListEntry) => entry.name === 'deep-file.txt'
+      );
       expect(deepFile).toBeDefined();
       expect(deepFile.type).toBe('file');
       expect(deepFile.size_bytes).toBe(12); // "Deep content"
@@ -228,12 +244,12 @@ describe('E2E List Operations', () => {
           operation: 'entries',
           path: testWorkspaceDir,
           recursive_depth: 1,
-          calculate_recursive_size: true
-        }
+          calculate_recursive_size: true,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -241,24 +257,24 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.tool_name).toBe('list');
       expect(Array.isArray(result.response.results)).toBe(true);
-      
+
       const entries = result.response.results;
-      
+
       // Find directories and check they have size_bytes calculated
-      const subdir1 = entries.find((entry: any) => entry.name === 'subdir1');
+      const subdir1 = entries.find((entry: ListEntry) => entry.name === 'subdir1');
       expect(subdir1).toBeDefined();
-      expect(subdir1.type).toBe('directory');
-      expect(typeof subdir1.size_bytes).toBe('number');
-      expect(subdir1.size_bytes).toBeGreaterThan(0); // Should contain size of nested files
-      
-      const subdir2 = entries.find((entry: any) => entry.name === 'subdir2');
+      expect(subdir1!.type).toBe('directory');
+      expect(typeof subdir1!.size_bytes).toBe('number');
+      expect(subdir1!.size_bytes).toBeGreaterThan(0); // Should contain size of nested files
+
+      const subdir2 = entries.find((entry: ListEntry) => entry.name === 'subdir2');
       expect(subdir2).toBeDefined();
-      expect(subdir2.type).toBe('directory');
-      expect(typeof subdir2.size_bytes).toBe('number');
-      expect(subdir2.size_bytes).toBe(0); // Empty directory
+      expect(subdir2!.type).toBe('directory');
+      expect(typeof subdir2!.size_bytes).toBe('number');
+      expect(subdir2!.size_bytes).toBe(0); // Empty directory
     });
 
     it('should handle depth limiting correctly', async () => {
@@ -272,12 +288,12 @@ describe('E2E List Operations', () => {
         params: {
           operation: 'entries',
           path: testWorkspaceDir,
-          recursive_depth: 2
-        }
+          recursive_depth: 2,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -285,35 +301,35 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       const entries = result.response.results;
-      const level1 = entries.find((entry: any) => entry.name === 'level1');
+      const level1 = entries.find((entry: ListEntry) => entry.name === 'level1');
       expect(level1).toBeDefined();
-      expect(level1.children).toBeDefined();
-      
-      const level2 = level1.children.find((entry: any) => entry.name === 'level2');
+      expect(level1!.children).toBeDefined();
+
+      const level2 = level1!.children!.find((entry: ListEntry) => entry.name === 'level2');
       expect(level2).toBeDefined();
-      expect(level2.children).toBeDefined();
-      
-      const level3 = level2.children.find((entry: any) => entry.name === 'level3');
+      expect(level2!.children).toBeDefined();
+
+      const level3 = level2!.children!.find((entry: ListEntry) => entry.name === 'level3');
       expect(level3).toBeDefined();
       // At depth 2, level3 should not have children populated due to depth limit
-      expect(level3.children).toBeUndefined();
+      expect(level3!.children).toBeUndefined();
     });
 
     it('should handle listing a file path (should fail)', async () => {
       const testFile = path.join(testWorkspaceDir, 'file1.txt');
-      
+
       const requestPayload = {
         tool_name: 'list',
         params: {
           operation: 'entries',
-          path: testFile
-        }
+          path: testFile,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -321,7 +337,7 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.status).toBe('error');
       expect(result.response.error_code).toBe('ERR_FS_PATH_IS_FILE');
       expect(result.response.error_message).toContain('Provided path is a file, not a directory');
@@ -329,17 +345,17 @@ describe('E2E List Operations', () => {
 
     it('should handle non-existent directory', async () => {
       const nonExistentDir = path.join(testWorkspaceDir, 'nonexistent');
-      
+
       const requestPayload = {
         tool_name: 'list',
         params: {
           operation: 'entries',
-          path: nonExistentDir
-        }
+          path: nonExistentDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -347,7 +363,7 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.status).toBe('error');
       expect(result.response.error_message).toContain('Path not found');
     });
@@ -357,12 +373,12 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'entries',
-          path: '/etc'
-        }
+          path: '/etc',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -370,10 +386,12 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.status).toBe('error');
       expect(result.response.error_code).toBe('ERR_FS_PERMISSION_DENIED');
-      expect(result.response.error_message).toMatch(/Access to path is denied|Access denied|Path not allowed/i);
+      expect(result.response.error_message).toMatch(
+        /Access to path is denied|Access denied|Path not allowed/i
+      );
     });
   });
 
@@ -383,12 +401,12 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'system_info',
-          info_type: 'server_capabilities'
-        }
+          info_type: 'server_capabilities',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -396,10 +414,10 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.tool_name).toBe('list');
       expect(result.response.results).toBeDefined();
-      
+
       const capabilities = result.response.results;
       expect(capabilities.server_version).toBeDefined();
       expect(capabilities.active_configuration).toBeDefined();
@@ -410,7 +428,7 @@ describe('E2E List Operations', () => {
       expect(capabilities.supported_archive_formats).toContain('zip');
       expect(capabilities.default_checksum_algorithm).toBeDefined();
       expect(typeof capabilities.max_recursive_depth).toBe('number');
-      
+
       // Check active configuration
       expect(capabilities.active_configuration.ALLOWED_PATHS).toBeDefined();
       expect(capabilities.active_configuration.MAX_RECURSIVE_DEPTH).toBeDefined();
@@ -423,12 +441,12 @@ describe('E2E List Operations', () => {
         params: {
           operation: 'system_info',
           info_type: 'filesystem_stats',
-          path: testWorkspaceDir
-        }
+          path: testWorkspaceDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -436,10 +454,10 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.tool_name).toBe('list');
       expect(result.response.results).toBeDefined();
-      
+
       const stats = result.response.results;
       expect(stats.path_queried).toBeDefined();
       expect(typeof stats.total_bytes).toBe('number');
@@ -457,12 +475,12 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'system_info',
-          info_type: 'filesystem_stats'
-        }
+          info_type: 'filesystem_stats',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -470,10 +488,10 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.tool_name).toBe('list');
       expect(result.response.results).toBeDefined();
-      
+
       const info = result.response.results;
       expect(info.info_type_requested).toBe('filesystem_stats');
       expect(info.status_message).toContain('No specific path provided');
@@ -487,12 +505,12 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'system_info',
-          info_type: 'invalid_type'
-        }
+          info_type: 'invalid_type',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -500,7 +518,7 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.status).toBe('error');
       expect(result.response.error_code).toBe('ERR_INVALID_PARAMETER');
       expect(result.response.error_message).toContain('Unknown info_type');
@@ -513,12 +531,12 @@ describe('E2E List Operations', () => {
         tool_name: 'list',
         params: {
           operation: 'invalid_operation',
-          path: testWorkspaceDir
-        }
+          path: testWorkspaceDir,
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -526,7 +544,7 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.status).toBe('error');
       expect(result.response.error_code).toBe('ERR_INVALID_PARAMETER');
       expect(result.response.error_message).toContain('Unknown operation');
@@ -536,13 +554,13 @@ describe('E2E List Operations', () => {
       const requestPayload = {
         tool_name: 'list',
         params: {
-          operation: 'entries'
+          operation: 'entries',
           // Missing path parameter
-        }
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir
+        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
       });
 
       if (result.exitCode !== 0) {
@@ -550,10 +568,12 @@ describe('E2E List Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       expect(result.response.status).toBe('error');
       // The exact error may vary based on validation, but should be an error
-      expect(['ERR_MISSING_PARAMETER', 'ERR_INVALID_PARAMETER', 'ERR_FS_INVALID_PATH']).toContain(result.response.error_code);
+      expect(['ERR_MISSING_PARAMETER', 'ERR_INVALID_PARAMETER', 'ERR_FS_INVALID_PATH']).toContain(
+        result.response.error_code
+      );
     });
   });
 });

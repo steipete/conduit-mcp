@@ -53,12 +53,12 @@ const mockCompressionQuality = 75;
 
 describe('imageProcessor', () => {
   let mockSharpInstance: {
-    jpeg: vi.MockedFunction<(options?: sharp.JpegOptions) => any>;
-    png: vi.MockedFunction<(options?: sharp.PngOptions) => any>;
-    webp: vi.MockedFunction<(options?: sharp.WebpOptions) => any>;
-    tiff: vi.MockedFunction<(options?: sharp.TiffOptions) => any>;
-    gif: vi.MockedFunction<(options?: sharp.GifOptions) => any>;
-    avif: vi.MockedFunction<(options?: sharp.AvifOptions) => any>;
+    jpeg: vi.MockedFunction<(options?: sharp.JpegOptions) => sharp.Sharp>;
+    png: vi.MockedFunction<(options?: sharp.PngOptions) => sharp.Sharp>;
+    webp: vi.MockedFunction<(options?: sharp.WebpOptions) => sharp.Sharp>;
+    tiff: vi.MockedFunction<(options?: sharp.TiffOptions) => sharp.Sharp>;
+    gif: vi.MockedFunction<(options?: sharp.GifOptions) => sharp.Sharp>;
+    avif: vi.MockedFunction<(options?: sharp.AvifOptions) => sharp.Sharp>;
     toBuffer: vi.MockedFunction<() => Promise<Buffer>>;
   };
 

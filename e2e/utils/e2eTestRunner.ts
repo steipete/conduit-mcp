@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 
 export interface E2ETestResult {
-  response: any;
+  response: unknown;
   error: string;
   exitCode: number | null;
 }
@@ -20,10 +20,10 @@ export async function runConduitMCPScript(
   options: E2ETestOptions = {}
 ): Promise<E2ETestResult> {
   const { timeout = DEFAULT_TIMEOUT, workingDir } = options;
-  
+
   const projectRoot = path.resolve(__dirname, '../..');
   const startScript = path.join(projectRoot, 'start.sh');
-  
+
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
@@ -58,7 +58,7 @@ export async function runConduitMCPScript(
       finishTest({
         response: null,
         error: 'Test timeout exceeded',
-        exitCode: null
+        exitCode: null,
       });
     }, timeout);
 
@@ -66,13 +66,13 @@ export async function runConduitMCPScript(
       // Prepare environment variables
       const env = {
         ...process.env,
-        ...envVars
+        ...envVars,
       };
 
       // Change to working directory if specified
-      const spawnOptions: any = {
+      const spawnOptions = {
         env,
-        cwd: workingDir || projectRoot
+        cwd: workingDir || projectRoot,
       };
 
       // Spawn the server process
@@ -83,7 +83,7 @@ export async function runConduitMCPScript(
         finishTest({
           response: null,
           error: `Failed to start server: ${error.message}`,
-          exitCode: null
+          exitCode: null,
         });
       });
 
@@ -117,7 +117,7 @@ export async function runConduitMCPScript(
         finishTest({
           response: parsedResponse,
           error: errorMessage,
-          exitCode: code
+          exitCode: code,
         });
       });
 
@@ -125,22 +125,21 @@ export async function runConduitMCPScript(
       const requestJson = JSON.stringify(requestPayload) + '\n';
       serverProcess.stdin?.write(requestJson);
       serverProcess.stdin?.end();
-
     } catch (error) {
       finishTest({
         response: null,
         error: `Error running test: ${error}`,
-        exitCode: null
+        exitCode: null,
       });
     }
   });
 }
 
-export function createMCPRequest(method: string, params: any): object {
+export function createMCPRequest(method: string, params: unknown): object {
   return {
     jsonrpc: '2.0',
     id: 1,
     method,
-    params
+    params,
   };
 }

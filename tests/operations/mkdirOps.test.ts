@@ -131,7 +131,7 @@ describe('mkdirOps', () => {
 
   it('should return error on permission denied (EACCES)', async () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
-    const permissionError: any = new Error('Permission denied');
+    const permissionError = new Error('Permission denied') as Error & { code: string };
     permissionError.code = 'EACCES';
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(permissionError);
 
@@ -146,7 +146,7 @@ describe('mkdirOps', () => {
 
   it('should return error on invalid path component (ENOTDIR)', async () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
-    const notDirError: any = new Error('Not a directory');
+    const notDirError = new Error('Not a directory') as Error & { code: string };
     notDirError.code = 'ENOTDIR';
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(notDirError);
 

@@ -1,7 +1,7 @@
 /// <reference types="vitest/globals" />
 
 import { vi, describe, it, expect, beforeEach, afterEach, type Mocked } from 'vitest';
-import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
+import { mockDeep, type DeepMockProxy } from 'vitest-mock-extended';
 import * as fsExtra from 'fs-extra'; // Changed from fs/promises
 import * as tar from 'tar'; // Corrected import for tar
 import AdmZip from 'adm-zip';
@@ -119,12 +119,12 @@ describe('archiveOps', () => {
 
   beforeEach(() => {
     // mockReset(mockedLogger); // Commented out due to mock library issue
-    // @ts-ignore
+    // @ts-expect-error - DeepMockProxy type checking issues with child mock reset
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      // @ts-ignore
+      // @ts-expect-error - DeepMockProxy type checking issues with child mock reset
       mockedLogger.child.mockReset();
     }
-    // @ts-ignore
+    // @ts-expect-error - DeepMockProxy type checking issues with child mock return value
     mockedLogger.child.mockReturnValue(mockedLogger);
 
     // mockReset(mockedConfig as any); // Reset the deep mock proxy - commented out due to mock library issue
@@ -182,13 +182,15 @@ describe('archiveOps', () => {
     );
 
     // Default mock for validateAndResolvePath - just return the path as absolute
-    mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options?: any) => {
-      // Reset any previous implementation to avoid interference
-      if (path.isAbsolute(inputPath)) {
-        return inputPath;
+    mockedValidateAndResolvePath.mockImplementation(
+      async (inputPath: string, _options?: unknown) => {
+        // Reset any previous implementation to avoid interference
+        if (path.isAbsolute(inputPath)) {
+          return inputPath;
+        }
+        return path.resolve(mockConfig.workspaceRoot, inputPath);
       }
-      return path.resolve(mockConfig.workspaceRoot, inputPath);
-    });
+    );
   });
 
   afterEach(() => {
@@ -216,12 +218,12 @@ describe('archiveOps', () => {
     it('should successfully create a ZIP archive', async () => {
       // Mock validateAndResolvePath for archive path and source paths
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testZipArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testZipArchivePath) // archive_path
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
         ) // first source
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
         ); // second source
 
       // Mock fs.stat for the source paths, as createArchive calls it
@@ -265,12 +267,12 @@ describe('archiveOps', () => {
     it('should successfully create a TAR.GZ archive', async () => {
       // Mock validateAndResolvePath for archive path and source paths
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testTarGzArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testTarGzArchivePath) // archive_path
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
         ) // first source
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
         ); // second source
 
       mockedTarCreate.mockResolvedValue(undefined); // tar.create returns void (Promise<void>)
@@ -314,12 +316,12 @@ describe('archiveOps', () => {
     it('should return error if tar creation fails for tar.gz', async () => {
       // Mock validateAndResolvePath for archive path and source paths
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testTarGzArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testTarGzArchivePath) // archive_path
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
         ) // first source
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
         ); // second source
 
       mockedTarCreate.mockRejectedValue(new Error('Tar creation failed'));
@@ -332,12 +334,12 @@ describe('archiveOps', () => {
     it('should return error if zip creation fails', async () => {
       // Mock validateAndResolvePath for archive path and source paths
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testZipArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testZipArchivePath) // archive_path
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/file1.txt`
         ) // first source
         .mockImplementationOnce(
-          async (inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
+          async (_inputPath: string) => `${mockedConfig.workspaceRoot}/subdir`
         ); // second source
 
       mockWriteZip.mockImplementation(() => {
@@ -376,12 +378,14 @@ describe('archiveOps', () => {
 
     it('should successfully extract a ZIP archive', async () => {
       // Reset to default implementation first
-      mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options?: any) => {
-        if (path.isAbsolute(inputPath)) {
-          return inputPath;
+      mockedValidateAndResolvePath.mockImplementation(
+        async (inputPath: string, _options?: unknown) => {
+          if (path.isAbsolute(inputPath)) {
+            return inputPath;
+          }
+          return path.resolve(mockConfig.workspaceRoot, inputPath);
         }
-        return path.resolve(mockConfig.workspaceRoot, inputPath);
-      });
+      );
 
       // mockExtractAllTo is used here - ensure it doesn't throw
       mockExtractAllTo.mockReturnValue(undefined);
@@ -403,8 +407,8 @@ describe('archiveOps', () => {
     it('should successfully extract a TAR.GZ archive', async () => {
       // Mock validateAndResolvePath for both archive path and target path
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testTarGzArchivePath) // archive_path
-        .mockImplementationOnce(async (inputPath: string) => testExtractionPath); // target_path
+        .mockImplementationOnce(async (_inputPath: string) => testTarGzArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testExtractionPath); // target_path
 
       mockedTarExtract.mockResolvedValue(undefined);
       mockedFsExtra.pathExists.mockImplementation(async () => true);
@@ -431,49 +435,57 @@ describe('archiveOps', () => {
 
     it('should return error if archive_path does not exist for zip', async () => {
       // Mock validateAndResolvePath to throw ERR_FS_NOT_FOUND for non-existent archive
-      mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options: any) => {
-        if (options?.isExistenceRequired) {
-          throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${inputPath}`);
+      mockedValidateAndResolvePath.mockImplementation(
+        async (inputPath: string, _options: unknown) => {
+          if (_options?.isExistenceRequired) {
+            throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${inputPath}`);
+          }
+          return inputPath;
         }
-        return inputPath;
-      });
+      );
 
       await expect(extractArchive(baseZipParams, mockedConfig)).rejects.toThrow('Path not found');
 
       // Reset mock to default implementation
-      mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options?: any) => {
-        if (path.isAbsolute(inputPath)) {
-          return inputPath;
+      mockedValidateAndResolvePath.mockImplementation(
+        async (inputPath: string, _options?: unknown) => {
+          if (path.isAbsolute(inputPath)) {
+            return inputPath;
+          }
+          return path.resolve(mockConfig.workspaceRoot, inputPath);
         }
-        return path.resolve(mockConfig.workspaceRoot, inputPath);
-      });
+      );
     });
 
     it('should return error if archive_path does not exist for tar.gz', async () => {
       // Mock validateAndResolvePath to throw ERR_FS_NOT_FOUND for non-existent archive
-      mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options: any) => {
-        if (options?.isExistenceRequired) {
-          throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${inputPath}`);
+      mockedValidateAndResolvePath.mockImplementation(
+        async (inputPath: string, _options: unknown) => {
+          if (_options?.isExistenceRequired) {
+            throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${inputPath}`);
+          }
+          return inputPath;
         }
-        return inputPath;
-      });
+      );
 
       await expect(extractArchive(baseTarGzParams, mockedConfig)).rejects.toThrow('Path not found');
 
       // Reset mock to default implementation
-      mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options?: any) => {
-        if (path.isAbsolute(inputPath)) {
-          return inputPath;
+      mockedValidateAndResolvePath.mockImplementation(
+        async (inputPath: string, _options?: unknown) => {
+          if (path.isAbsolute(inputPath)) {
+            return inputPath;
+          }
+          return path.resolve(mockConfig.workspaceRoot, inputPath);
         }
-        return path.resolve(mockConfig.workspaceRoot, inputPath);
-      });
+      );
     });
 
     it('should return error if tar extraction fails', async () => {
       // Mock validateAndResolvePath for both archive path and target path
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testTarGzArchivePath) // archive_path
-        .mockImplementationOnce(async (inputPath: string) => testExtractionPath); // target_path
+        .mockImplementationOnce(async (_inputPath: string) => testTarGzArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testExtractionPath); // target_path
 
       mockedFsExtra.pathExists.mockImplementation(async () => true);
       mockedTarExtract.mockRejectedValue(new Error('Tar extraction failed'));
@@ -486,8 +498,8 @@ describe('archiveOps', () => {
     it('should return error if zip extraction fails', async () => {
       // Mock validateAndResolvePath for both archive path and target path
       mockedValidateAndResolvePath
-        .mockImplementationOnce(async (inputPath: string) => testZipArchivePath) // archive_path
-        .mockImplementationOnce(async (inputPath: string) => testExtractionPath); // target_path
+        .mockImplementationOnce(async (_inputPath: string) => testZipArchivePath) // archive_path
+        .mockImplementationOnce(async (_inputPath: string) => testExtractionPath); // target_path
 
       mockedFsExtra.pathExists.mockImplementation(async () => true);
       mockExtractAllTo.mockImplementation(() => {

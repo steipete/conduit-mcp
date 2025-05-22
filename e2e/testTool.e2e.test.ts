@@ -11,8 +11,8 @@ describe('E2E Test Tool Operations', () => {
         tool_name: 'test',
         params: {
           operation: 'echo',
-          params_to_echo: 'Hello, World!'
-        }
+          params_to_echo: 'Hello, World!',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {});
@@ -23,16 +23,16 @@ describe('E2E Test Tool Operations', () => {
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
       expect(Array.isArray(result.response)).toBe(true);
-      
+
       // Should have 2 elements: info notice + actual tool response
       expect(result.response).toHaveLength(2);
-      
+
       // First element should be the info notice
       const infoNotice = result.response[0];
       expect(infoNotice.type).toBe('info_notice');
       expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
       expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
-      
+
       // Second element should be the actual tool response object
       const actualToolResponse = result.response[1];
       expect(actualToolResponse.tool_name).toBe('test');
@@ -46,12 +46,12 @@ describe('E2E Test Tool Operations', () => {
         tool_name: 'test',
         params: {
           operation: 'echo',
-          params_to_echo: 'No notice test'
-        }
+          params_to_echo: 'No notice test',
+        },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: '/tmp'
+        CONDUIT_ALLOWED_PATHS: '/tmp',
       });
 
       if (result.exitCode !== 0) {
@@ -59,7 +59,7 @@ describe('E2E Test Tool Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      
+
       // Should be the direct tool response object (no notice)
       expect(result.response.tool_name).toBe('test');
       expect(result.response.results).toBeDefined();
@@ -70,13 +70,10 @@ describe('E2E Test Tool Operations', () => {
 
   describe('Echo Operations', () => {
     it('should echo simple string parameter', async () => {
-      const scenario = scenarios.find(s => s.name === 'echo_simple_string');
+      const scenario = scenarios.find((s) => s.name === 'echo_simple_string');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -84,11 +81,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -97,13 +94,10 @@ describe('E2E Test Tool Operations', () => {
     });
 
     it('should echo complex object parameter', async () => {
-      const scenario = scenarios.find(s => s.name === 'echo_complex_object');
+      const scenario = scenarios.find((s) => s.name === 'echo_complex_object');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -111,11 +105,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -124,13 +118,10 @@ describe('E2E Test Tool Operations', () => {
     });
 
     it('should echo null value', async () => {
-      const scenario = scenarios.find(s => s.name === 'echo_null_value');
+      const scenario = scenarios.find((s) => s.name === 'echo_null_value');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -138,11 +129,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -151,13 +142,10 @@ describe('E2E Test Tool Operations', () => {
     });
 
     it('should echo empty array', async () => {
-      const scenario = scenarios.find(s => s.name === 'echo_empty_array');
+      const scenario = scenarios.find((s) => s.name === 'echo_empty_array');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -165,11 +153,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -178,13 +166,10 @@ describe('E2E Test Tool Operations', () => {
     });
 
     it('should echo without notice when CONDUIT_ALLOWED_PATHS is set', async () => {
-      const scenario = scenarios.find(s => s.name === 'echo_no_notice_with_allowed_paths');
+      const scenario = scenarios.find((s) => s.name === 'echo_no_notice_with_allowed_paths');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -194,13 +179,10 @@ describe('E2E Test Tool Operations', () => {
 
   describe('Error Generation Operations', () => {
     it('should generate error with known error code', async () => {
-      const scenario = scenarios.find(s => s.name === 'generate_error_known_code');
+      const scenario = scenarios.find((s) => s.name === 'generate_error_known_code');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -208,11 +190,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -221,13 +203,10 @@ describe('E2E Test Tool Operations', () => {
     });
 
     it('should generate error with unknown error code', async () => {
-      const scenario = scenarios.find(s => s.name === 'generate_error_unknown_code');
+      const scenario = scenarios.find((s) => s.name === 'generate_error_unknown_code');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -235,11 +214,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -250,13 +229,10 @@ describe('E2E Test Tool Operations', () => {
 
   describe('Error Handling', () => {
     it('should handle unsupported operation', async () => {
-      const scenario = scenarios.find(s => s.name === 'unsupported_operation');
+      const scenario = scenarios.find((s) => s.name === 'unsupported_operation');
       expect(scenario).toBeDefined();
-      
-      const result = await runConduitMCPScript(
-        scenario!.request_payload,
-        scenario!.env_vars || {}
-      );
+
+      const result = await runConduitMCPScript(scenario!.request_payload, scenario!.env_vars || {});
 
       expect(result.exitCode).toBe(scenario!.expected_exit_code);
       expect(result.response).toBeDefined();
@@ -264,11 +240,11 @@ describe('E2E Test Tool Operations', () => {
       if (scenario!.should_show_notice) {
         expect(Array.isArray(result.response)).toBe(true);
         expect(result.response).toHaveLength(2);
-        
+
         const infoNotice = result.response[0];
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe(scenario!.notice_code);
-        
+
         const actualToolResponse = result.response[1];
         expect(actualToolResponse).toEqual(scenario!.expected_stdout);
       } else {
@@ -281,10 +257,7 @@ describe('E2E Test Tool Operations', () => {
     // Generate test cases dynamically from scenarios file
     scenarios.forEach((scenario: TestScenario) => {
       it(`[Scenario: ${scenario.name}] ${scenario.description}`, async () => {
-        const result = await runConduitMCPScript(
-          scenario.request_payload,
-          scenario.env_vars || {}
-        );
+        const result = await runConduitMCPScript(scenario.request_payload, scenario.env_vars || {});
 
         if (result.exitCode !== scenario.expected_exit_code) {
           console.error(`Test failed for scenario: ${scenario.name}`);
@@ -299,13 +272,13 @@ describe('E2E Test Tool Operations', () => {
         if (scenario.should_show_notice) {
           expect(Array.isArray(result.response)).toBe(true);
           expect(result.response).toHaveLength(2);
-          
+
           const infoNotice = result.response[0];
           expect(infoNotice.type).toBe('info_notice');
           if (scenario.notice_code) {
             expect(infoNotice.notice_code).toBe(scenario.notice_code);
           }
-          
+
           const actualToolResponse = result.response[1];
           expect(actualToolResponse).toEqual(scenario.expected_stdout);
         } else {
