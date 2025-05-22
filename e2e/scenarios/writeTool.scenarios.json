@@ -1,0 +1,323 @@
+{
+  "scenarios": [
+    {
+      "name": "write_put_text_overwrite_success",
+      "description": "Successfully write a small text file, overwriting if exists.",
+      "setup_files": [
+        {
+          "path": "test-put.txt",
+          "content": "Initial content"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/test-put.txt",
+              "content": "Hello, Conduit Writer!",
+              "input_encoding": "utf8",
+              "write_mode": "overwrite"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/test-put.txt",
+            "bytes_written": 22
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/test-put.txt",
+          "expected_content": "Hello, Conduit Writer!"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_text_append_success",
+      "description": "Successfully append text to an existing file.",
+      "setup_files": [
+        {
+          "path": "test-append.txt",
+          "content": "Original line. "
+        }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/test-append.txt",
+              "content": "Appended line.",
+              "write_mode": "append"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/test-append.txt",
+            "bytes_written": 14
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/test-append.txt",
+          "expected_content": "Original line. Appended line."
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_base64_success",
+      "description": "Successfully write base64 encoded content to a file.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/test-base64.txt",
+              "content": "SGVsbG8gYmFzZTY0IQ==",
+              "input_encoding": "base64"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/test-base64.txt",
+            "bytes_written": 12
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/test-base64.txt",
+          "expected_content": "Hello base64!"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_error_if_exists_success_new_file",
+      "description": "Successfully write to a new file with error_if_exists mode.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/test-new-eie.txt",
+              "content": "New file content",
+              "write_mode": "error_if_exists"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/test-new-eie.txt",
+            "bytes_written": 16
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/test-new-eie.txt",
+          "expected_content": "New file content"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_error_if_exists_fail_existing_file",
+      "description": "Fail to write to an existing file with error_if_exists mode.",
+      "setup_files": [
+        {
+          "path": "test-existing-eie.txt",
+          "content": "Already here"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/test-existing-eie.txt",
+              "content": "New content",
+              "write_mode": "error_if_exists"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/test-existing-eie.txt",
+            "error_code": "ERR_FS_ALREADY_EXISTS",
+            "error_message": "File already exists at {{TEMP_DIR}}/test-existing-eie.txt and write_mode is 'error_if_exists'."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_create_parent_dir_success",
+      "description": "Successfully write a file, creating parent directories.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/new_parent/new_child/test-parent.txt",
+              "content": "Content in nested dir"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "success",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/new_parent/new_child/test-parent.txt",
+            "bytes_written": 21
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/new_parent/new_child/test-parent.txt",
+          "expected_content": "Content in nested dir"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_invalid_base64_fail",
+      "description": "Fail to write content with invalid base64 encoding.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "{{TEMP_DIR}}/test-invalid-base64.txt",
+              "content": "This is not base64!",
+              "input_encoding": "base64"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "put",
+            "path": "{{TEMP_DIR}}/test-invalid-base64.txt",
+            "error_code": "ERR_INVALID_BASE64",
+            "error_message": "Invalid base64 content: Input string contains non-base64 characters or is not correctly padded."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "write_put_access_denied",
+      "description": "Fail to write a file outside allowed paths.",
+      "request_payload": {
+        "tool_name": "write",
+        "params": {
+          "action": "put",
+          "entries": [
+            {
+              "path": "/etc/forbidden_write.txt",
+              "content": "Secret content"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "write",
+        "results": [
+          {
+            "status": "error",
+            "action_performed": "put",
+            "path": "/etc/forbidden_write.txt",
+            "error_code": "ERR_FS_WRITE_FAILED",
+            "error_message": "Failed to write file: /etc/forbidden_write.txt. Error: EACCES: permission denied, open '/etc/forbidden_write.txt'"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    }
+  ]
+}

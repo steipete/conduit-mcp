@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
+import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
 import path from 'path';
 import fs from 'fs';
 
@@ -61,47 +62,6 @@ describe('E2E Read Operations', () => {
       expect(toolResponseItem.error_message).toContain('Path not found');
     });
 
-    it('should not show info notice on subsequent requests', async () => {
-      // Each test runs in a separate server process, so we need to test
-      // subsequent requests within a single server session.
-      // For now, this test will expect the notice since it's the first request to this server instance.
-      const requestPayload = {
-        tool_name: 'read',
-        params: {
-          operation: 'content',
-          sources: ['/nonexistent/file.txt'],
-          format: 'text',
-        },
-      };
-
-      const result = await runConduitMCPScript(requestPayload, {});
-
-      if (result.exitCode !== 0) {
-        console.error(result.error);
-      }
-      expect(result.exitCode).toBe(0);
-      expect(result.response).toBeDefined();
-      expect(Array.isArray(result.response)).toBe(true);
-
-      // Should have 2 elements: info notice + actual tool response (first request to this server)
-      expect(result.response).toHaveLength(2);
-
-      // First element should be the info notice
-      const infoNotice = result.response[0];
-      expect(infoNotice.type).toBe('info_notice');
-      expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-
-      // Second element should be the actual tool response
-      const actualToolResponse = result.response[1];
-      expect(actualToolResponse.tool_name).toBe('read');
-      expect(Array.isArray(actualToolResponse.results)).toBe(true);
-      expect(actualToolResponse.results).toHaveLength(1);
-
-      const toolResponseItem = actualToolResponse.results[0];
-      expect(toolResponseItem.status).toBe('error');
-      expect(toolResponseItem.error_message).toContain('Path not found');
-    });
-
     it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
       const requestPayload = {
         tool_name: 'read',
@@ -133,193 +93,100 @@ describe('E2E Read Operations', () => {
     });
   });
 
-  describe('Read Content Operations', () => {
-    it('should successfully read a text file', async () => {
-      const testContent = 'Hello, World!\nThis is a test file.\nLine 3 with special chars: åäö';
-      const testFile = path.join(testWorkspaceDir, 'test-read.txt');
-      // Ensure the file is created synchronously and verify it exists
-      fs.writeFileSync(testFile, testContent, 'utf8');
-      if (!fs.existsSync(testFile)) {
-        throw new Error(`Failed to create test file: ${testFile}`);
-      }
+  // Load scenarios and create dynamic tests
+  const scenarios = loadTestScenarios('readTool.scenarios.json');
 
-      const requestPayload = {
-        tool_name: 'read',
-        params: {
-          operation: 'content',
-          sources: [testFile],
-          format: 'text',
-        },
-      };
+  scenarios.forEach((scenario: TestScenario) => {
+    describe(`${scenario.name}`, () => {
+      beforeEach(async () => {
+        // Setup files if specified
+        if (scenario.setup_files) {
+          for (const file of scenario.setup_files) {
+            const targetDir = file.base_dir || testWorkspaceDir;
+            const filePath = path.join(targetDir, file.path);
 
-      const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
+            // Ensure parent directories exist
+            const parentDir = path.dirname(filePath);
+            if (!fs.existsSync(parentDir)) {
+              fs.mkdirSync(parentDir, { recursive: true });
+            }
+
+            fs.writeFileSync(filePath, file.content, file.encoding || 'utf8');
+          }
+        }
       });
 
-      if (result.exitCode !== 0) {
-        console.error(result.error);
-      }
-      expect(result.exitCode).toBe(0);
-      expect(result.response).toBeDefined();
-
-      // Should be the direct tool response object (no notice due to CONDUIT_ALLOWED_PATHS)
-      expect(result.response.tool_name).toBe('read');
-      expect(Array.isArray(result.response.results)).toBe(true);
-      expect(result.response.results).toHaveLength(1);
-
-      const toolResponseItem = result.response.results[0];
-      if (toolResponseItem.status === 'error') {
-        console.error('Read text test failed with error:', {
-          error_code: toolResponseItem.error_code,
-          error_message: toolResponseItem.error_message,
-          source: toolResponseItem.source,
-          testFile: testFile,
-          fileExists: fs.existsSync(testFile),
-        });
-      }
-      expect(toolResponseItem.status).toBe('success');
-      expect(toolResponseItem.content).toBe(testContent);
-      expect(toolResponseItem.output_format_used).toBe('text');
-      expect(toolResponseItem.source).toBe(testFile);
-    });
-
-    it('should handle file not found error', async () => {
-      const nonExistentFile = path.join(testWorkspaceDir, 'nonexistent.txt');
-
-      const requestPayload = {
-        tool_name: 'read',
-        params: {
-          operation: 'content',
-          sources: [nonExistentFile],
-          format: 'text',
-        },
-      };
-
-      const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
+      afterEach(() => {
+        // Cleanup for this scenario
       });
 
-      if (result.exitCode !== 0) {
-        console.error(result.error);
-      }
-      expect(result.exitCode).toBe(0);
-      expect(result.response).toBeDefined();
+      it(`${scenario.description}`, async () => {
+        // Process placeholder substitution
+        const processedRequestPayload = substituteTemplateValues(
+          JSON.parse(JSON.stringify(scenario.request_payload)),
+          testWorkspaceDir
+        );
 
-      // Should be the direct tool response object (no notice due to CONDUIT_ALLOWED_PATHS)
-      expect(result.response.tool_name).toBe('read');
-      expect(Array.isArray(result.response.results)).toBe(true);
-      expect(result.response.results).toHaveLength(1);
+        const processedExpectedStdout = substituteTemplateValues(
+          JSON.parse(JSON.stringify(scenario.expected_stdout)),
+          testWorkspaceDir
+        );
 
-      const toolResponseItem = result.response.results[0];
-      expect(toolResponseItem.status).toBe('error');
-      expect(toolResponseItem.error_message).toContain('Path not found');
-      expect(toolResponseItem.source).toBe(nonExistentFile);
-    });
+        const processedEnvVars = substituteTemplateValues(
+          JSON.parse(JSON.stringify(scenario.env_vars || {})),
+          testWorkspaceDir
+        );
 
-    it('should handle access denied for paths outside allowed paths', async () => {
-      // TODO: There appears to be a security issue where files outside the intended
-      // allowed paths (like /etc/passwd) are being successfully read when they should
-      // be denied. This test currently expects the incorrect behavior until the
-      // security handler bug is fixed.
+        // Run the test
+        const result = await runConduitMCPScript(processedRequestPayload, processedEnvVars);
 
-      // Use a file that likely exists but should be outside the default allowed paths
-      const restrictedFile = '/etc/passwd';
+        // Assertions
+        expect(result.exitCode).toBe(scenario.expected_exit_code);
+        expect(result.response).toBeDefined();
 
-      // Don't set CONDUIT_ALLOWED_PATHS to use defaults (should only allow ~ and /tmp)
-      const requestPayload = {
-        tool_name: 'read',
-        params: {
-          operation: 'content',
-          sources: [restrictedFile],
-          format: 'text',
-        },
-      };
+        if (scenario.should_show_notice) {
+          expect(Array.isArray(result.response)).toBe(true);
+          expect(result.response).toHaveLength(2);
 
-      const result = await runConduitMCPScript(requestPayload, {});
+          // First element should be the info notice
+          const infoNotice = result.response[0];
+          expect(infoNotice.type).toBe('info_notice');
+          if (scenario.notice_code) {
+            expect(infoNotice.notice_code).toBe(scenario.notice_code);
+          }
 
-      if (result.exitCode !== 0) {
-        console.error(result.error);
-      }
-      expect(result.exitCode).toBe(0);
-      expect(result.response).toBeDefined();
-      expect(Array.isArray(result.response)).toBe(true);
-
-      // Should have 2 elements due to info notice
-      expect(result.response).toHaveLength(2);
-
-      // First element is the info notice
-      const infoNotice = result.response[0];
-      expect(infoNotice.type).toBe('info_notice');
-      expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-      expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
-
-      // Second element is the actual tool response
-      const actualToolResponse = result.response[1];
-      expect(actualToolResponse.tool_name).toBe('read');
-      expect(Array.isArray(actualToolResponse.results)).toBe(true);
-      expect(actualToolResponse.results).toHaveLength(1);
-
-      const toolResponseItem = actualToolResponse.results[0];
-
-      // This should be an error because /etc/passwd is outside default allowed paths
-      expect(toolResponseItem.status).toBe('error');
-      expect(toolResponseItem.source).toBe(restrictedFile);
-      // Check for specific error code and message related to access denial
-      expect(toolResponseItem.error_code).toBe('ERR_FS_PERMISSION_DENIED');
-      expect(toolResponseItem.error_message).toMatch(
-        /Access to path is denied|Access denied|Path not allowed/i
-      );
-    });
-
-    it('should read binary file with base64 format', async () => {
-      // Create a simple binary file (PNG header bytes)
-      const binaryContent = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-      const testFile = path.join(testWorkspaceDir, 'test.png');
-
-      // Write binary file and verify it exists
-      fs.writeFileSync(testFile, binaryContent);
-      if (!fs.existsSync(testFile)) {
-        throw new Error(`Failed to create test file: ${testFile}`);
-      }
-
-      const requestPayload = {
-        tool_name: 'read',
-        params: {
-          operation: 'content',
-          sources: [testFile],
-          format: 'base64',
-        },
-      };
-
-      const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: testWorkspaceDir,
+          // Second element should be the actual tool response
+          const actualToolResponse = result.response[1];
+          expect(actualToolResponse).toEqual(processedExpectedStdout);
+        } else {
+          expect(result.response).toEqual(processedExpectedStdout);
+        }
       });
-
-      if (result.exitCode !== 0) {
-        console.error(result.error);
-      }
-      expect(result.exitCode).toBe(0);
-      expect(result.response).toBeDefined();
-
-      // Should be the direct tool response object (no notice due to CONDUIT_ALLOWED_PATHS)
-      expect(result.response.tool_name).toBe('read');
-      expect(Array.isArray(result.response.results)).toBe(true);
-      expect(result.response.results).toHaveLength(1);
-
-      const toolResponseItem = result.response.results[0];
-      if (toolResponseItem.status === 'error') {
-        console.error('Read binary test failed with error:', {
-          error_code: toolResponseItem.error_code,
-          error_message: toolResponseItem.error_message,
-          source: toolResponseItem.source,
-          testFile: testFile,
-          fileExists: fs.existsSync(testFile),
-        });
-      }
-      expect(toolResponseItem.status).toBe('success');
-      expect(toolResponseItem.output_format_used).toBe('base64');
-      expect(toolResponseItem.content).toBe(binaryContent.toString('base64'));
-      expect(toolResponseItem.source).toBe(testFile);
     });
   });
 });
+
+/**
+ * Recursively substitute template values in an object
+ */
+function substituteTemplateValues(obj: unknown, tempDir: string): unknown {
+  if (typeof obj === 'string') {
+    return obj
+      .replace(/\{\{TEMP_DIR\}\}/g, tempDir)
+      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, '/'));
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => substituteTemplateValues(item, tempDir));
+  }
+
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = substituteTemplateValues(value, tempDir);
+    }
+    return result;
+  }
+
+  return obj;
+}

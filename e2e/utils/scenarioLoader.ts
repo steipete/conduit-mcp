@@ -13,6 +13,18 @@ export interface TestScenario {
   should_show_notice?: boolean;
   notice_code?: string;
   env_vars?: Record<string, string>;
+  setup_files?: Array<{
+    path: string;
+    content: string;
+    base_dir?: string;
+    encoding?: string;
+  }>;
+  mocked_responses?: Array<{
+    url_pattern: string;
+    response_body: string;
+    response_status: number;
+    response_headers?: Record<string, string>;
+  }>;
   setup_filesystem?: Array<{
     type:
       | 'createFile'

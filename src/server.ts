@@ -90,8 +90,9 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
         case 'find':
           toolResponse = await findToolHandler(requestObj.params, conduitConfig);
           break;
+        case 'archive':
         case 'ArchiveTool':
-          toolResponse = await archiveToolHandler(requestObj.params, conduitConfig);
+          toolResponse = await archiveToolHandler(requestObj.params, conduitConfig, requestObj.tool_name);
           break;
         case 'test':
           toolResponse = await testToolHandler(requestObj.params, conduitConfig);

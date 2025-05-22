@@ -1,0 +1,247 @@
+{
+  "scenarios": [
+    {
+      "name": "list_entries_basic_success",
+      "description": "Successfully list entries in a directory.",
+      "setup_files": [
+        {
+          "path": "dir_to_list/file1.txt",
+          "content": "file1"
+        },
+        {
+          "path": "dir_to_list/file2.log",
+          "content": "file2"
+        },
+        {
+          "path": "dir_to_list/subdir1/subfile.md",
+          "content": "subfile"
+        },
+        {
+          "path": "dir_to_list/.hiddenfile",
+          "content": "hidden"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "entries",
+          "path": "{{TEMP_DIR}}/dir_to_list"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "list",
+        "results": {
+          "path_listed": "{{TEMP_DIR}}/dir_to_list",
+          "entries": [
+            { "name": "file1.txt", "type": "file", "size_bytes": 5 },
+            { "name": "file2.log", "type": "file", "size_bytes": 5 },
+            { "name": "subdir1", "type": "directory" }
+          ]
+        }
+      },
+      "assertions": [
+        {
+          "type": "custom_logic",
+          "name": "check_list_entries_basic",
+          "comment": "Specific checks for entry names, types, and optional fields like mime_type, created_at, modified_at if they become stable. For now, just name, type, size (for files). Omit .hiddenfile as default is to exclude hidden."
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "list_entries_empty_dir_success",
+      "description": "Successfully list entries in an empty directory.",
+      "setup_files": [{ "path": "empty_dir/", "content_type": "directory" }],
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "entries",
+          "path": "{{TEMP_DIR}}/empty_dir"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "list",
+        "results": {
+          "path_listed": "{{TEMP_DIR}}/empty_dir",
+          "entries": []
+        }
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "list_entries_path_is_file_error",
+      "description": "Attempt to list entries for a path that is a file.",
+      "setup_files": [{ "path": "not_a_dir.txt", "content": "i am a file" }],
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "entries",
+          "path": "{{TEMP_DIR}}/not_a_dir.txt"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_FS_PATH_IS_FILE",
+        "error_message": "Provided path is a file, not a directory: {{TEMP_DIR}}/not_a_dir.txt"
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "list_entries_path_not_found_error",
+      "description": "Attempt to list entries for a non-existent path.",
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "entries",
+          "path": "{{TEMP_DIR}}/nonexistent_dir"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_FS_NOT_FOUND",
+        "error_message": "Path not found: {{TEMP_DIR}}/nonexistent_dir"
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "list_entries_access_denied_error",
+      "description": "Attempt to list entries for a path outside allowed paths.",
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "entries",
+          "path": "/etc"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_FS_PERMISSION_DENIED",
+        "error_message": "Access to path /etc is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: {{TEMP_DIR}}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration."
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "list_system_info_server_capabilities",
+      "description": "Get server capabilities.",
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "system_info",
+          "info_type": "server_capabilities"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "list",
+        "results": {
+          "server_version": "{{ANY_STRING_NOT_EMPTY}}",
+          "active_configuration": {
+            "HTTP_TIMEOUT_MS": "{{ANY_NUMBER_POSITIVE}}",
+            "MAX_PAYLOAD_SIZE_BYTES": "{{ANY_NUMBER_POSITIVE}}",
+            "MAX_FILE_READ_BYTES": "{{ANY_NUMBER_POSITIVE}}",
+            "MAX_URL_DOWNLOAD_BYTES": "{{ANY_NUMBER_POSITIVE}}",
+            "IMAGE_COMPRESSION_THRESHOLD_BYTES": "{{ANY_NUMBER_POSITIVE_OR_ZERO}}",
+            "IMAGE_COMPRESSION_QUALITY": "{{ANY_NUMBER_BETWEEN_0_100}}",
+            "DEFAULT_CHECKSUM_ALGORITHM": "{{ANY_OF_CHECKSUM_ALGORITHMS}}",
+            "MAX_RECURSIVE_DEPTH": "{{ANY_NUMBER_POSITIVE}}",
+            "RECURSIVE_SIZE_TIMEOUT_MS": "{{ANY_NUMBER_POSITIVE}}",
+            "ALLOWED_PATHS": ["{{ANY_STRING_NOT_EMPTY}}"]
+          },
+          "supported_checksum_algorithms": ["md5", "sha1", "sha256", "sha512"],
+          "supported_archive_formats": ["zip", "tar.gz", "tgz"],
+          "default_checksum_algorithm": "{{ANY_OF_CHECKSUM_ALGORITHMS}}",
+          "max_recursive_depth": "{{ANY_NUMBER_POSITIVE}}"
+        }
+      },
+      "assertions": [
+        {
+          "type": "custom_logic",
+          "name": "validate_server_capabilities",
+          "comment": "Verify structure and types of capability fields, ensure ALLOWED_PATHS contains {{TEMP_DIR}} if that was set."
+        }
+      ],
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED",
+      "env_vars": {}
+    },
+    {
+      "name": "list_system_info_filesystem_stats_success",
+      "description": "Get filesystem stats for a specific path.",
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "system_info",
+          "info_type": "filesystem_stats",
+          "path": "{{TEMP_DIR}}"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "list",
+        "results": {
+          "path_queried": "{{TEMP_DIR}}",
+          "total_bytes": "{{ANY_NUMBER_POSITIVE_OR_ZERO}}",
+          "free_bytes": "{{ANY_NUMBER_POSITIVE_OR_ZERO}}",
+          "available_bytes": "{{ANY_NUMBER_POSITIVE_OR_ZERO}}",
+          "used_bytes": "{{ANY_NUMBER_POSITIVE_OR_ZERO}}"
+        }
+      },
+      "assertions": [
+        {
+          "type": "custom_logic",
+          "name": "validate_filesystem_stats",
+          "comment": "Verify that total_bytes >= used_bytes + available_bytes approximately."
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "list_system_info_filesystem_stats_no_path",
+      "description": "Get filesystem stats without providing a specific path.",
+      "request_payload": {
+        "tool_name": "list",
+        "params": {
+          "operation": "system_info",
+          "info_type": "filesystem_stats"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "list",
+        "results": {
+          "info_type_requested": "filesystem_stats",
+          "status_message": "{{ANY_STRING_NOT_EMPTY}}",
+          "server_version": "{{ANY_STRING_NOT_EMPTY}}",
+          "server_start_time_iso": "{{ANY_ISO_DATETIME_STRING}}",
+          "configured_allowed_paths": ["{{ANY_STRING_NOT_EMPTY}}"]
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED",
+      "env_vars": {}
+    }
+  ]
+}

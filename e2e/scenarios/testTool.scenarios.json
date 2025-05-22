@@ -176,6 +176,217 @@
       "env_vars": {
         "CONDUIT_ALLOWED_PATHS": "/tmp"
       }
+    },
+    {
+      "name": "echo_long_string",
+      "description": "Test echo operation with a long string parameter (1KB).",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "echo_special_chars_string",
+      "description": "Test echo operation with a string containing special characters.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": "\"'\\n\\t你好世界"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": "\"'\\n\\t你好世界"
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "echo_deeply_nested_object",
+      "description": "Test echo operation with a deeply nested object (5 levels).",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": {
+            "level1": {
+              "level2": {
+                "level3": {
+                  "level4": {
+                    "level5": "deep value"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": {
+            "level1": {
+              "level2": {
+                "level3": {
+                  "level4": {
+                    "level5": "deep value"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "echo_missing_params_to_echo",
+      "description": "Test echo operation when params_to_echo field is missing.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success"
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "generate_error_known_code_no_message",
+      "description": "Test error generation with a known error code and no custom message.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "generate_error",
+          "error_code_to_generate": "ERR_INVALID_PARAMETER"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_INVALID_PARAMETER"
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "generate_error_empty_code",
+      "description": "Test error generation with an empty error code.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "generate_error",
+          "error_code_to_generate": "",
+          "error_message_to_generate": "Error with empty code"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "",
+        "error_message": "Error with empty code"
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "/tmp"
+      }
+    },
+    {
+      "name": "generate_error_empty_message",
+      "description": "Test error generation with a known error code and an empty message.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "generate_error",
+          "error_code_to_generate": "ERR_UNKNOWN",
+          "error_message_to_generate": ""
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_UNKNOWN",
+        "error_message": ""
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "invalid_request_missing_operation",
+      "description": "Test request with missing operation field.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "some_other_param": "value"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_UNSUPPORTED_OPERATION",
+        "error_message": "Unsupported test operation: undefined"
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "invalid_request_null_operation",
+      "description": "Test request with null operation field.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": null
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_UNSUPPORTED_OPERATION",
+        "error_message": "Unsupported test operation: null"
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "invalid_request_empty_operation",
+      "description": "Test request with empty string operation field.",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": ""
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_UNSUPPORTED_OPERATION",
+        "error_message": "Unsupported test operation: "
+      },
+      "should_show_notice": false
     }
   ]
 }

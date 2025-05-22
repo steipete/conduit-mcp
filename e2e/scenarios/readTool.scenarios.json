@@ -1,0 +1,141 @@
+{
+  "scenarios": [
+    {
+      "name": "read_content_text_file_success",
+      "description": "Successfully read a small text file.",
+      "setup_files": [
+        {
+          "path": "test-read.txt",
+          "content": "Hello, Conduit!"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "read",
+        "params": {
+          "operation": "content",
+          "sources": ["{{TEMP_DIR}}/test-read.txt"],
+          "format": "text"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "read",
+        "results": [
+          {
+            "source": "{{TEMP_DIR}}/test-read.txt",
+            "source_type": "file",
+            "status": "success",
+            "content": "Hello, Conduit!",
+            "output_format_used": "text",
+            "size_bytes": 15
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "read_content_base64_file_success",
+      "description": "Successfully read a small text file as base64.",
+      "setup_files": [
+        {
+          "path": "test-read-base64.txt",
+          "content": "Base64 Test"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "read",
+        "params": {
+          "operation": "content",
+          "sources": ["{{TEMP_DIR}}/test-read-base64.txt"],
+          "format": "base64"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "read",
+        "results": [
+          {
+            "source": "{{TEMP_DIR}}/test-read-base64.txt",
+            "source_type": "file",
+            "status": "success",
+            "content": "QmFzZTY0IFRlc3Q=",
+            "output_format_used": "base64",
+            "size_bytes": 11
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "read_content_file_not_found",
+      "description": "Attempt to read a non-existent file.",
+      "request_payload": {
+        "tool_name": "read",
+        "params": {
+          "operation": "content",
+          "sources": ["{{TEMP_DIR}}/nonexistent.txt"],
+          "format": "text"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "read",
+        "results": [
+          {
+            "source": "{{TEMP_DIR}}/nonexistent.txt",
+            "source_type": "file",
+            "status": "error",
+            "error_code": "ERR_FS_NOT_FOUND",
+            "error_message": "Path not found: {{TEMP_DIR}}/nonexistent.txt (resolved to {{TEMP_DIR}}/nonexistent.txt)"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    },
+    {
+      "name": "read_content_file_access_denied",
+      "description": "Attempt to read a file outside allowed paths.",
+      "setup_files": [
+        {
+          "path": "restricted.txt",
+          "base_dir": "/tmp",
+          "content": "Secret content"
+        }
+      ],
+      "request_payload": {
+        "tool_name": "read",
+        "params": {
+          "operation": "content",
+          "sources": ["/tmp/restricted.txt"],
+          "format": "text"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "read",
+        "results": [
+          {
+            "source": "/tmp/restricted.txt",
+            "source_type": "file",
+            "status": "error",
+            "error_code": "ERR_FS_PERMISSION_DENIED",
+            "error_message": "Access to path is denied: /tmp/restricted.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}"
+      }
+    }
+  ]
+}

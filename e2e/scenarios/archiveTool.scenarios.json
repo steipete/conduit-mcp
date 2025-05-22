@@ -1,0 +1,550 @@
+{
+  "scenarios": [
+    {
+      "name": "archive_create_zip_success",
+      "description": "Successfully create a zip archive from multiple files and a directory.",
+      "setup_files": [
+        { "path": "to_archive/file1.txt", "content": "Hello 1" },
+        { "path": "to_archive/file2.txt", "content": "Hello 2" },
+        { "path": "to_archive/subdir/file3.txt", "content": "Hello 3" }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/to_archive/file1.txt", "{{TEMP_DIR}}/to_archive/subdir"],
+          "archive_path": "{{TEMP_DIR}}/my_archive.zip"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "create",
+            "archive_path": "{{TEMP_DIR}}/my_archive.zip",
+            "format_used": "zip",
+            "entries_processed": 2,
+            "compression_used": "zip",
+            "message": "Archive created successfully at {{TEMP_DIR}}/my_archive.zip"
+          }
+        ]
+      },
+      "assertions": [
+        { "type": "file_exists", "path": "{{TEMP_DIR}}/my_archive.zip", "should_exist": true },
+        {
+          "type": "archive_contains",
+          "archive_path": "{{TEMP_DIR}}/my_archive.zip",
+          "expected_entries": ["file1.txt", "subdir/file3.txt"]
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_create_targz_success",
+      "description": "Successfully create a tar.gz archive.",
+      "setup_files": [{ "path": "to_archive_tar/data.log", "content": "Log data" }],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/to_archive_tar"],
+          "archive_path": "{{TEMP_DIR}}/my_archive.tar.gz"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "create",
+            "archive_path": "{{TEMP_DIR}}/my_archive.tar.gz",
+            "format_used": "tar.gz",
+            "entries_processed": 1,
+            "compression_used": "gzip",
+            "message": "Archive created successfully at {{TEMP_DIR}}/my_archive.tar.gz"
+          }
+        ]
+      },
+      "assertions": [
+        { "type": "file_exists", "path": "{{TEMP_DIR}}/my_archive.tar.gz", "should_exist": true },
+        {
+          "type": "archive_contains",
+          "archive_path": "{{TEMP_DIR}}/my_archive.tar.gz",
+          "expected_entries": ["to_archive_tar/data.log"]
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_create_overwrite_false_fail",
+      "description": "Fail to create archive if it exists and overwrite is false (default).",
+      "setup_files": [
+        { "path": "to_archive_ow/file.txt", "content": "content" },
+        { "path": "existing_archive.zip", "content": "dummy zip content" }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/to_archive_ow"],
+          "archive_path": "{{TEMP_DIR}}/existing_archive.zip"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "error",
+            "operation": "create",
+            "error_code": "ERR_RESOURCE_ALREADY_EXISTS",
+            "error_message": "Archive already exists at {{TEMP_DIR}}/existing_archive.zip and overwrite is false. (Details: File {{TEMP_DIR}}/existing_archive.zip exists.)"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_create_overwrite_true_success",
+      "description": "Successfully create archive if it exists and overwrite is true.",
+      "setup_files": [
+        { "path": "to_archive_ow_true/new_file.txt", "content": "new content" },
+        { "path": "archive_to_overwrite.zip", "content": "old zip content" }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/to_archive_ow_true"],
+          "archive_path": "{{TEMP_DIR}}/archive_to_overwrite.zip",
+          "options": { "overwrite": true }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "create",
+            "archive_path": "{{TEMP_DIR}}/archive_to_overwrite.zip",
+            "message": "Archive created successfully at {{TEMP_DIR}}/archive_to_overwrite.zip"
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_exists",
+          "path": "{{TEMP_DIR}}/archive_to_overwrite.zip",
+          "should_exist": true
+        },
+        {
+          "type": "archive_contains",
+          "archive_path": "{{TEMP_DIR}}/archive_to_overwrite.zip",
+          "expected_entries": ["to_archive_ow_true/new_file.txt"]
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_create_with_prefix_success",
+      "description": "Successfully create a zip archive with a path prefix.",
+      "setup_files": [{ "path": "arch_prefix_src/file.txt", "content": "Hello prefixed" }],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/arch_prefix_src"],
+          "archive_path": "{{TEMP_DIR}}/prefixed_archive.zip",
+          "options": { "prefix": "my_custom_prefix" }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "create",
+            "archive_path": "{{TEMP_DIR}}/prefixed_archive.zip",
+            "message": "Archive created successfully at {{TEMP_DIR}}/prefixed_archive.zip"
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_exists",
+          "path": "{{TEMP_DIR}}/prefixed_archive.zip",
+          "should_exist": true
+        },
+        {
+          "type": "archive_contains",
+          "archive_path": "{{TEMP_DIR}}/prefixed_archive.zip",
+          "expected_entries": ["my_custom_prefix/arch_prefix_src/file.txt"]
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_create_source_not_found_error",
+      "description": "Fail to create archive if a source path does not exist.",
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/non_existent_source"],
+          "archive_path": "{{TEMP_DIR}}/error_archive.zip"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "error",
+            "operation": "create",
+            "error_code": "ERR_INVALID_PARAMETER",
+            "error_message": "Path validation failed: Path not found: {{TEMP_DIR}}/non_existent_source"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_create_path_not_allowed_error",
+      "description": "Fail to create archive if archive_path is not allowed.",
+      "setup_files": [{ "path": "source_for_bad_archive/file.txt", "content": "content" }],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "create",
+          "source_paths": ["{{TEMP_DIR}}/source_for_bad_archive"],
+          "archive_path": "/tmp/forbidden_archive.zip"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "error",
+            "operation": "create",
+            "error_code": "ERR_INVALID_PARAMETER",
+            "error_message": "Path validation failed: Access to path /tmp/forbidden_archive.zip is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: {{TEMP_DIR}}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_zip_success",
+      "description": "Successfully extract a zip archive.",
+      "setup_files": [
+        {
+          "path": "my_test_archive.zip",
+          "content_type": "archive",
+          "archive_type": "zip",
+          "entries": [
+            { "path": "file_in_zip.txt", "content": "Zipped content" },
+            { "path": "folder_in_zip/another.txt", "content": "More zipped stuff" }
+          ]
+        }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/my_test_archive.zip",
+          "destination_path": "{{TEMP_DIR}}/extracted_zip_output"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "extract",
+            "archive_path": "{{TEMP_DIR}}/my_test_archive.zip",
+            "destination_path": "{{TEMP_DIR}}/extracted_zip_output",
+            "message": "Archive extracted successfully to {{TEMP_DIR}}/extracted_zip_output."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_exists",
+          "path": "{{TEMP_DIR}}/extracted_zip_output/file_in_zip.txt",
+          "should_exist": true
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/extracted_zip_output/file_in_zip.txt",
+          "expected_content": "Zipped content"
+        },
+        {
+          "type": "file_exists",
+          "path": "{{TEMP_DIR}}/extracted_zip_output/folder_in_zip/another.txt",
+          "should_exist": true
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/extracted_zip_output/folder_in_zip/another.txt",
+          "expected_content": "More zipped stuff"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_targz_success",
+      "description": "Successfully extract a tar.gz archive.",
+      "setup_files": [
+        {
+          "path": "my_test_archive.tar.gz",
+          "content_type": "archive",
+          "archive_type": "tar.gz",
+          "entries": [{ "path": "data/log.txt", "content": "Tgz content" }]
+        }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/my_test_archive.tar.gz",
+          "destination_path": "{{TEMP_DIR}}/extracted_targz_output"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "extract",
+            "archive_path": "{{TEMP_DIR}}/my_test_archive.tar.gz",
+            "destination_path": "{{TEMP_DIR}}/extracted_targz_output",
+            "message": "Archive extracted successfully to {{TEMP_DIR}}/extracted_targz_output."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_exists",
+          "path": "{{TEMP_DIR}}/extracted_targz_output/data/log.txt",
+          "should_exist": true
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/extracted_targz_output/data/log.txt",
+          "expected_content": "Tgz content"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_overwrite_false_fail",
+      "description": "Fail to extract if files exist and overwrite is false (default).",
+      "setup_files": [
+        {
+          "path": "archive_for_no_overwrite.zip",
+          "content_type": "archive",
+          "archive_type": "zip",
+          "entries": [{ "path": "existing.txt", "content": "From archive" }]
+        },
+        { "path": "extract_here_no_ow/existing.txt", "content": "Already present" }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/archive_for_no_overwrite.zip",
+          "destination_path": "{{TEMP_DIR}}/extract_here_no_ow",
+          "options": { "overwrite": false }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "error",
+            "operation": "extract",
+            "error_code": "ERR_ARCHIVE_EXTRACTION_FAILED",
+            "error_message": "Failed to extract archive: adm-zip: Cannot overwrite file: {{TEMP_DIR}}/extract_here_no_ow/existing.txt"
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/extract_here_no_ow/existing.txt",
+          "expected_content": "Already present"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_overwrite_true_success",
+      "description": "Successfully extract and overwrite existing files.",
+      "setup_files": [
+        {
+          "path": "archive_for_overwrite.zip",
+          "content_type": "archive",
+          "archive_type": "zip",
+          "entries": [{ "path": "to_be_overwritten.txt", "content": "New from archive" }]
+        },
+        { "path": "extract_here_ow_true/to_be_overwritten.txt", "content": "Old content" }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/archive_for_overwrite.zip",
+          "destination_path": "{{TEMP_DIR}}/extract_here_ow_true",
+          "options": { "overwrite": true }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "extract",
+            "message": "Archive extracted successfully to {{TEMP_DIR}}/extract_here_ow_true."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/extract_here_ow_true/to_be_overwritten.txt",
+          "expected_content": "New from archive"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_tar_strip_components_success",
+      "description": "Successfully extract a tar.gz archive with strip_components.",
+      "setup_files": [
+        {
+          "path": "archive_strip.tar.gz",
+          "content_type": "archive",
+          "archive_type": "tar.gz",
+          "entries": [
+            { "path": "root_folder/sub_folder/stripped_file.txt", "content": "Stripped!" }
+          ]
+        }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/archive_strip.tar.gz",
+          "destination_path": "{{TEMP_DIR}}/extracted_strip_output",
+          "options": { "strip_components": 1 }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "success",
+            "operation": "extract",
+            "message": "Archive extracted successfully to {{TEMP_DIR}}/extracted_strip_output."
+          }
+        ]
+      },
+      "assertions": [
+        {
+          "type": "file_exists",
+          "path": "{{TEMP_DIR}}/extracted_strip_output/sub_folder/stripped_file.txt",
+          "should_exist": true
+        },
+        {
+          "type": "file_content",
+          "path": "{{TEMP_DIR}}/extracted_strip_output/sub_folder/stripped_file.txt",
+          "expected_content": "Stripped!"
+        }
+      ],
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_archive_not_found_error",
+      "description": "Fail to extract if archive path does not exist.",
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/non_existent_archive.zip",
+          "destination_path": "{{TEMP_DIR}}/extract_output_error"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "error",
+            "operation": "extract",
+            "error_code": "ERR_INVALID_PARAMETER",
+            "error_message": "Path validation failed: Path not found: {{TEMP_DIR}}/non_existent_archive.zip"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    },
+    {
+      "name": "archive_extract_destination_not_allowed_error",
+      "description": "Fail to extract if destination_path is not allowed.",
+      "setup_files": [
+        {
+          "path": "dummy_archive.zip",
+          "content_type": "archive",
+          "archive_type": "zip",
+          "entries": [{ "path": "f.txt", "content": "c" }]
+        }
+      ],
+      "request_payload": {
+        "tool_name": "archive",
+        "params": {
+          "operation": "extract",
+          "archive_path": "{{TEMP_DIR}}/dummy_archive.zip",
+          "destination_path": "/tmp/forbidden_extract_dir"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "archive",
+        "results": [
+          {
+            "status": "error",
+            "operation": "extract",
+            "error_code": "ERR_INVALID_PARAMETER",
+            "error_message": "Path validation failed: Access to path /tmp/forbidden_extract_dir is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: {{TEMP_DIR}}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration."
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "env_vars": { "CONDUIT_ALLOWED_PATHS": "{{TEMP_DIR}}" }
+    }
+  ]
+}

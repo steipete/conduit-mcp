@@ -120,8 +120,8 @@ export async function writeToolHandler(
               : writeToolArchiveParams.format === 'zip'
                 ? undefined
                 : 'none',
-          options: undefined,
-          metadata: undefined,
+          options: writeToolArchiveParams.options,
+          metadata: writeToolArchiveParams.metadata,
         };
 
         const archiveResult = await createArchive(createArchiveToolParams, config);
@@ -336,7 +336,7 @@ export async function writeToolHandler(
           operation: 'extract',
           archive_path: writeToolUnarchiveParams.archive_path,
           target_path: writeToolUnarchiveParams.destination_path,
-          options: undefined,
+          options: writeToolUnarchiveParams.options,
         };
 
         const unarchiveResult = await extractArchive(extractArchiveToolParams, config);
