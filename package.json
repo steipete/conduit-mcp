@@ -36,12 +36,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/conduit-mcp.git"
+    "url": "git+https://github.com/steipete/conduit-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/conduit-mcp/issues"
+    "url": "https://github.com/steipete/conduit-mcp/issues"
   },
-  "homepage": "https://github.com/yourusername/conduit-mcp#readme",
+  "homepage": "https://github.com/steipete/conduit-mcp#readme",
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
     "adm-zip": "^0.5.16",

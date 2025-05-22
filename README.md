@@ -1,6 +1,6 @@
 # conduit-mcp 🐱
 
-![conduit-mcp banner](assets/banner.png)
+![conduit-mcp banner](https://raw.githubusercontent.com/steipete/conduit-mcp/main/assets/banner.png)
 
 **The purr-fect MCP server for feline-fast file operations, web prowling, and data hunting! 🐾**
 
