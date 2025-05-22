@@ -183,6 +183,55 @@ The project uses Vitest as the testing framework with comprehensive test coverag
 
 The test suite includes unit tests, integration tests, and end-to-end testing to ensure reliability and correctness of all functionality. Test files are organized in the `tests/` directory, mirroring the structure of the `src/` directory.
 
+## End-to-End (E2E) Testing
+
+The project includes a comprehensive E2E testing suite that validates the complete MCP server functionality by running real scenarios against the actual server implementation.
+
+### How to Run E2E Tests
+
+```bash
+npm run test:e2e
+```
+
+This command runs all E2E tests in the `e2e/` directory using Vitest with a specialized configuration (`vitest.config.e2e.ts`).
+
+### Directory Structure
+
+- **`e2e/`** - Root directory for all E2E tests
+- **`e2e/*.e2e.test.ts`** - Test files for each tool/functional area:
+  - `archive.e2e.test.ts` - Tests for archive operations (ZIP/TAR.GZ creation and extraction)
+  - `find.e2e.test.ts` - Tests for the find tool functionality
+  - `list.e2e.test.ts` - Tests for directory listing operations
+  - `read.e2e.test.ts` - Tests for file reading and content retrieval
+  - `testTool.e2e.test.ts` - Tests for the test tool functionality
+  - `write.e2e.test.ts` - Tests for file writing and creation operations
+- **`e2e/scenarios/`** - Directory containing JSON scenario definitions:
+  - `*.scenarios.json` - JSON files defining specific test scenarios with payloads, expected outcomes, and filesystem setup requirements
+  - `README.md` - Documentation explaining the scenario file format and structure
+- **`e2e/utils/`** - Utility modules supporting E2E test execution:
+  - `e2eTestRunner.ts` - Core script for executing the Conduit MCP server and capturing results
+  - `scenarioLoader.ts` - Utility for loading and parsing scenario files
+  - `tempFs.ts` - Utilities for managing temporary files and directories during tests
+
+### Writing E2E Tests
+
+E2E tests are scenario-driven, using JSON scenario files to define inputs and expected outputs:
+
+1. **Define scenarios**: Create or update `*.scenarios.json` files in `e2e/scenarios/` with test cases that specify:
+   - MCP request payloads
+   - Expected response structures
+   - Filesystem setup requirements
+   - Validation criteria
+
+2. **Implement test logic**: Add corresponding test implementations in the appropriate `*.e2e.test.ts` file that:
+   - Load scenarios using `scenarioLoader.ts`
+   - Execute tests using `e2eTestRunner.ts`
+   - Validate results against expected outcomes
+
+3. **Manage test data**: Use `tempFs.ts` utilities to create and clean up temporary files and directories needed for test scenarios.
+
+This approach ensures that E2E tests validate real-world usage patterns while maintaining consistency and reusability across different test scenarios.
+
 ## Linting and Formatting
 
 This project uses ESLint for linting and Prettier for code formatting to maintain consistent code quality and style.

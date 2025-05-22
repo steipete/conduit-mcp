@@ -11,8 +11,8 @@ export interface TestScenario {
   notice_code?: string;
   env_vars?: Record<string, string>;
   setup_filesystem?: Array<{
-    type: 'createFile' | 'createDirectory' | 'createSymlink' | 'createBinaryFile';
-    path: string;
+    type: 'createFile' | 'createDirectory' | 'createSymlink' | 'createBinaryFile' | 'createMultipleFiles';
+    path?: string;
     content?: string;
     target?: string;
     link?: string;
@@ -21,6 +21,9 @@ export interface TestScenario {
     ctime?: string;
     binary_content?: number[];
     filename_pattern?: string;
+    pattern?: string;
+    content_template?: string;
+    permissions?: string;
   }>;
   cleanup_filesystem?: string[];
 }

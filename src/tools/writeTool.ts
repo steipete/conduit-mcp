@@ -46,6 +46,18 @@ export async function writeToolHandler(
 
         for (const entry of putParams.entries) {
           try {
+            // Validate base64 content if encoding is base64
+            if (entry.input_encoding === 'base64' && typeof entry.content === 'string') {
+              const base64Regex =
+                /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+              if (!base64Regex.test(entry.content)) {
+                throw new ConduitError(
+                  ErrorCode.ERR_INVALID_BASE64,
+                  'Invalid base64 content: Input string contains non-base64 characters or is not correctly padded.'
+                );
+              }
+            }
+
             let fsWriteMode: 'overwrite' | 'append' | undefined = undefined;
             if (entry.write_mode === 'overwrite' || entry.write_mode === 'append') {
               fsWriteMode = entry.write_mode;

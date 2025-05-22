@@ -446,6 +446,9 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
 export async function touchFile(filePath: string): Promise<void> {
   try {
     if (!(await pathExists(filePath))) {
+      // Ensure parent directories exist before creating the file
+      const parentDir = path.dirname(filePath);
+      await createDirectory(parentDir, true);
       await writeFile(filePath, ''); // Create empty file if it doesn't exist
     } else {
       const now = new Date();
