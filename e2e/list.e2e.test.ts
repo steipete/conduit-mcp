@@ -17,7 +17,12 @@ interface EnhancedTestScenario {
   notice_code?: string;
   env_vars?: Record<string, string>;
   setup_filesystem?: Array<{
-    type: 'createFile' | 'createDirectory' | 'createSymlink' | 'createBinaryFile' | 'createMultipleFiles';
+    type:
+      | 'createFile'
+      | 'createDirectory'
+      | 'createSymlink'
+      | 'createBinaryFile'
+      | 'createMultipleFiles';
     path?: string;
     content?: string;
     target?: string;
@@ -92,16 +97,16 @@ describe('E2E List Operations', () => {
             const [, prefix, startStr, endStr, suffix] = match;
             const start = parseInt(startStr, 10);
             const end = parseInt(endStr, 10);
-            
+
             for (let i = start; i <= end; i++) {
               const filename = `${prefix}${i.toString().padStart(startStr.length, '0')}${suffix}`;
               const fullPath = path.join(tempDir, filename);
               const dirPath = path.dirname(fullPath);
-              
+
               if (!fs.existsSync(dirPath)) {
                 fs.mkdirSync(dirPath, { recursive: true });
               }
-              
+
               let content = item.content_template || 'Generated content';
               content = content.replace(/\{number\}/g, i.toString());
               fs.writeFileSync(fullPath, content);
@@ -198,7 +203,7 @@ describe('E2E List Operations', () => {
     if (scenario.expected_exit_code !== 0) {
       if (scenario.expected_stderr) {
         expect(actual.status).toBe('error');
-        
+
         if (typeof scenario.expected_stderr === 'object' && scenario.expected_stderr.contains) {
           expect(actual.error_message).toContain(scenario.expected_stderr.contains);
         }
@@ -215,7 +220,7 @@ describe('E2E List Operations', () => {
       // Handle array results (list entries)
       if (Array.isArray(expected.results)) {
         expect(Array.isArray(actual.results)).toBe(true);
-        
+
         // Check results count if specified
         if (expected.results_count_matches) {
           const countMatch = expected.results_count_matches;
@@ -245,12 +250,18 @@ describe('E2E List Operations', () => {
         // Verify individual entries
         for (let i = 0; i < expected.results.length; i++) {
           const expectedEntry = expected.results[i];
-          
+
           // Find matching entry by name or other criteria in both top-level and flattened results
           let actualEntry = flatActualResults.find((entry: any) => {
             if (expectedEntry.name && entry.name === expectedEntry.name) return true;
-            if (expectedEntry.name_contains && entry.name.includes(expectedEntry.name_contains)) return true;
-            if (expectedEntry.path_contains && entry.path && entry.path.includes(expectedEntry.path_contains)) return true;
+            if (expectedEntry.name_contains && entry.name.includes(expectedEntry.name_contains))
+              return true;
+            if (
+              expectedEntry.path_contains &&
+              entry.path &&
+              entry.path.includes(expectedEntry.path_contains)
+            )
+              return true;
             return false;
           });
 
@@ -261,24 +272,30 @@ describe('E2E List Operations', () => {
 
           if (!actualEntry) {
             console.log(`Could not find expected entry:`, expectedEntry);
-            console.log(`Available top-level entries:`, actual.results.map((e: any) => ({ name: e.name, path: e.path, type: e.type })));
-            console.log(`Available flattened entries:`, flatActualResults.map((e: any) => ({ name: e.name, path: e.path, type: e.type })));
+            console.log(
+              `Available top-level entries:`,
+              actual.results.map((e: any) => ({ name: e.name, path: e.path, type: e.type }))
+            );
+            console.log(
+              `Available flattened entries:`,
+              flatActualResults.map((e: any) => ({ name: e.name, path: e.path, type: e.type }))
+            );
           }
 
           expect(actualEntry).toBeDefined();
-          
+
           if (expectedEntry.type) {
             expect(actualEntry.type).toBe(expectedEntry.type);
           }
-          
+
           if (expectedEntry.name && !expectedEntry.name_contains) {
             expect(actualEntry.name).toBe(expectedEntry.name);
           }
-          
+
           if (expectedEntry.path_contains) {
             expect(actualEntry.path).toContain(expectedEntry.path_contains);
           }
-          
+
           if (expectedEntry.size_bytes_matches) {
             const sizeMatch = expectedEntry.size_bytes_matches;
             if (typeof sizeMatch === 'string' && sizeMatch.startsWith('gt:')) {
@@ -288,8 +305,11 @@ describe('E2E List Operations', () => {
               expect(actualEntry.size_bytes).toBe(sizeMatch);
             }
           }
-          
-          if (expectedEntry.recursive_size_bytes_matches && actualEntry.recursive_size_bytes !== undefined) {
+
+          if (
+            expectedEntry.recursive_size_bytes_matches &&
+            actualEntry.recursive_size_bytes !== undefined
+          ) {
             const sizeMatch = expectedEntry.recursive_size_bytes_matches;
             if (typeof sizeMatch === 'string' && sizeMatch.startsWith('gt:')) {
               const minSize = parseInt(sizeMatch.split(':')[1], 10);
@@ -300,64 +320,97 @@ describe('E2E List Operations', () => {
       } else if (typeof expected.results === 'object') {
         // Handle object results (system info)
         const results = actual.results;
-        
+
         // Server capabilities checks
         if (expected.results.server_version_exists) {
           expect(results.server_version).toBeDefined();
         }
-        
+
         if (expected.results.supported_checksum_algorithms_contains) {
           expect(Array.isArray(results.supported_checksum_algorithms)).toBe(true);
           for (const algo of expected.results.supported_checksum_algorithms_contains) {
             expect(results.supported_checksum_algorithms).toContain(algo);
           }
         }
-        
+
         if (expected.results.supported_archive_formats_contains) {
           expect(Array.isArray(results.supported_archive_formats)).toBe(true);
           for (const format of expected.results.supported_archive_formats_contains) {
             expect(results.supported_archive_formats).toContain(format);
           }
         }
-        
+
         if (expected.results.max_recursive_depth_exists) {
           expect(results.max_recursive_depth).toBeDefined();
           expect(typeof results.max_recursive_depth).toBe('number');
         }
-        
+
         // Filesystem stats checks
         if (expected.results.path_queried_exists) {
           expect(results.path_queried).toBeDefined();
         }
-        
+
+        // Handle explicit path_queried value match
+        if (expected.results.path_queried && expected.results.path_queried !== '<any_string>') {
+          expect(results.path_queried).toBe(expected.results.path_queried);
+        }
+
         if (expected.results.total_bytes_exists) {
           expect(typeof results.total_bytes).toBe('number');
           expect(results.total_bytes).toBeGreaterThan(0);
         }
-        
+
+        // Handle explicit byte values with <any_number> placeholders
+        if (expected.results.total_bytes && expected.results.total_bytes !== '<any_number>') {
+          expect(results.total_bytes).toBe(expected.results.total_bytes);
+        } else if (expected.results.total_bytes === '<any_number>') {
+          expect(typeof results.total_bytes).toBe('number');
+        }
+
         if (expected.results.free_bytes_exists) {
           expect(typeof results.free_bytes).toBe('number');
           expect(results.free_bytes).toBeGreaterThanOrEqual(0);
         }
-        
+
+        if (expected.results.free_bytes && expected.results.free_bytes !== '<any_number>') {
+          expect(results.free_bytes).toBe(expected.results.free_bytes);
+        } else if (expected.results.free_bytes === '<any_number>') {
+          expect(typeof results.free_bytes).toBe('number');
+        }
+
         if (expected.results.available_bytes_exists) {
           expect(typeof results.available_bytes).toBe('number');
           expect(results.available_bytes).toBeGreaterThanOrEqual(0);
         }
-        
+
+        if (
+          expected.results.available_bytes &&
+          expected.results.available_bytes !== '<any_number>'
+        ) {
+          expect(results.available_bytes).toBe(expected.results.available_bytes);
+        } else if (expected.results.available_bytes === '<any_number>') {
+          expect(typeof results.available_bytes).toBe('number');
+        }
+
         if (expected.results.used_bytes_exists) {
           expect(typeof results.used_bytes).toBe('number');
           expect(results.used_bytes).toBeGreaterThanOrEqual(0);
         }
-        
+
+        if (expected.results.used_bytes && expected.results.used_bytes !== '<any_number>') {
+          expect(results.used_bytes).toBe(expected.results.used_bytes);
+        } else if (expected.results.used_bytes === '<any_number>') {
+          expect(typeof results.used_bytes).toBe('number');
+        }
+
         if (expected.results.info_type_requested) {
           expect(results.info_type_requested).toBe(expected.results.info_type_requested);
         }
-        
+
         if (expected.results.status_message_contains) {
           expect(results.status_message).toContain(expected.results.status_message_contains);
         }
-        
+
         if (expected.results.configured_allowed_paths_exists) {
           expect(Array.isArray(results.configured_allowed_paths)).toBe(true);
         }

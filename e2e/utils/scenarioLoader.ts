@@ -6,12 +6,23 @@ export interface TestScenario {
   description: string;
   request_payload: unknown;
   expected_exit_code: number;
-  expected_stdout: unknown;
+  expected_stdout?: unknown;
+  expected_stderr?: {
+    contains?: string;
+  };
   should_show_notice?: boolean;
   notice_code?: string;
   env_vars?: Record<string, string>;
   setup_filesystem?: Array<{
-    type: 'createFile' | 'createDirectory' | 'createSymlink' | 'createBinaryFile' | 'createMultipleFiles';
+    type:
+      | 'createFile'
+      | 'createDirectory'
+      | 'createSymlink'
+      | 'createBinaryFile'
+      | 'createMultipleFiles'
+      | 'createZipArchive'
+      | 'createTarGzArchive'
+      | 'createEmptyZipArchive';
     path?: string;
     content?: string;
     target?: string;
@@ -24,8 +35,16 @@ export interface TestScenario {
     pattern?: string;
     content_template?: string;
     permissions?: string;
+    archive_path?: string;
+    source_files?: string[];
+    source_paths?: string[];
   }>;
   cleanup_filesystem?: string[];
+  filesystem_effects?: Array<{
+    type: 'file_exists' | 'file_not_exists' | 'directory_exists' | 'directory_not_exists';
+    path: string;
+    content?: string;
+  }>;
 }
 
 export interface ScenarioFile {
