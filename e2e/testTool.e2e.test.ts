@@ -35,9 +35,8 @@ describe('E2E Test Tool Operations', () => {
         expect(actualToolResponse.tool_name).toBe('test');
         const testResponse = actualToolResponse as TestToolResponse;
         expect(testResponse.results).toBeDefined();
-        expect(testResponse.results?.[0]?.status).toBe('success');
-        const firstResult = testResponse.results?.[0] as { status: string; echoed_params?: string };
-        expect(firstResult?.echoed_params).toBe('Hello, World!');
+        expect(testResponse.results?.status).toBe('success');
+        expect(testResponse.results?.echoed_params).toBe('Hello, World!');
       }
     });
 
@@ -65,16 +64,18 @@ describe('E2E Test Tool Operations', () => {
       const response = result.response as TestToolResponse;
       expect(response.tool_name).toBe('test');
       expect(response.results).toBeDefined();
-      expect(response.results?.[0]?.status).toBe('success');
-      const firstResult = response.results?.[0] as { status: string; echoed_params?: string };
-      expect(firstResult?.echoed_params).toBe('No notice test');
+      expect(response.results?.status).toBe('success');
+      expect(response.results?.echoed_params).toBe('No notice test');
     });
   });
 
   scenarios.forEach((scenario: TestScenario) => {
     describe('Dynamic Test Tool Scenarios', () => {
       it(`${scenario.description || scenario.name}`, async () => {
-        const result = await runConduitMCPScript(scenario.request_payload, scenario.env_vars as Record<string, string> || {});
+        const result = await runConduitMCPScript(
+          scenario.request_payload as any,
+          (scenario.env_vars as Record<string, string>) || {}
+        );
 
         expect(result.exitCode).toBe(scenario.expected_exit_code);
         expect(result.response).toBeDefined();

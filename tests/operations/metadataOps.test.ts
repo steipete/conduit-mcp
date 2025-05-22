@@ -105,10 +105,8 @@ describe('metadataOps', () => {
       headers: {},
       httpStatus: 200,
       content: Buffer.from(''),
-      isBinary: false,
-      size: 0,
-      isPartialContent: false,
-      rangeRequestStatus: 'not_requested',
+      size_bytes: 0,
+      range_request_status: 'not_supported',
     });
     mockedMimeService.getMimeType.mockReturnValue(Promise.resolve('text/plain'));
   });

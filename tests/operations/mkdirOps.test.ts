@@ -7,7 +7,7 @@ import { type MockedFunction } from 'vitest';
 import * as path from 'path'; // For path.resolve if needed in tests, or for matching paths
 
 import { makeDirectory } from '@/operations/mkdirOps';
-import { WriteTool, ConduitServerConfig, ErrorCode, ConduitError } from '@/internal';
+import { ConduitServerConfig, ErrorCode, ConduitError } from '@/internal';
 
 // Mock @/internal essentials using the robust spread pattern
 vi.mock('@/internal', async (importOriginal) => {
@@ -29,12 +29,17 @@ vi.mock('@/internal', async (importOriginal) => {
     // Pass through types/enums from originalModule
     ErrorCode: originalModule.ErrorCode,
     ConduitError: originalModule.ConduitError,
-    WriteTool: originalModule.WriteTool,
   };
 });
 
 // Import mocked items after mock setup
 import { conduitConfig, logger, fileSystemOps, securityHandler } from '@/internal';
+
+// Define WriteTool types locally until they're properly exported
+interface MkdirEntry {
+  path: string;
+  recursive?: boolean;
+}
 
 describe('mkdirOps', () => {
   // Initialize test-level variables for these mocks with correct proxy/mocked function types
@@ -78,50 +83,51 @@ describe('mkdirOps', () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
     mockedFsOps.ensureDirectoryExists.mockResolvedValue(undefined);
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath, recursive: false };
+    const entry: MkdirEntry = { path: testDirPath, recursive: false };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(mockedFsOps.pathExists).toHaveBeenCalledWith(absoluteTestDirPath);
     expect(mockedFsOps.ensureDirectoryExists).toHaveBeenCalledWith(absoluteTestDirPath);
     expect(result.status).toBe('success');
-    const successResult = result as WriteTool.WriteResultSuccess;
-    expect(successResult.path).toBe(testDirPath);
-    expect(successResult.message).toContain('Directory created');
+    if (result.status === 'success') {
+      expect(result.path).toBe(testDirPath);
+      expect(result.message).toContain('Directory created');
+    }
   });
 
   it('should successfully create a new directory (recursive implied by ensureDir)', async () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
     mockedFsOps.ensureDirectoryExists.mockResolvedValue(undefined);
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath, recursive: true };
+    const entry: MkdirEntry = { path: testDirPath, recursive: true };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(mockedFsOps.ensureDirectoryExists).toHaveBeenCalledWith(absoluteTestDirPath);
     expect(result.status).toBe('success');
-    const successResult = result as WriteTool.WriteResultSuccess;
-    expect(successResult.message).toContain(
-      'Directory and any necessary parent directories created'
-    );
+    if (result.status === 'success') {
+      expect(result.message).toContain('Directory and any necessary parent directories created');
+    }
   });
 
   it('should return success if directory already exists', async () => {
     mockedFsOps.pathExists.mockResolvedValue(true);
     mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => true } as import('fs').Stats);
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath };
+    const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(mockedFsOps.ensureDirectoryExists).not.toHaveBeenCalled();
     expect(result.status).toBe('success');
-    const successResult = result as WriteTool.WriteResultSuccess;
-    expect(successResult.message).toBe('Directory already exists.');
+    if (result.status === 'success') {
+      expect(result.message).toBe('Directory already exists.');
+    }
   });
 
   it('should return error if path exists and is a file', async () => {
     mockedFsOps.pathExists.mockResolvedValue(true);
     mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false } as import('fs').Stats);
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath };
+    const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');
@@ -136,7 +142,7 @@ describe('mkdirOps', () => {
     permissionError.code = 'EACCES';
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(permissionError);
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath };
+    const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');
@@ -151,7 +157,7 @@ describe('mkdirOps', () => {
     notDirError.code = 'ENOTDIR';
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(notDirError);
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath };
+    const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');
@@ -164,7 +170,7 @@ describe('mkdirOps', () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
     mockedFsOps.ensureDirectoryExists.mockRejectedValue(new Error('FS failure'));
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath };
+    const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');
@@ -174,7 +180,7 @@ describe('mkdirOps', () => {
   });
 
   it('should return error if path is not provided', async () => {
-    const entry: WriteTool.MkdirEntry = { path: '' }; // Test with empty path
+    const entry: MkdirEntry = { path: '' }; // Test with empty path
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');
@@ -185,7 +191,7 @@ describe('mkdirOps', () => {
   });
 
   it('should return error if path is undefined', async () => {
-    const entry: WriteTool.MkdirEntry = { path: undefined as unknown as string }; // Test with undefined path
+    const entry: MkdirEntry = { path: undefined as unknown as string }; // Test with undefined path
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');
@@ -200,7 +206,7 @@ describe('mkdirOps', () => {
       new ConduitError(ErrorCode.ACCESS_DENIED, 'Conduit access denied')
     );
 
-    const entry: WriteTool.MkdirEntry = { path: testDirPath };
+    const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(result.status).toBe('error');

@@ -297,8 +297,8 @@ export async function deletePath(itemPath: string, recursive: boolean = false): 
           );
         }
 
-        // Directory is empty, use rm for empty directories
-        await fs.rm(itemPath, { recursive: false });
+        // Directory is empty, use rmdir for empty directories
+        await fs.rmdir(itemPath);
       } else {
         // Recursive deletion
         await fs.rm(itemPath, { recursive: true, force: true }); // force helps with some permission issues on Windows if recursive

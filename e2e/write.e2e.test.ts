@@ -442,7 +442,9 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
         }
       }
       if (expectedResult.bytes_written_gt !== undefined) {
-        expect(actualResult.bytes_written).toBeGreaterThan(expectedResult.bytes_written_gt as number);
+        expect(actualResult.bytes_written).toBeGreaterThan(
+          expectedResult.bytes_written_gt as number
+        );
       }
 
       // Check error details for failed operations

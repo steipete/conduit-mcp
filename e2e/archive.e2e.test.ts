@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
 import { loadTestScenarios, TestScenario, ToolResult, Assertion } from './utils/scenarioLoader';
+import { BufferEncoding } from './utils/types';
 import path from 'path';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
@@ -95,7 +96,9 @@ describe('E2E Archive Operations', () => {
               }
             } else {
               // Regular file
-              fs.writeFileSync(filePath, file.content || '', { encoding: file.encoding || 'utf8' });
+              fs.writeFileSync(filePath, file.content || '', {
+                encoding: (file.encoding || 'utf8') as BufferEncoding,
+              });
             }
           }
         }
@@ -119,7 +122,10 @@ describe('E2E Archive Operations', () => {
         );
 
         // Run the test
-        const result = await runConduitMCPScript(processedRequestPayload, processedEnvVars as Record<string, string>);
+        const result = await runConduitMCPScript(
+          processedRequestPayload as any,
+          processedEnvVars as Record<string, string>
+        );
 
         // Assertions
         expect(result.exitCode).toBe(scenario.expected_exit_code);
@@ -130,32 +136,38 @@ describe('E2E Archive Operations', () => {
           expect(result.response).toHaveLength(2);
 
           // First element should be the info notice
-          const infoNotice = result.response[0] as any;
+          const infoNotice = (result.response as any[])[0];
           expect(infoNotice.type).toBe('info_notice');
           if (scenario.notice_code) {
             expect(infoNotice.notice_code).toBe(scenario.notice_code);
           }
 
           // Second element should be the actual tool response
-          const actualToolResponse = result.response[1] as ToolResult;
+          const actualToolResponse = (result.response as any[])[1] as ToolResult;
           verifyArchiveResults(actualToolResponse, processedExpectedStdout as ToolResult);
         } else {
-          verifyArchiveResults(result.response as ToolResult, processedExpectedStdout as ToolResult);
+          verifyArchiveResults(
+            result.response as ToolResult,
+            processedExpectedStdout as ToolResult
+          );
         }
 
         // Post-run assertions
         if (scenario.assertions) {
           for (const assertion of scenario.assertions) {
-            const processedAssertion = substituteTemplateValues(assertion, testWorkspaceDir) as Assertion;
+            const processedAssertion = substituteTemplateValues(
+              assertion,
+              testWorkspaceDir
+            ) as Assertion;
 
             if (processedAssertion.type === 'file_content') {
-              expect(fs.existsSync(processedAssertion.path)).toBe(true);
-              const actualContent = fs.readFileSync(processedAssertion.path, 'utf8');
+              expect(fs.existsSync(processedAssertion.path!)).toBe(true);
+              const actualContent = fs.readFileSync(processedAssertion.path!, 'utf8');
               expect(actualContent).toBe(processedAssertion.expected_content);
             } else if (processedAssertion.type === 'file_exists') {
-              expect(fs.existsSync(processedAssertion.path)).toBe(processedAssertion.should_exist);
+              expect(fs.existsSync(processedAssertion.path!)).toBe(processedAssertion.should_exist);
             } else if (processedAssertion.type === 'file_not_exists') {
-              expect(fs.existsSync(processedAssertion.path)).toBe(false);
+              expect(fs.existsSync(processedAssertion.path!)).toBe(false);
             } else if (processedAssertion.type === 'archive_contains') {
               expect(fs.existsSync(processedAssertion.archive_path!)).toBe(true);
 

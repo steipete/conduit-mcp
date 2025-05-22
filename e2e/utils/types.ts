@@ -140,11 +140,12 @@ export interface WriteToolResponse extends BaseToolResponse {
 
 // Test tool specific types
 export interface TestToolResponse extends BaseToolResponse {
-  tool_name: 'test_tool';
-  results?: Array<{
+  tool_name: 'test';
+  results?: {
     status: string;
+    echoed_params?: unknown;
     [key: string]: unknown;
-  }>;
+  };
 }
 
 // Union type for all tool responses

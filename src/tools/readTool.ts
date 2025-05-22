@@ -46,21 +46,30 @@ export const readToolHandler = async (
         logger.error(
           `Unknown read operation: ${(params as unknown as { operation: string }).operation}`
         );
-        return createMCPErrorStatus(
-          ErrorCode.UNSUPPORTED_OPERATION,
-          `Unsupported read operation: ${(params as unknown as { operation: string }).operation}`
-        );
+        return {
+          tool_name: 'read',
+          ...createMCPErrorStatus(
+            ErrorCode.UNSUPPORTED_OPERATION,
+            `Unsupported read operation: ${(params as unknown as { operation: string }).operation}`
+          ),
+        };
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Error in read tool: ${errorMessage}`, error);
 
     if (error instanceof ConduitError) {
-      return createMCPErrorStatus(error.errorCode, error.message);
+      return {
+        tool_name: 'read',
+        ...createMCPErrorStatus(error.errorCode, error.message),
+      };
     } else {
       const stack = error instanceof Error && error.stack ? `\nStack: ${error.stack}` : '';
       const message = `An unexpected error occurred in the read tool: ${errorMessage}${stack}`;
-      return createMCPErrorStatus(ErrorCode.INTERNAL_ERROR, message);
+      return {
+        tool_name: 'read',
+        ...createMCPErrorStatus(ErrorCode.INTERNAL_ERROR, message),
+      };
     }
   }
 };

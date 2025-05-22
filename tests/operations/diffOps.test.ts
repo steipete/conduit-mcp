@@ -8,9 +8,9 @@ import {
   conduitConfig,
   fileSystemOps,
   webFetcher,
-  ReadTool,
   ConduitServerConfig,
   getMimeType as internalGetMimeType,
+  ReadTool,
 } from '@/internal';
 
 // Mock @/internal using the robust spread pattern
@@ -40,7 +40,6 @@ vi.mock('@/internal', async (importOriginal) => {
     // ConduitError, ErrorCode, ReadTool etc. will be passed from originalModule
     ConduitError: originalModule.ConduitError,
     ErrorCode: originalModule.ErrorCode,
-    readTool: originalModule.readTool,
   };
 });
 
@@ -84,7 +83,9 @@ describe('diffOps', () => {
     mockReset(mockedFsOps);
 
     // The child mock setup for logger needs to ensure it returns the parent mock correctly after reset
-    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(mockedLogger as any);
+    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(
+      mockedLogger as any
+    );
 
     // Set up config after reset
     Object.assign(mockedConfig, defaultTestConfig);
@@ -129,21 +130,22 @@ describe('diffOps', () => {
         Buffer.from('This is file two.\nLine two changed.\nLine three.')
       );
 
-      const result = (await getDiff(
+      const result = await getDiff(
         {
           ...params,
           diff_format: 'unified',
         },
         mockedConfig as ConduitServerConfig
-      )) as ReadTool.DiffResultSuccess;
+      );
 
-      expect(result.status).toBe('success');
-      expect(result.sources_compared).toEqual([source1Path, source2Path]);
-      expect(result.diff_format_used).toBe('unified');
-      expect(result.diff_content).toContain('-This is file one.');
-      expect(result.diff_content).toContain('+This is file two.');
-      expect(result.diff_content).toContain('-Line two.');
-      expect(result.diff_content).toContain('+Line two changed.');
+      expect(result).toMatchObject({ success: true });
+      const successResult = result as ReadTool.DiffResultSuccess;
+      expect(successResult.sources_compared).toEqual([source1Path, source2Path]);
+      expect(successResult.diff_format_used).toBe('unified');
+      expect(successResult.diff_content).toContain('-This is file one.');
+      expect(successResult.diff_content).toContain('+This is file two.');
+      expect(successResult.diff_content).toContain('-Line two.');
+      expect(successResult.diff_content).toContain('+Line two changed.');
       expect(mockedFsOps.readFileAsBuffer).toHaveBeenCalledTimes(2);
     });
 
@@ -159,22 +161,23 @@ describe('diffOps', () => {
         Buffer.from('Identical content.\nSecond line.')
       );
 
-      const result = (await getDiff(
+      const result = await getDiff(
         {
           ...params,
           diff_format: 'unified',
         },
         mockedConfig as ConduitServerConfig
-      )) as ReadTool.DiffResultSuccess;
+      );
 
-      expect(result.status).toBe('success');
+      expect(result).toMatchObject({ success: true });
+      const successResult = result as ReadTool.DiffResultSuccess;
       // Expect the header but no actual diff hunks (e.g., no lines starting with @@)
-      expect(result.diff_content).toContain(
+      expect(successResult.diff_content).toContain(
         '==================================================================='
       );
-      expect(result.diff_content).toContain(`--- ${source1Path}`);
-      expect(result.diff_content).toContain(`+++ ${source2Path}`);
-      expect(result.diff_content).not.toContain('@@');
+      expect(successResult.diff_content).toContain(`--- ${source1Path}`);
+      expect(successResult.diff_content).toContain(`+++ ${source2Path}`);
+      expect(successResult.diff_content).not.toContain('@@');
     });
 
     // Add tests for errors: file not found, read error, oversized file
@@ -214,16 +217,14 @@ describe('diffOps', () => {
           headers: {},
         }));
 
-      const result = (await getDiff(
-        params,
-        mockedConfig as ConduitServerConfig
-      )) as ReadTool.DiffResultSuccess;
+      const result = await getDiff(params, mockedConfig as ConduitServerConfig);
 
-      expect(result.status).toBe('success');
-      expect(result.sources_compared).toEqual([source1Url, source2Url]);
-      expect(result.diff_format_used).toBe('unified');
-      expect(result.diff_content).toContain('-This is URL one.');
-      expect(result.diff_content).toContain('+This is URL two.');
+      expect(result).toMatchObject({ success: true });
+      const successResult = result as ReadTool.DiffResultSuccess;
+      expect(successResult.sources_compared).toEqual([source1Url, source2Url]);
+      expect(successResult.diff_format_used).toBe('unified');
+      expect(successResult.diff_content).toContain('-This is URL one.');
+      expect(successResult.diff_content).toContain('+This is URL two.');
       expect(mockedFetchUrlContent).toHaveBeenCalledTimes(2);
     });
 
@@ -264,16 +265,14 @@ describe('diffOps', () => {
         headers: {},
       }));
 
-      const result = (await getDiff(
-        params,
-        mockedConfig as ConduitServerConfig
-      )) as ReadTool.DiffResultSuccess;
+      const result = await getDiff(params, mockedConfig as ConduitServerConfig);
 
-      expect(result.status).toBe('success');
-      expect(result.sources_compared).toEqual([source1Path, source2Url]);
-      expect(result.diff_format_used).toBe('unified');
-      expect(result.diff_content).toContain('-File content here.');
-      expect(result.diff_content).toContain('+URL content here.');
+      expect(result).toMatchObject({ success: true });
+      const successResult = result as ReadTool.DiffResultSuccess;
+      expect(successResult.sources_compared).toEqual([source1Path, source2Url]);
+      expect(successResult.diff_format_used).toBe('unified');
+      expect(successResult.diff_content).toContain('-File content here.');
+      expect(successResult.diff_content).toContain('+URL content here.');
       expect(mockedFsOps.readFileAsBuffer).toHaveBeenCalledTimes(1);
       expect(mockedFetchUrlContent).toHaveBeenCalledTimes(1);
     });

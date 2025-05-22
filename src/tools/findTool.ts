@@ -27,10 +27,13 @@ export async function findToolHandler(
     // Check if the resolved path is a directory
     const baseStats = await fileSystemOps.getStats(resolvedBasePath);
     if (!baseStats.isDirectory()) {
-      return createMCPErrorStatus(
-        ErrorCode.ERR_FS_PATH_IS_FILE,
-        `Provided base_path is a file, not a directory: ${resolvedBasePath}`
-      );
+      return {
+        tool_name: 'find',
+        ...createMCPErrorStatus(
+          ErrorCode.ERR_FS_PATH_IS_FILE,
+          `Provided base_path is a file, not a directory: ${resolvedBasePath}`
+        ),
+      };
     }
 
     // Create updated params with resolved path
@@ -38,20 +41,26 @@ export async function findToolHandler(
     const result = await findEntries(updatedParams, config);
 
     if (result instanceof ConduitError) {
-      return createMCPErrorStatus(result.errorCode, result.message);
+      return {
+        tool_name: 'find',
+        ...createMCPErrorStatus(result.errorCode, result.message),
+      };
     }
 
     return { tool_name: 'find', results: result };
   } catch (error) {
     if (error instanceof ConduitError) {
-      return createMCPErrorStatus(error.errorCode, error.message);
+      return {
+        tool_name: 'find',
+        ...createMCPErrorStatus(error.errorCode, error.message),
+      };
     } else {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Error in find tool handler: ${errorMessage}`);
-      return createMCPErrorStatus(
-        ErrorCode.INTERNAL_ERROR,
-        `Internal server error: ${errorMessage}`
-      );
+      return {
+        tool_name: 'find',
+        ...createMCPErrorStatus(ErrorCode.INTERNAL_ERROR, `Internal server error: ${errorMessage}`),
+      };
     }
   }
 }

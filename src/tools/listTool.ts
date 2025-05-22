@@ -36,26 +36,38 @@ export async function listToolHandler(
 
             const baseStats = await fileSystemOps.getStats(resolvedPath);
             if (!baseStats.isDirectory()) {
-              return createMCPErrorStatus(
-                ErrorCode.ERR_FS_PATH_IS_FILE,
-                `Provided path is a file, not a directory: ${resolvedPath}`
-              );
+              return {
+                tool_name: 'list',
+                ...createMCPErrorStatus(
+                  ErrorCode.ERR_FS_PATH_IS_FILE,
+                  `Provided path is a file, not a directory: ${resolvedPath}`
+                ),
+              };
             }
 
             const entries = await handleListEntries(params /*, config */); // Call the new op handler
             return { tool_name: 'list', results: entries };
           } catch (error) {
             if (error instanceof ConduitError) {
-              return createMCPErrorStatus(error.errorCode, error.message);
+              return {
+                tool_name: 'list',
+                ...createMCPErrorStatus(error.errorCode, error.message),
+              };
             }
-            return createMCPErrorStatus(
-              ErrorCode.INTERNAL_ERROR,
-              `Path validation failed: ${error instanceof Error ? error.message : String(error)}`
-            );
+            return {
+              tool_name: 'list',
+              ...createMCPErrorStatus(
+                ErrorCode.INTERNAL_ERROR,
+                `Path validation failed: ${error instanceof Error ? error.message : String(error)}`
+              ),
+            };
           }
         }
         // Fallback, though type guard should prevent this
-        return createErrorResponse(ErrorCode.INTERNAL_ERROR, 'Type guard failed for list.entries');
+        return {
+          tool_name: 'list',
+          ...createErrorResponse(ErrorCode.INTERNAL_ERROR, 'Type guard failed for list.entries'),
+        };
       }
 
       case 'system_info': {
@@ -114,27 +126,39 @@ export async function listToolHandler(
           }
 
           default:
-            return createErrorResponse(
-              ErrorCode.INVALID_PARAMETER,
-              `Unknown info_type: ${(systemInfoParams as unknown as { info_type: string }).info_type}`
-            );
+            return {
+              tool_name: 'list',
+              ...createErrorResponse(
+                ErrorCode.INVALID_PARAMETER,
+                `Unknown info_type: ${(systemInfoParams as unknown as { info_type: string }).info_type}`
+              ),
+            };
         }
       }
 
       default:
-        return createErrorResponse(
-          ErrorCode.INVALID_PARAMETER,
-          `Unknown operation: ${(params as unknown as { operation: string }).operation}`
-        );
+        return {
+          tool_name: 'list',
+          ...createErrorResponse(
+            ErrorCode.INVALID_PARAMETER,
+            `Unknown operation: ${(params as unknown as { operation: string }).operation}`
+          ),
+        };
     }
   } catch (error) {
     logger.error('Error in listToolHandler:', error);
     if (error instanceof ConduitError) {
-      return createErrorResponse(error.errorCode, error.message);
+      return {
+        tool_name: 'list',
+        ...createErrorResponse(error.errorCode, error.message),
+      };
     }
-    return createErrorResponse(
-      ErrorCode.INTERNAL_ERROR,
-      `Unexpected error: ${error instanceof Error ? error.message : String(error)}`
-    );
+    return {
+      tool_name: 'list',
+      ...createErrorResponse(
+        ErrorCode.INTERNAL_ERROR,
+        `Unexpected error: ${error instanceof Error ? error.message : String(error)}`
+      ),
+    };
   }
 }

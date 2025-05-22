@@ -31,21 +31,21 @@ describe('E2E List Operations', () => {
   });
 
   // Helper function to recursively substitute placeholders in any object/string
-  function substitutePlaceholders<T>(obj: T, substitutions: Record<string, string>): T {
+  function substitutePlaceholders(obj: any, substitutions: Record<string, string>): any {
     if (typeof obj === 'string') {
       let result = obj;
       for (const [placeholder, value] of Object.entries(substitutions)) {
         result = result.replace(new RegExp(placeholder, 'g'), value);
       }
-      return result as unknown as T;
+      return result;
     } else if (Array.isArray(obj)) {
-      return obj.map((item) => substitutePlaceholders(item, substitutions)) as T;
+      return obj.map((item) => substitutePlaceholders(item, substitutions));
     } else if (obj && typeof obj === 'object') {
       const result: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(obj)) {
         result[key] = substitutePlaceholders(value, substitutions);
       }
-      return result as unknown as T;
+      return result;
     }
     return obj;
   }

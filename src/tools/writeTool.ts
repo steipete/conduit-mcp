@@ -96,10 +96,13 @@ export async function writeToolHandler(
       }
 
       default: {
-        return createErrorResponse(
-          ErrorCode.UNSUPPORTED_OPERATION,
-          `Unsupported action: ${(params as unknown as { action: string }).action}`
-        );
+        return {
+          tool_name: 'write',
+          ...createErrorResponse(
+            ErrorCode.UNSUPPORTED_OPERATION,
+            `Unsupported action: ${(params as unknown as { action: string }).action}`
+          ),
+        };
       }
     }
   } catch (e) {
@@ -108,6 +111,9 @@ export async function writeToolHandler(
 
     logger.error('writeToolHandler error:', e);
 
-    return createErrorResponse(errorCode, message);
+    return {
+      tool_name: 'write',
+      ...createErrorResponse(errorCode, message),
+    };
   }
 }
