@@ -4,13 +4,11 @@ import * as fs from 'fs/promises'; // Using fs.promises for lstat, readlink
 import {
   ConduitError,
   ErrorCode,
-  ResolvedPath,
   conduitConfig,
   logger,
   fileSystemOps,
 } from '@/internal';
 
-const MAX_SYMLINK_DEPTH = 10; // Max number of symlinks to resolve in a path
 
 /**
  * Checks if a given resolved path is within the list of allowed path prefixes.
@@ -77,9 +75,10 @@ export async function validateAndResolvePath(
   try {
     // Before checking existence or symlinks, normalize to catch `.` `..` etc.
     realPath = await fs.realpath(currentPath);
-  } catch (e: any) {
+  } catch (e: unknown) {
     // fs.realpath throws ENOENT if any part of the path doesn't exist.
-    if (e.code === 'ENOENT') {
+    const nodeError = e as { code?: string };
+    if (nodeError.code === 'ENOENT') {
       if (isExistenceRequired) {
         logger.warn(`[securityHandler] Path not found (realpath check): ${currentPath}`);
         throw new ConduitError(
@@ -96,17 +95,17 @@ export async function validateAndResolvePath(
       // realPath here is the path.resolve() version. We continue with this for the checkAllowed logic.
       // If we are *creating* something, the realpath up to the parent should exist and be allowed.
       // This simple `realPath = currentPath` after ENOENT from `fs.realpath` is okay if `checkAllowed` uses `currentPath`.
-    } else if (e.code === 'ELOOP') {
-      logger.error(`[securityHandler] Too many symbolic links for ${currentPath}: ${e.message}`);
+    } else if (nodeError.code === 'ELOOP') {
+      logger.error(`[securityHandler] Too many symbolic links for ${currentPath}: ${(e as Error).message}`);
       throw new ConduitError(
         ErrorCode.ERR_FS_INVALID_PATH,
         `Too many symbolic links encountered while resolving path: ${originalPath}.`
       );
     } else {
-      logger.error(`[securityHandler] Error during fs.realpath for ${currentPath}: ${e.message}`);
+      logger.error(`[securityHandler] Error during fs.realpath for ${currentPath}: ${(e as Error).message}`);
       throw new ConduitError(
         ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED,
-        `Failed to resolve real path for: ${originalPath}. ${e.message}`
+        `Failed to resolve real path for: ${originalPath}. ${(e as Error).message}`
       );
     }
     // If realpath succeeded, realPath is now the canonical, absolute path with symlinks resolved.

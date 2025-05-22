@@ -13,6 +13,10 @@ import {
 } from '@/internal';
 import checkDiskSpace from 'check-disk-space';
 
+interface NodeError extends Error {
+  code?: string;
+}
+
 /**
  * Checks if a path exists.
  * @param filePath Path to check.
@@ -33,13 +37,14 @@ export async function pathExists(filePath: string): Promise<boolean> {
 export async function getStats(filePath: string): Promise<Stats> {
   try {
     return await fs.stat(filePath);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${filePath}`);
     }
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,
-      `Failed to get stats for path: ${filePath}. Error: ${error.message}`
+      `Failed to get stats for path: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -51,13 +56,14 @@ export async function getStats(filePath: string): Promise<Stats> {
 export async function getLstats(filePath: string): Promise<Stats> {
   try {
     return await fs.lstat(filePath);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${filePath}`);
     }
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,
-      `Failed to get lstats for path: ${filePath}. Error: ${error.message}`
+      `Failed to get lstats for path: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -88,21 +94,22 @@ export async function readFileAsString(
       );
     }
     return await fs.readFile(filePath, { encoding: 'utf8' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (
       error instanceof ConduitError ||
       (error &&
-        typeof error.errorCode === 'string' &&
-        Object.values(ErrorCode).includes(error.errorCode as ErrorCode))
+        typeof (error as { errorCode?: string }).errorCode === 'string' &&
+        Object.values(ErrorCode).includes((error as { errorCode: string }).errorCode as ErrorCode))
     )
       throw error;
-    if (error.code === 'ENOENT') {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `File not found: ${filePath}`);
     }
-    logger.error(`Error reading file ${filePath} as string: ${error.message}`);
+    logger.error(`Error reading file ${filePath} as string: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_READ_FAILED,
-      `Failed to read file: ${filePath}. Error: ${error.message}`
+      `Failed to read file: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -133,21 +140,22 @@ export async function readFileAsBuffer(
       );
     }
     return await fs.readFile(filePath);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (
       error instanceof ConduitError ||
       (error &&
-        typeof error.errorCode === 'string' &&
-        Object.values(ErrorCode).includes(error.errorCode as ErrorCode))
+        typeof (error as { errorCode?: string }).errorCode === 'string' &&
+        Object.values(ErrorCode).includes((error as { errorCode: string }).errorCode as ErrorCode))
     )
       throw error;
-    if (error.code === 'ENOENT') {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `File not found: ${filePath}`);
     }
-    logger.error(`Error reading file ${filePath} as buffer: ${error.message}`);
+    logger.error(`Error reading file ${filePath} as buffer: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_READ_FAILED,
-      `Failed to read file: ${filePath}. Error: ${error.message}`
+      `Failed to read file: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -189,19 +197,20 @@ export async function writeFile(
       await fs.writeFile(filePath, bufferContent);
     }
     return bufferContent.length;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (
       error instanceof ConduitError ||
       (error &&
-        typeof error.errorCode === 'string' &&
-        Object.values(ErrorCode).includes(error.errorCode as ErrorCode))
+        typeof (error as { errorCode?: string }).errorCode === 'string' &&
+        Object.values(ErrorCode).includes((error as { errorCode: string }).errorCode as ErrorCode))
     ) {
       throw error;
     }
-    logger.error(`Error writing file ${filePath}: ${error.message}`);
+    const nodeError = error as NodeError;
+    logger.error(`Error writing file ${filePath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_WRITE_FAILED,
-      `Failed to write file: ${filePath}. Error: ${error.message}`
+      `Failed to write file: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -214,16 +223,17 @@ export async function writeFile(
 export async function createDirectory(dirPath: string, recursive: boolean = false): Promise<void> {
   try {
     await fs.mkdir(dirPath, { recursive });
-  } catch (error: any) {
-    if (error.code === 'EEXIST') {
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'EEXIST') {
       // Idempotent: directory already exists
       logger.debug(`Directory already exists (idempotent success): ${dirPath}`);
       return;
     }
-    logger.error(`Error creating directory ${dirPath}: ${error.message}`);
+    logger.error(`Error creating directory ${dirPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_DIR_CREATE_FAILED,
-      `Failed to create directory: ${dirPath}. Error: ${error.message}`
+      `Failed to create directory: ${dirPath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -241,29 +251,30 @@ export async function deletePath(itemPath: string, recursive: boolean = false): 
     } else {
       await fs.unlink(itemPath);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (
       error &&
-      typeof error.errorCode === 'string' &&
-      error.errorCode === ErrorCode.ERR_FS_NOT_FOUND
+      typeof (error as { errorCode?: string }).errorCode === 'string' &&
+      (error as { errorCode: string }).errorCode === ErrorCode.ERR_FS_NOT_FOUND
     ) {
       logger.debug(`Path not found for deletion (considered success): ${itemPath}`);
       return;
-    } else if (error && typeof error.errorCode === 'string') {
+    } else if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
       // Other ConduitError-like errors
       throw error;
     }
 
     // Fallback for raw ENOENT (less likely now due to getLstats)
-    if (error.code === 'ENOENT') {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       logger.debug(`Path not found for deletion (considered success, raw ENOENT): ${itemPath}`);
       return;
     }
 
-    logger.error(`Error deleting path ${itemPath}: ${error.message}`);
+    logger.error(`Error deleting path ${itemPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_DELETE_FAILED,
-      `Failed to delete path: ${itemPath}. Error: ${error.message}`
+      `Failed to delete path: ${itemPath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -276,20 +287,21 @@ export async function deletePath(itemPath: string, recursive: boolean = false): 
 export async function listDirectory(dirPath: string): Promise<string[]> {
   try {
     return await fs.readdir(dirPath);
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       throw new ConduitError(ErrorCode.ERR_FS_DIR_NOT_FOUND, `Directory not found: ${dirPath}`);
     }
-    if (error.code === 'ENOTDIR') {
+    if (nodeError.code === 'ENOTDIR') {
       throw new ConduitError(
         ErrorCode.ERR_FS_PATH_IS_FILE,
         `Path is a file, not a directory: ${dirPath}`
       );
     }
-    logger.error(`Error listing directory ${dirPath}: ${error.message}`);
+    logger.error(`Error listing directory ${dirPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_DIR_LIST_FAILED,
-      `Failed to list directory: ${dirPath}. Error: ${error.message}`
+      `Failed to list directory: ${dirPath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -313,37 +325,38 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
         if (destStats.isDirectory()) {
           finalDest = path.join(destinationPath, path.basename(sourcePath));
         }
-      } catch (destStatError: any) {
+      } catch (_destStatError: unknown) {
         // Ignore if destinationPath doesn't exist or isn't a directory, fs.cp will handle creating it.
       }
       // For copying files, fs.cp with force: true will overwrite if finalDest is an existing file.
       await fs.cp(sourcePath, finalDest, { recursive: false, force: true }); // Added force: true
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.debug(
-      `copyPath caught error. typeof error: ${typeof error}, error: ${JSON.stringify(error)}, errorCode: ${error?.errorCode}, code: ${error?.code}, instanceof ConduitError: ${error instanceof ConduitError}`
+      `copyPath caught error. typeof error: ${typeof error}, error: ${JSON.stringify(error)}, errorCode: ${(error as { errorCode?: string })?.errorCode}, code: ${(error as NodeError)?.code}, instanceof ConduitError: ${error instanceof ConduitError}`
     );
     // If it's a ConduitError or looks like one (has errorCode property)
-    if (error && typeof error.errorCode === 'string') {
-      logger.debug(`copyPath re-throwing error with known errorCode: ${error.errorCode}`);
+    if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
+      logger.debug(`copyPath re-throwing error with known errorCode: ${(error as { errorCode: string }).errorCode}`);
       throw error; // Re-throw ConduitErrors or errors that look like them
     }
 
     // This specific ENOENT check for sourcePath should ideally be caught by the getStats call at the beginning.
     // If it reaches here with ENOENT, it implies a race condition or an error from fs.cp itself with ENOENT.
-    if (error.code === 'ENOENT') {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       logger.warn(
         `ENOENT received during fs.cp operation for source ${sourcePath} to ${destinationPath}. This might indicate source disappeared post-stat or fs.cp internal issue.`
       );
       throw new ConduitError(
         ErrorCode.ERR_FS_NOT_FOUND,
-        `Source path not found or disappeared during copy: ${sourcePath}. Error: ${error.message}`
+        `Source path not found or disappeared during copy: ${sourcePath}. Error: ${nodeError.message}`
       );
     }
-    logger.error(`Error copying path ${sourcePath} to ${destinationPath}: ${error.message}`);
+    logger.error(`Error copying path ${sourcePath} to ${destinationPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_COPY_FAILED,
-      `Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${error.message}`
+      `Failed to copy: ${sourcePath} to ${destinationPath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -355,7 +368,6 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
  */
 export async function movePath(sourcePath: string, destinationPath: string): Promise<void> {
   try {
-    const destDirname = path.dirname(destinationPath);
     let finalDestinationPath = destinationPath;
 
     // Check if the intended final destination (could be inside a directory or the path itself) exists
@@ -402,24 +414,25 @@ export async function movePath(sourcePath: string, destinationPath: string): Pro
     }
 
     await fs.rename(sourcePath, finalDestinationPath);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If it's a ConduitError or looks like one (has errorCode property)
-    if (error && typeof error.errorCode === 'string') {
+    if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
       throw error; // Re-throw ConduitErrors or errors that look like them
     }
-    if (error.code === 'ENOENT') {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'ENOENT') {
       logger.error(
-        `ENOENT during move operation for ${sourcePath} to ${destinationPath}: ${error.message}`
+        `ENOENT during move operation for ${sourcePath} to ${destinationPath}: ${nodeError.message}`
       );
       throw new ConduitError(
         ErrorCode.ERR_FS_MOVE_FAILED,
-        `Move operation failed (ENOENT): ${sourcePath} to ${destinationPath}. Error: ${error.message}`
+        `Move operation failed (ENOENT): ${sourcePath} to ${destinationPath}. Error: ${nodeError.message}`
       );
     }
-    logger.error(`Error moving path ${sourcePath} to ${destinationPath}: ${error.message}`);
+    logger.error(`Error moving path ${sourcePath} to ${destinationPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_MOVE_FAILED,
-      `Failed to move/rename: ${sourcePath} to ${destinationPath}. Error: ${error.message}`
+      `Failed to move/rename: ${sourcePath} to ${destinationPath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -436,11 +449,12 @@ export async function touchFile(filePath: string): Promise<void> {
       const now = new Date();
       await fs.utimes(filePath, now, now);
     }
-  } catch (error: any) {
-    logger.error(`Error touching file ${filePath}: ${error.message}`);
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    logger.error(`Error touching file ${filePath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,
-      `Failed to touch file: ${filePath}. Error: ${error.message}`
+      `Failed to touch file: ${filePath}. Error: ${nodeError.message}`
     );
   }
 }
@@ -470,7 +484,7 @@ export async function createEntryInfo(
         effectiveStats = await fs.stat(fullPath);
       } catch (e) {
         effectiveStats = lstats;
-        if (!(e instanceof ConduitError) && (e as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        if (!(e instanceof ConduitError) && (e as NodeError)?.code !== 'ENOENT') {
           logger.debug(
             `Symlink target stat/readlink failed for ${fullPath}: using lstat. Error: ${(e as Error).message}`
           );
@@ -496,14 +510,14 @@ export async function createEntryInfo(
       mime_type: effectiveStats.isFile() && !isSymlink ? await getMimeType(fullPath) : undefined,
       symlink_target: symlinkReadTarget,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(
-      `[createEntryInfo] Caught error for path '${fullPath}'. Type: ${typeof error}, Is ConduitError: ${error instanceof ConduitError}, Code: ${error?.code}, Message: ${error?.message}, Stack: ${error?.stack}`
+      `[createEntryInfo] Caught error for path '${fullPath}'. Type: ${typeof error}, Is ConduitError: ${error instanceof ConduitError}, Code: ${(error as NodeError)?.code}, Message: ${(error as Error)?.message}, Stack: ${(error as Error)?.stack}`
     );
     if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
       throw error;
     }
-    const errorMessage = String(error?.message || 'Unknown error during entry info creation');
+    const errorMessage = String((error as Error)?.message || 'Unknown error during entry info creation');
     logger.error(`Failed to create entry info for ${fullPath}: ${errorMessage}`);
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,
@@ -594,11 +608,12 @@ export async function getFilesystemStats(resolvedPath: string): Promise<{
       available_bytes: ds.free,
       used_bytes: ds.size - ds.free,
     };
-  } catch (error: any) {
-    logger.error(`Failed to get disk space info for path "${resolvedPath}": ${error.message}`);
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    logger.error(`Failed to get disk space info for path "${resolvedPath}": ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,
-      `Could not retrieve disk space information for "${resolvedPath}". Underlying error: ${error.message}`
+      `Could not retrieve disk space information for "${resolvedPath}". Underlying error: ${nodeError.message}`
     );
   }
 }
@@ -610,12 +625,13 @@ export async function getFilesystemStats(resolvedPath: string): Promise<{
 export async function ensureDirectoryExists(dirPath: string): Promise<void> {
   try {
     await fs.mkdir(dirPath, { recursive: true });
-  } catch (error: any) {
-    if (error.code === 'EEXIST') return; // Already exists
-    logger.error(`Error ensuring directory exists ${dirPath}: ${error.message}`);
+  } catch (error: unknown) {
+    const nodeError = error as NodeError;
+    if (nodeError.code === 'EEXIST') return; // Already exists
+    logger.error(`Error ensuring directory exists ${dirPath}: ${nodeError.message}`);
     throw new ConduitError(
       ErrorCode.ERR_FS_DIR_CREATE_FAILED,
-      `Failed to ensure directory exists: ${dirPath}. Error: ${error.message}`
+      `Failed to ensure directory exists: ${dirPath}. Error: ${nodeError.message}`
     );
   }
 }

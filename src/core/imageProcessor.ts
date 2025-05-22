@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { ConduitError, ErrorCode, conduitConfig, logger, ConduitServerConfig } from '@/internal';
+import { conduitConfig, logger } from '@/internal';
 
 const operationLogger = logger.child({ component: 'imageProcessor' });
 
@@ -24,7 +24,7 @@ export async function compressImageIfNecessary(
   mimeType: string
   // config: ConduitServerConfig, // Using imported conduitConfig directly for now as per other core modules
 ): Promise<CompressionResult> {
-  const { imageCompressionThresholdBytes, imageCompressionQuality, serverVersion } = conduitConfig;
+  const { imageCompressionThresholdBytes, imageCompressionQuality } = conduitConfig;
   const originalSizeBytes = originalBuffer.length;
 
   if (originalSizeBytes <= imageCompressionThresholdBytes) {
@@ -105,16 +105,16 @@ export async function compressImageIfNecessary(
         compression_error_note: 'Compressed size was not smaller than original.',
       };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     operationLogger.error(
-      `Error during image compression for ${mimeType}: ${error.message}`,
+      `Error during image compression for ${mimeType}: ${(error as Error).message}`,
       error
     );
     return {
       buffer: originalBuffer,
       original_size_bytes: originalSizeBytes,
       compression_applied: false,
-      compression_error_note: `Compression failed: ${error.message}`,
+      compression_error_note: `Compression failed: ${(error as Error).message}`,
     };
   }
 }
