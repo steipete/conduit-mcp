@@ -57,8 +57,24 @@ describe('findOps', () => {
     ctime: new Date('2023-01-01'),
     atime: new Date('2023-01-01'),
     isSymbolicLink: () => false,
+    isBlockDevice: () => false,
+    isCharacterDevice: () => false,
+    isFIFO: () => false,
+    isSocket: () => false,
     mode: 0o644,
-  });
+    nlink: 1,
+    uid: 1000,
+    gid: 1000,
+    rdev: 0,
+    ino: 0,
+    blksize: 4096,
+    blocks: 8,
+    atimeMs: 0,
+    mtimeMs: 0,
+    ctimeMs: 0,
+    birthtimeMs: 0,
+    dev: 0,
+  } as any);
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -119,13 +119,10 @@ describe('archiveOps', () => {
 
   beforeEach(() => {
     // mockReset(mockedLogger); // Commented out due to mock library issue
-    // @ts-expect-error - DeepMockProxy type checking issues with child mock reset
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      // @ts-expect-error - DeepMockProxy type checking issues with child mock reset
       mockedLogger.child.mockReset();
     }
-    // @ts-expect-error - DeepMockProxy type checking issues with child mock return value
-    mockedLogger.child.mockReturnValue(mockedLogger);
+    mockedLogger.child.mockReturnValue(mockedLogger as any);
 
     // mockReset(mockedConfig as any); // Reset the deep mock proxy - commented out due to mock library issue
     // Assign properties individually or clone to ensure type safety and mock behavior
@@ -144,7 +141,7 @@ describe('archiveOps', () => {
     mockedTarExtract.mockReset();
 
     // Reset the constructor mock and the standalone method mocks
-    MockedAdmZipConstructor.mockClear(); // Clears calls to the constructor
+    (MockedAdmZipConstructor as any).mockClear(); // Clears calls to the constructor
     mockAddLocalFolder.mockClear();
     mockAddLocalFile.mockClear();
     mockWriteZip.mockClear();
@@ -154,7 +151,7 @@ describe('archiveOps', () => {
     mockExtractEntryTo.mockClear();
 
     // Re-setup the constructor mock to ensure it returns the proper mock object
-    MockedAdmZipConstructor.mockImplementation((_zipPath?: string) => {
+    (MockedAdmZipConstructor as any).mockImplementation((_zipPath?: string) => {
       return {
         addLocalFolder: mockAddLocalFolder,
         addLocalFile: mockAddLocalFile,
@@ -437,7 +434,7 @@ describe('archiveOps', () => {
       // Mock validateAndResolvePath to throw ERR_FS_NOT_FOUND for non-existent archive
       mockedValidateAndResolvePath.mockImplementation(
         async (inputPath: string, _options: unknown) => {
-          if (_options?.isExistenceRequired) {
+          if ((_options as any)?.isExistenceRequired) {
             throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${inputPath}`);
           }
           return inputPath;
@@ -461,7 +458,7 @@ describe('archiveOps', () => {
       // Mock validateAndResolvePath to throw ERR_FS_NOT_FOUND for non-existent archive
       mockedValidateAndResolvePath.mockImplementation(
         async (inputPath: string, _options: unknown) => {
-          if (_options?.isExistenceRequired) {
+          if ((_options as any)?.isExistenceRequired) {
             throw new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, `Path not found: ${inputPath}`);
           }
           return inputPath;

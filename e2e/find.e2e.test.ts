@@ -198,7 +198,7 @@ describe('E2E Find Operations', () => {
         // Check name contains
         if (
           expectedItem.name_contains &&
-          !((item as Record<string, unknown>).name as string)?.includes(expectedItem.name_contains)
+          !(((item as Record<string, unknown>).name || '') as string).includes(expectedItem.name_contains)
         ) {
           matches = false;
         }
@@ -206,7 +206,7 @@ describe('E2E Find Operations', () => {
         // Check path contains
         if (
           expectedItem.path_contains &&
-          !((item as Record<string, unknown>).path as string)?.includes(expectedItem.path_contains)
+          !(((item as Record<string, unknown>).path || '') as string).includes(expectedItem.path_contains)
         ) {
           matches = false;
         }

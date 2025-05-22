@@ -65,8 +65,8 @@ describe('E2E Write Operations', () => {
       expect(actualToolResponse.tool_name).toBe('write');
       expect(Array.isArray(actualToolResponse.results)).toBe(true);
       expect(actualToolResponse.results).toHaveLength(1);
-      expect(actualToolResponse.results[0].status).toBe('success');
-      expect(actualToolResponse.results[0].path).toBe(testFile);
+      expect((actualToolResponse.results as any[])[0].status).toBe('success');
+      expect((actualToolResponse.results as any[])[0].path).toBe(testFile);
     });
 
     it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
@@ -437,12 +437,12 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
           expect(actualBytes).toBe(0);
         } else {
           // For non-zero, allow 1-2 bytes difference (for line endings, etc.)
-          expect(actualBytes).toBeGreaterThanOrEqual(expectedBytes);
-          expect(actualBytes).toBeLessThanOrEqual(expectedBytes + 2);
+          expect(actualBytes).toBeGreaterThanOrEqual(expectedBytes as number);
+          expect(actualBytes).toBeLessThanOrEqual((expectedBytes as number) + 2);
         }
       }
       if (expectedResult.bytes_written_gt !== undefined) {
-        expect(actualResult.bytes_written).toBeGreaterThan(expectedResult.bytes_written_gt);
+        expect(actualResult.bytes_written).toBeGreaterThan(expectedResult.bytes_written_gt as number);
       }
 
       // Check error details for failed operations

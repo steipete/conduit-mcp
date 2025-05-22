@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario, ToolResult } from './utils/scenarioLoader';
+import { loadTestScenarios, TestScenario, ToolResult, Assertion } from './utils/scenarioLoader';
 import path from 'path';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
@@ -95,7 +95,7 @@ describe('E2E Archive Operations', () => {
               }
             } else {
               // Regular file
-              fs.writeFileSync(filePath, file.content || '', file.encoding || 'utf8');
+              fs.writeFileSync(filePath, file.content || '', { encoding: file.encoding || 'utf8' });
             }
           }
         }
@@ -157,10 +157,10 @@ describe('E2E Archive Operations', () => {
             } else if (processedAssertion.type === 'file_not_exists') {
               expect(fs.existsSync(processedAssertion.path)).toBe(false);
             } else if (processedAssertion.type === 'archive_contains') {
-              expect(fs.existsSync(processedAssertion.archive_path)).toBe(true);
+              expect(fs.existsSync(processedAssertion.archive_path!)).toBe(true);
 
-              const archivePath = processedAssertion.archive_path;
-              const expectedEntries = processedAssertion.expected_entries;
+              const archivePath = processedAssertion.archive_path!;
+              const expectedEntries = processedAssertion.expected_entries!;
 
               if (archivePath.endsWith('.zip')) {
                 // Handle ZIP archives

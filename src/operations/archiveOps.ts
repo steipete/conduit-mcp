@@ -117,7 +117,7 @@ export const createArchive = async (
       // Assuming tar.gz or tar
       // Use the parent directory of the first source as the cwd to preserve relative structure
       const firstSourceParent = path.dirname(resolvedSourcePaths[0]);
-      const tarOptions: tar.CreateOptions & tar.FileOptions = {
+      const tarOptions: any = {
         gzip: compression === 'gzip' || archive_path.endsWith('.gz'), // prefer .gz in name
         file: absoluteArchivePath,
         cwd: firstSourceParent,
@@ -126,7 +126,7 @@ export const createArchive = async (
       };
 
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, _stat: fs.Stats) => {
+        tarOptions.filter = (entryPath: string) => {
           return options.filter_paths!.some((filterPath: string) => {
             return entryPath.startsWith(filterPath);
           });
@@ -262,13 +262,13 @@ export const extractArchive = async (
       }
     } else if (inferredFormat === 'tar.gz' || inferredFormat === 'tar') {
       // Extract tar.gz or tar archive
-      const tarOptions: tar.ExtractOptions & tar.FileOptions = {
+      const tarOptions: any = {
         file: absoluteArchivePath,
         cwd: absoluteTargetPath,
         strip: options?.strip_components ?? 0,
       };
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, _stat: tar.FileStat) => {
+        tarOptions.filter = (entryPath: string) => {
           const normalizedEntryPath = entryPath.startsWith('./')
             ? entryPath.substring(2)
             : entryPath;

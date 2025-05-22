@@ -2,7 +2,8 @@
 /// <reference types="vitest/globals" />
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mockDeep, type DeepMockProxy, mockReset, type MockedFunction } from 'vitest-mock-extended';
+import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
+import { type MockedFunction } from 'vitest';
 import * as path from 'path'; // For path.resolve if needed in tests, or for matching paths
 
 import { makeDirectory } from '@/operations/mkdirOps';
@@ -38,7 +39,7 @@ import { conduitConfig, logger, fileSystemOps, securityHandler } from '@/interna
 describe('mkdirOps', () => {
   // Initialize test-level variables for these mocks with correct proxy/mocked function types
   const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
-  const mockedLogger = logger as DeepMockProxy<import('pino').Logger<string>>;
+  const mockedLogger = logger as unknown as DeepMockProxy<import('pino').Logger<string>>;
   const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
   const mockedSecurityHandler = securityHandler as DeepMockProxy<typeof securityHandler>;
 

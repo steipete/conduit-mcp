@@ -368,7 +368,7 @@ describe('ListTool', () => {
 
   it('should return error status object for invalid operation', async () => {
     const params = { operation: 'invalid_op' } as unknown;
-    const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+    const response = await listToolHandler(params as any, mockedConduitConfig as ConduitServerConfig);
 
     expect(response).toMatchObject({
       status: 'error',

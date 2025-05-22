@@ -58,7 +58,7 @@ describe('E2E Read Operations', () => {
       expect(actualToolResponse.results).toHaveLength(1);
 
       // The tool response item should be an error for nonexistent file
-      const toolResponseItem = actualToolResponse.results[0];
+      const toolResponseItem = (actualToolResponse.results as any[])[0];
       expect(toolResponseItem.status).toBe('error');
       expect(toolResponseItem.error_message).toContain('Path not found');
     });

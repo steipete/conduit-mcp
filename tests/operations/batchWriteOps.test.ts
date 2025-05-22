@@ -21,7 +21,7 @@ import {
 vi.mock('@/internal', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/internal')>();
   const mockLogger = mockDeep<import('pino').Logger>();
-  mockLogger.child.mockReturnValue(mockLogger as unknown as import('pino').Logger);
+  mockLogger.child.mockReturnValue(mockLogger as any);
 
   return {
     ...actual,
@@ -123,7 +123,7 @@ describe('batchWriteOps', () => {
       expect(result.tool_name).toBe('write');
       expect(result.results).toHaveLength(1);
       expect(result.results[0].status).toBe('error');
-      expect(result.results[0].error_message).toBe('Path validation failed');
+      expect((result.results[0] as any).error_message).toBe('Path validation failed');
     });
 
     it('should handle empty entries array', async () => {
@@ -137,7 +137,7 @@ describe('batchWriteOps', () => {
       expect(result.tool_name).toBe('write');
       expect(result.results).toHaveLength(1);
       expect(result.results[0].status).toBe('error');
-      expect(result.results[0].error_message).toBe(
+      expect((result.results[0] as any).error_message).toBe(
         "'entries' array is missing or empty for put operation."
       );
     });

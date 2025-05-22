@@ -42,7 +42,7 @@ describe('noticeService', () => {
   const originalEnv = { ...process.env };
   let hasFirstUseNoticeBeenSent: () => boolean;
   let markFirstUseNoticeSent: () => void;
-  let generateFirstUseNotice: () => string;
+  let generateFirstUseNotice: (config: any) => any;
 
   beforeEach(async () => {
     process.env = { ...originalEnv };
@@ -89,11 +89,11 @@ describe('noticeService', () => {
       };
       const notice = generateFirstUseNotice(configWithDefaults);
       expect(notice).not.toBeNull();
-      expect(notice?.type).toBe('info_notice');
-      expect(notice?.notice_code).toBe('DEFAULT_PATHS_USED');
-      expect(notice?.details.server_version).toBe(mockServerVersion);
-      expect(notice?.details.server_start_time_iso).toBe(mockServerStartTimeIso);
-      expect(notice?.details.default_paths_used).toEqual([
+      expect(notice.type).toBe('info_notice');
+      expect(notice.notice_code).toBe('DEFAULT_PATHS_USED');
+      expect(notice.details.server_version).toBe(mockServerVersion);
+      expect(notice.details.server_start_time_iso).toBe(mockServerStartTimeIso);
+      expect(notice.details.default_paths_used).toEqual([
         mockResolvedHomeDir,
         path.resolve('/tmp'),
       ]);

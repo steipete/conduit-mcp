@@ -70,7 +70,7 @@ describe('FindTool', () => {
 
     // Default successful mocks
     mockedValidateAndResolvePath.mockResolvedValue(mockResolvedPath);
-    mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => true });
+    mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => true } as any);
     mockedFindEntries.mockResolvedValue([]);
   });
 
@@ -138,7 +138,7 @@ describe('FindTool', () => {
 
   it('should return error response if path validation fails', async () => {
     const validationError = new ConduitError(
-      ErrorCode.ERR_PATH_VALIDATION,
+      ErrorCode.ERR_FS_INVALID_PATH,
       'Path validation failed'
     );
     mockedValidateAndResolvePath.mockRejectedValue(validationError);
@@ -151,13 +151,13 @@ describe('FindTool', () => {
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
       status: 'error',
-      error_code: ErrorCode.ERR_PATH_VALIDATION,
+      error_code: ErrorCode.ERR_FS_INVALID_PATH,
       error_message: 'Path validation failed',
     });
   });
 
   it('should return error response if base_path is a file not directory', async () => {
-    mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => false });
+    mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => false } as any);
 
     const params: FindTool.Parameters = {
       base_path: mockBasePath,

@@ -22,7 +22,7 @@ import * as path from 'path';
 vi.mock('@/internal', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/internal')>();
   const loggerForInternalMock = mockDeep<import('pino').Logger>();
-  loggerForInternalMock.child.mockReturnValue(loggerForInternalMock as import('pino').Logger);
+  loggerForInternalMock.child.mockReturnValue(loggerForInternalMock as any);
 
   // Create a plain config object that will be used as conduitConfig
   const plainTestConfig: ConduitServerConfig = {
@@ -104,7 +104,7 @@ describe('putContentOps', () => {
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
       mockedLogger.child.mockReset();
     }
-    mockedLogger.child.mockReturnValue(mockedLogger as import('pino').Logger);
+    mockedLogger.child.mockReturnValue(mockedLogger as any);
 
     mockedLogger.info.mockImplementation((msg, ...args) =>
       console.log('[TEST INFO]', msg, ...args)
@@ -126,7 +126,7 @@ describe('putContentOps', () => {
     Object.keys(mockedFsOps).forEach((key) => {
       const method = mockedFsOps[key as keyof typeof mockedFsOps];
       if (typeof method === 'function' && 'mockReset' in method) {
-        (method as MockedFunction<unknown>).mockReset();
+        (method as unknown as MockedFunction<any>).mockReset();
       }
     });
     // Provide default implementations after reset if necessary, or let tests set them up.

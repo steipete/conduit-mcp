@@ -50,7 +50,7 @@ describe('metadataOps', () => {
   // Initialize test-level variables with correct types
   const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
   const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
-  const mockedLogger = logger as DeepMockProxy<import('pino').Logger<string>>;
+  const mockedLogger = logger as unknown as DeepMockProxy<import('pino').Logger<string>>;
   const mockedSecurityHandler = securityHandler as DeepMockProxy<typeof securityHandler>;
   const mockedWebFetcher = webFetcher as DeepMockProxy<typeof webFetcher>;
   const mockedMimeService = mimeService as DeepMockProxy<typeof mimeService>;
@@ -104,14 +104,13 @@ describe('metadataOps', () => {
       mimeType: '',
       headers: {},
       httpStatus: 200,
-      error: null,
       content: Buffer.from(''),
       isBinary: false,
       size: 0,
       isPartialContent: false,
       rangeRequestStatus: 'not_requested',
     });
-    mockedMimeService.getMimeType.mockReturnValue('text/plain');
+    mockedMimeService.getMimeType.mockReturnValue(Promise.resolve('text/plain'));
   });
 
   afterEach(() => {

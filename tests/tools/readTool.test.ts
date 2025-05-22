@@ -350,13 +350,12 @@ describe('ReadTool', () => {
         status: 'success',
         metadata: {
           name: 'file.txt',
-          path: mockSourceFile,
           entry_type: 'file',
           size_bytes: 100,
           mime_type: 'text/plain',
           created_at: new Date().toISOString(),
           modified_at: new Date().toISOString(),
-        },
+        } as any,
       });
 
       const params: ReadTool.MetadataParams = {
@@ -385,6 +384,7 @@ describe('ReadTool', () => {
         status: 'success',
         metadata: {
           name: 'image.png',
+          entry_type: 'file',
           mime_type: 'image/png',
           size_bytes: 12345,
           modified_at: '1994-11-15T12:45:26.000Z',
@@ -422,6 +422,7 @@ describe('ReadTool', () => {
         status: 'success',
         diff_content: '--- a/file1\n+++ b/file2\n',
         sources_compared: [file1, file2],
+        diff_format_used: 'unified',
       });
 
       const params: ReadTool.DiffParams = {
@@ -521,7 +522,7 @@ describe('ReadTool', () => {
     const params = { operation: 'invalid_op', sources: ['s'] } as never;
     const response = await readToolHandler(params, conduitConfig);
 
-    expect(response.status).toBe('error');
+    expect((response as any).status).toBe('error');
     if ('error_code' in response) {
       expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);
       expect(response.error_message).toContain('Unsupported read operation: invalid_op');

@@ -36,11 +36,9 @@ export default defineConfig({
     retry: 1,
 
     // Global setup and teardown
-    globalSetup: [],
-    globalTeardown: [],
 
     // Reporter configuration
-    reporter: ['verbose'],
+    reporters: ['verbose'],
 
     // Coverage configuration (optional for E2E)
     coverage: {

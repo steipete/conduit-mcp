@@ -45,7 +45,7 @@ describe('E2E List Operations', () => {
       for (const [key, value] of Object.entries(obj)) {
         result[key] = substitutePlaceholders(value, substitutions);
       }
-      return result as T;
+      return result as unknown as T;
     }
     return obj;
   }

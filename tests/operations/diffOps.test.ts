@@ -40,8 +40,7 @@ vi.mock('@/internal', async (importOriginal) => {
     // ConduitError, ErrorCode, ReadTool etc. will be passed from originalModule
     ConduitError: originalModule.ConduitError,
     ErrorCode: originalModule.ErrorCode,
-    ReadTool: originalModule.ReadTool,
-    ConduitServerConfig: originalModule.ConduitServerConfig,
+    readTool: originalModule.readTool,
   };
 });
 
@@ -85,7 +84,7 @@ describe('diffOps', () => {
     mockReset(mockedFsOps);
 
     // The child mock setup for logger needs to ensure it returns the parent mock correctly after reset
-    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(mockedLogger);
+    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(mockedLogger as any);
 
     // Set up config after reset
     Object.assign(mockedConfig, defaultTestConfig);

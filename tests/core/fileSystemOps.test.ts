@@ -28,6 +28,22 @@ import {
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
 import { formatToISO8601UTC, getMimeType, conduitConfig, logger } from '@/internal';
 
+// Helper to create Dirent-like objects for tests
+const createDirent = (
+  name: string,
+  isFile: boolean,
+  isDirectory: boolean
+): import('fs').Dirent => ({
+  name,
+  isFile: () => isFile,
+  isDirectory: () => isDirectory,
+  isSymbolicLink: () => false,
+  isBlockDevice: () => false,
+  isCharacterDevice: () => false,
+  isFIFO: () => false,
+  isSocket: () => false,
+} as import('fs').Dirent);
+
 // Mock the entire fs/promises module
 vi.mock('fs/promises', () => {
   const fsMockFunctions = {
@@ -659,9 +675,9 @@ describe('fileSystemOps', () => {
     it('should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false', async () => {
       mockFs.lstat.mockResolvedValue({ isDirectory: () => true } as Stats);
       mockFs.readdir.mockResolvedValue([
-        'file1.txt',
-        'file2.txt',
-      ] as unknown as import('fs').Dirent[]); // Non-empty directory
+        createDirent('file1.txt', true, false),
+        createDirent('file2.txt', true, false),
+      ] as any);
 
       await expect(deletePath(dirPath, false)).rejects.toThrow(
         expect.objectContaining({
@@ -735,7 +751,7 @@ describe('fileSystemOps', () => {
 
     it('should return an array of entry names on success', async () => {
       // mockFs.readdir is a MockFunction, so mockResolvedValue already handles PathLike correctly
-      mockFs.readdir.mockResolvedValue(entries as unknown as import('fs').Dirent[]); // fs.readdir returns string[] or Dirent[]
+      mockFs.readdir.mockResolvedValue(entries as any);
       const result = await listDirectory(dirPath);
       expect(result).toEqual(entries);
       expect(mockFs.readdir).toHaveBeenCalledWith(dirPath);
@@ -1140,7 +1156,7 @@ describe('fileSystemOps', () => {
       mockFs.mkdir
         .mockReset()
         .mockImplementation(
-          async (p: import('fs').PathLike, options: import('fs').MakeDirectoryOptions) => {
+          async (p: import('fs').PathLike, options?: any) => {
             if (p === parentOfFinalDest && options.recursive) {
               parentDirCreated = true; // Update our state to show dir was created
               return undefined;
@@ -1686,16 +1702,6 @@ describe('fileSystemOps', () => {
     const maxDepth = conduitConfig.maxRecursiveDepth; // Use from mocked config
     const timeoutMs = conduitConfig.recursiveSizeTimeoutMs; // Use from mocked config
 
-    // Helper to create Dirent-like objects for mockFs.readdir
-    const createDirent = (
-      name: string,
-      isFile: boolean,
-      isDirectory: boolean
-    ): Partial<import('fs').Dirent> => ({
-      name,
-      isFile: () => isFile,
-      isDirectory: () => isDirectory,
-    });
 
     beforeEach(() => {
       vi.useFakeTimers(); // Use fake timers for timeout tests
@@ -1712,7 +1718,7 @@ describe('fileSystemOps', () => {
       mockFs.readdir.mockResolvedValueOnce([
         createDirent('file1.txt', true, false),
         createDirent('file2.txt', true, false),
-      ] as import('fs').Dirent[]);
+      ] as any);
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
         if (pathStr === path.join(baseDir, 'file1.txt'))
@@ -1748,7 +1754,7 @@ describe('fileSystemOps', () => {
       const testMaxDepth = 2;
 
       mockFs.readdir.mockImplementation(
-        async (p: import('fs').PathLike): Promise<import('fs').Dirent[]> => {
+        async (p: import('fs').PathLike): Promise<any> => {
           const pathStr = p.toString();
           if (pathStr === baseDir)
             return [createDirent('file1.txt', true, false), createDirent('sub1', false, true)];
@@ -1806,7 +1812,7 @@ describe('fileSystemOps', () => {
         createDirent('file1.txt', true, false),
         createDirent('file2_timeout.txt', true, false),
         createDirent('file3.txt', true, false),
-      ] as import('fs').Dirent[]);
+      ] as any);
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
         if (pathStr === path.join(baseDir, 'file1.txt')) {
@@ -1838,7 +1844,7 @@ describe('fileSystemOps', () => {
 
     it('should handle timeout during subdirectory recursion and propagate note', async () => {
       mockFs.readdir.mockImplementation(
-        async (p: import('fs').PathLike): Promise<import('fs').Dirent[]> => {
+        async (p: import('fs').PathLike): Promise<any> => {
           const pathStr = p.toString();
           if (pathStr === baseDir) return [createDirent('sub_causes_timeout', false, true)];
           if (pathStr === path.join(baseDir, 'sub_causes_timeout')) {
@@ -1898,7 +1904,7 @@ describe('fileSystemOps', () => {
         createDirent('file_ok.txt', true, false),
         createDirent('file_stat_error.txt', true, false),
         createDirent('file_after_error.txt', true, false),
-      ] as import('fs').Dirent[]);
+      ] as any);
       mockFs.stat.mockImplementation(async (p: import('fs').PathLike): Promise<Stats> => {
         const pathStr = p.toString();
         if (pathStr === path.join(baseDir, 'file_ok.txt'))

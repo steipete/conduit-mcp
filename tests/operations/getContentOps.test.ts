@@ -109,14 +109,10 @@ describe('getContentOps', () => {
 
   beforeEach(() => {
     mockReset(mockedLogger);
-    // @ts-expect-error - This might be an issue if loggerMock.child is not a mock itself.
-    // The new loggerMock setup ensures .child returns the mock, so this should be fine.
     if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      // @ts-expect-error - mockedLogger.child is a mock but type doesn't include mockReset
       mockedLogger.child.mockReset();
     }
-    // @ts-expect-error - mockedLogger.child is a mock but type doesn't include mockReturnValue
-    mockedLogger.child.mockReturnValue(mockedLogger);
+    mockedLogger.child.mockReturnValue(mockedLogger as any);
 
     // Reset the conduitConfig mock
     // The mockedConfig alias points to conduitConfig
@@ -381,7 +377,7 @@ describe('getContentOps', () => {
         close: vi.fn().mockResolvedValue(undefined),
       };
       (fsPromises.open as MockedFunction<typeof fsPromises.open>).mockResolvedValueOnce(
-        mockFileHandle as fsPromises.FileHandle
+        mockFileHandle as unknown as fsPromises.FileHandle
       );
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'text', offset, length };
@@ -430,7 +426,7 @@ describe('getContentOps', () => {
         close: vi.fn().mockResolvedValue(undefined),
       };
       (fsPromises.open as MockedFunction<typeof fsPromises.open>).mockResolvedValueOnce(
-        mockFileHandle as fsPromises.FileHandle
+        mockFileHandle as unknown as fsPromises.FileHandle
       );
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'base64', offset, length };

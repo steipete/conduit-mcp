@@ -60,7 +60,14 @@ describe('webFetcher', () => {
       () =>
         ({
           turndown: mockTurndownMethod,
-        }) as TurndownService
+          addRule: vi.fn(),
+          keep: vi.fn(),
+          remove: vi.fn(),
+          use: vi.fn(),
+          escape: vi.fn(),
+          options: {},
+          rules: {},
+        }) as unknown as TurndownService
     );
     mockTurndownMethod.mockReturnValue('# Mocked Markdown'); // Default markdown output
   });
@@ -290,7 +297,7 @@ describe('webFetcher', () => {
         )
       );
 
-      mockReadabilityInstance.parse.mockReturnValueOnce({ content: null });
+      mockReadabilityInstance.parse.mockReturnValueOnce({ content: undefined });
       expect(() => cleanHtmlToMarkdown(mockHtmlContent, mockPageUrl)).toThrow(
         new ConduitError(
           ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED,

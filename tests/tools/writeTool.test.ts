@@ -265,7 +265,7 @@ describe('WriteTool', () => {
 
   it('should throw error for invalid action', async () => {
     const params = { action: 'invalid_action' } as unknown;
-    const response = (await writeToolHandler(params, mockedConduitConfig)) as MCPErrorStatus;
+    const response = (await writeToolHandler(params as any, mockedConduitConfig)) as MCPErrorStatus;
     expect(response.status).toBe('error');
     expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);
   });
