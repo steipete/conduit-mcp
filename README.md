@@ -6,6 +6,10 @@
 
 _A sleek Model Context Protocol server that helps your AI assistant navigate the digital jungle with cat-like agility._
 
+## 🎉 Version 1.0.0 Released!
+
+We're excited to announce the first stable release of conduit-mcp! This production-ready MCP server brings powerful file system operations, web content processing, and advanced search capabilities to your AI assistant.
+
 ## 🐈 What Makes This Cat Special?
 
 `conduit-mcp` is like having a highly trained data-hunting cat that can:
@@ -32,7 +36,7 @@ Just tell your MCP client about your new digital pet:
   "mcpServers": {
     "conduit_mcp": {
       "command": "npx",
-      "args": ["-y", "conduit-mcp@latest"],
+      "args": ["-y", "conduit-mcp@1.0.0"],
       "env": {
         "CONDUIT_ALLOWED_PATHS": "~/Documents:~/Projects",
         "LOG_LEVEL": "INFO"
@@ -543,12 +547,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🐱 Fun Facts About Your Digital Cat
 
+- **Version**: 1.0.0 - Production ready!
 - **Line Count**: ~17,200 lines of carefully crafted TypeScript
 - **Dependencies**: Only the finest NPM packages (axios, sharp, jsdom, etc.)
 - **Test Coverage**: >90% (this cat is thoroughly tested!)
 - **Protocols**: 100% MCP compliant
 - **Character Encoding**: UTF-8 all the way
 - **Timestamp Format**: ISO 8601 UTC (because cats are international)
+- **Node.js**: Requires >=18.0.0
 
 ## 🎯 Use Cases
 
