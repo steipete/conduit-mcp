@@ -289,11 +289,11 @@ export async function writeToolHandler(
               status: 'success',
               action_performed: 'touch',
               path: entry.path,
-              message: 'File touched.',
+              message: 'File touched/created.',
             });
           } catch (e) {
             const errorCode =
-              e instanceof ConduitError ? e.errorCode : ErrorCode.ERR_FS_WRITE_FAILED;
+              e instanceof ConduitError ? e.errorCode : ErrorCode.OPERATION_FAILED;
             const message = e instanceof Error ? e.message : String(e);
 
             results.push(

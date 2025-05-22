@@ -3,45 +3,31 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
 import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
 import * as findOpsModule from '@/operations/findOps';
-import {
-  ConduitError,
-  ErrorCode,
-  conduitConfig,
-  fileSystemOps,
-  FindTool,
-  ConduitServerConfig,
-  EntryInfo,
-  validateAndResolvePath,
-} from '@/internal';
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import micromatch from 'micromatch';
 
-// Mock @/internal using the robust spread pattern
+// Mock @/internal using the refactored approach
 vi.mock('@/internal', async (importOriginal) => {
   const originalModule = await importOriginal<typeof import('@/internal')>();
-
-  const loggerMock = {
-    ...mockDeep<typeof import('pino')>(),
-    child: vi.fn().mockReturnValue({
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn(),
-    }),
-  };
-
-  const mockedConfigLoader = {
-    ...mockDeep<typeof originalModule.configLoader>(),
-    conduitConfig: mockDeep<ConduitServerConfig>(),
-  };
 
   return {
     ...originalModule, // Spread original module first
     // Override specific parts with mocks
-    logger: loggerMock,
-    configLoader: mockedConfigLoader,
+    conduitConfig: mockDeep<typeof originalModule.ConduitServerConfig>(),
+    logger: (() => {
+      const loggerMock = mockDeep<import('pino').Logger<string>>();
+      loggerMock.child.mockReturnValue(loggerMock);
+      return loggerMock;
+    })(),
     fileSystemOps: mockDeep<typeof originalModule.fileSystemOps>(),
-    validateAndResolvePath: vi.fn(),
     getMimeType: vi.fn(),
+    // Pass through necessary exports from original module
+    ConduitError: originalModule.ConduitError,
+    ErrorCode: originalModule.ErrorCode,
+    FindTool: originalModule.FindTool,
+    EntryInfo: originalModule.EntryInfo,
+    ConduitServerConfig: originalModule.ConduitServerConfig,
   };
 });
 
@@ -54,13 +40,27 @@ vi.mock('@/operations/findOps', async (importOriginal) => {
   };
 });
 
-import { getMimeType as internalGetMimeType, logger as internalLogger } from '@/internal';
+// Import the mocked items from @/internal
+import {
+  ConduitError,
+  ErrorCode,
+  conduitConfig as internalConduitConfig,
+  fileSystemOps as internalFileSystemOps,
+  FindTool,
+  ConduitServerConfig,
+  EntryInfo,
+  validateAndResolvePath as internalValidateAndResolvePath,
+  getMimeType as internalGetMimeType,
+  logger as internalLogger,
+} from '@/internal';
 
 describe('findOps', () => {
-  const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
-  const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
-  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<
-    typeof validateAndResolvePath
+  // Initialize test-level variables for mocks with proper types
+  const mockedConfig = internalConduitConfig as DeepMockProxy<ConduitServerConfig>;
+  const mockedFsOps = internalFileSystemOps as DeepMockProxy<typeof internalFileSystemOps>;
+  const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger<string>>;
+  const mockedValidateAndResolvePath = internalValidateAndResolvePath as MockedFunction<
+    typeof internalValidateAndResolvePath
   >;
   const mockedGetMimeType = internalGetMimeType as MockedFunction<typeof internalGetMimeType>;
 
@@ -90,16 +90,37 @@ describe('findOps', () => {
   });
 
   beforeEach(() => {
-    mockReset(mockedConfig as any);
+    // Reset all deep mocks
+    mockReset(mockedConfig);
+    mockReset(mockedFsOps);
+    mockReset(mockedLogger);
+    
+    // Reset vi.fn() mocks
+    mockedValidateAndResolvePath.mockReset();
+    mockedGetMimeType.mockReset();
+
+    // Set up default config after reset
     Object.assign(mockedConfig, defaultTestConfig);
+    
+    // Explicitly set critical config values to ensure they're properly defined
     mockedConfig.maxFileReadBytes = defaultTestConfig.maxFileReadBytes!;
     mockedConfig.maxFileReadBytesFind = defaultTestConfig.maxFileReadBytesFind!;
     mockedConfig.maxRecursiveDepth = defaultTestConfig.maxRecursiveDepth!;
     mockedConfig.httpTimeoutMs = defaultTestConfig.httpTimeoutMs!;
+    mockedConfig.workspaceRoot = defaultTestConfig.workspaceRoot!;
+    mockedConfig.allowedPaths = defaultTestConfig.allowedPaths!;
 
-    mockReset(mockedFsOps);
-    mockedValidateAndResolvePath.mockReset();
-    mockedGetMimeType.mockReset();
+    // Set up default implementations for mockedFsOps functions
+    mockedFsOps.getStats.mockResolvedValue(createMockStats() as any);
+    mockedFsOps.readDir.mockResolvedValue([]);
+    mockedFsOps.pathExists.mockResolvedValue(true);
+    mockedFsOps.readFileAsBuffer.mockResolvedValue(Buffer.from('test content'));
+
+    // Set up default implementation for getMimeType
+    mockedGetMimeType.mockReturnValue('text/plain');
+
+    // Ensure logger.child returns the logger itself
+    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
   });
 
   afterEach(() => {

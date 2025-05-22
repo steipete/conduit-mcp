@@ -107,10 +107,8 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
         if (notice) {
           if (toolResponse.results && Array.isArray(toolResponse.results)) {
             toolResponse.results.unshift(notice);
-          } else if (toolResponse.results) {
-            toolResponse.results = [notice, toolResponse.results];
           } else {
-            toolResponse.results = [notice, toolResponse.results];
+            toolResponse = [notice, toolResponse];
           }
           noticeService.markFirstUseNoticeSent();
         }

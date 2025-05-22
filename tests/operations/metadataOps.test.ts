@@ -8,49 +8,55 @@ import {
   // getMetadataFromFile, // Not exporting these directly for now, test via getMetadata
   // getMetadataFromUrl
 } from '@/operations/metadataOps';
+
+// Mock @/internal
+vi.mock('@/internal', async (importOriginal) => {
+  const originalModule = await importOriginal<typeof import('@/internal')>();
+  
+  return {
+    ...originalModule,
+    conduitConfig: mockDeep<import('@/types/config').ConduitServerConfig>(),
+    logger: (() => {
+      const mockLogger = mockDeep<import('pino').Logger<string>>();
+      (mockLogger.child as MockedFunction<any>).mockReturnValue(mockLogger);
+      return mockLogger;
+    })(),
+    fileSystemOps: mockDeep<typeof import('@/core/fileSystemOps')>(),
+    securityHandler: mockDeep<typeof import('@/core/securityHandler')>(),
+    webFetcher: mockDeep<typeof import('@/core/webFetcher')>(),
+    mimeService: mockDeep<typeof import('@/core/mimeService')>(),
+    getMimeType: vi.fn(),
+    formatToISO8601UTC: vi.fn(),
+  };
+});
+
+// Import mocked items from @/internal
 import {
   ConduitError,
   ErrorCode,
-  logger as internalLogger,
+  logger,
   fileSystemOps,
+  securityHandler,
   webFetcher,
+  mimeService,
   ReadTool,
   MCPErrorStatus,
   ConduitServerConfig,
   formatToISO8601UTC,
   getMimeType,
+  conduitConfig,
 } from '@/internal';
-import { conduitConfig } from '@/internal';
-
-// Mock @/internal
-vi.mock('@/internal', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/internal')>();
-  const loggerForInternalMock = mockDeep<import('pino').Logger>();
-  // @ts-ignore
-  loggerForInternalMock.child.mockReturnValue(loggerForInternalMock);
-
-  const mockedConfigLoader = mockDeep<typeof import('@/internal').configLoader>();
-  // @ts-expect-error
-  mockedConfigLoader.conduitConfig = mockDeep<ConduitServerConfig>();
-
-  return {
-    ...original,
-    logger: loggerForInternalMock,
-    configLoader: mockedConfigLoader,
-    fileSystemOps: mockDeep<typeof fileSystemOps>(),
-    webFetcher: mockDeep<typeof webFetcher>(),
-    formatToISO8601UTC: vi.fn(),
-    getMimeType: vi.fn(),
-  };
-});
 
 describe('metadataOps', () => {
-  const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
+  // Initialize test-level variables with correct types
   const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
   const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
+  const mockedLogger = logger as DeepMockProxy<import('pino').Logger<string>>;
+  const mockedSecurityHandler = securityHandler as DeepMockProxy<typeof securityHandler>;
   const mockedWebFetcher = webFetcher as DeepMockProxy<typeof webFetcher>;
-  const mockedFormatToISO = formatToISO8601UTC as MockedFunction<typeof formatToISO8601UTC>;
+  const mockedMimeService = mimeService as DeepMockProxy<typeof mimeService>;
   const mockedGetMimeType = getMimeType as MockedFunction<typeof getMimeType>;
+  const mockedFormatToISO = formatToISO8601UTC as MockedFunction<typeof formatToISO8601UTC>;
 
   const defaultTestConfig: Partial<ConduitServerConfig> = {
     // Add any specific config defaults needed for metadataOps if any
@@ -60,21 +66,49 @@ describe('metadataOps', () => {
   const testFileUrl = 'http://example.com/somefile.txt';
 
   beforeEach(() => {
-    mockReset(mockedLogger);
-    // @ts-ignore
-    if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      // @ts-ignore
-      mockedLogger.child.mockReset();
-    }
-    // @ts-ignore
-    mockedLogger.child.mockReturnValue(mockedLogger);
-
-    mockReset(mockedConfig as any);
-    Object.assign(mockedConfig, defaultTestConfig);
+    // Call mockReset on all deep-mocked objects and vi.fn() mocks
+    mockReset(mockedConfig);
     mockReset(mockedFsOps);
+    mockReset(mockedLogger);
+    mockReset(mockedSecurityHandler);
     mockReset(mockedWebFetcher);
-    mockedFormatToISO.mockReset();
+    mockReset(mockedMimeService);
     mockedGetMimeType.mockReset();
+    mockedFormatToISO.mockReset();
+
+    // Assign default test config
+    Object.assign(mockedConfig, defaultTestConfig);
+
+    // Ensure logger.child returns the logger itself
+    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
+
+    // Set up default implementations for metadata tests
+    mockedFsOps.getStats.mockResolvedValue({} as fs.Stats);
+    mockedFsOps.createEntryInfo.mockResolvedValue({
+      name: '',
+      path: '',
+      type: 'file' as const,
+      size_bytes: 0,
+      mime_type: '',
+      created_at: '',
+      modified_at: '',
+      permissions_octal: '',
+      permissions_string: '',
+    });
+    mockedSecurityHandler.validateAndResolvePath.mockResolvedValue('');
+    mockedWebFetcher.fetchUrlContent.mockResolvedValue({
+      finalUrl: '',
+      mimeType: '',
+      headers: {},
+      httpStatus: 200,
+      error: null,
+      content: Buffer.from(''),
+      isBinary: false,
+      size: 0,
+      isPartialContent: false,
+      rangeRequestStatus: 'not_requested',
+    });
+    mockedMimeService.getMimeType.mockReturnValue('text/plain');
   });
 
   afterEach(() => {

@@ -1,4 +1,6 @@
 import pino, { LoggerOptions, Logger } from 'pino';
+import os from 'os';
+import path from 'path';
 
 const logLevel = process.env.LOG_LEVEL || 'INFO';
 
@@ -27,34 +29,54 @@ const pinoOptions: LoggerOptions = {
 
 let logger: Logger;
 
-if (process.env.CONDUIT_LOG_PATH) {
-  logger = pino(pinoOptions, pino.destination(process.env.CONDUIT_LOG_PATH));
+const logFilePathFromEnv = process.env.CONDUIT_LOG_FILE_PATH;
+
+if (logFilePathFromEnv === "NONE") {
+  // Explicitly disable logging
+  logger = pino({ ...pinoOptions, enabled: false });
+} else if (logFilePathFromEnv) {
+  // Log to the specified file path
+  logger = pino(pinoOptions, pino.destination(logFilePathFromEnv));
 } else if (process.env.NODE_ENV === 'test') {
-  // During tests, make it a no-op logger unless a path is specified
-  logger = pino({ ...pinoOptions, level: 'silent' });
+  // During tests, make it a no-op logger unless a path is specified or "NONE"
+  logger = pino({ ...pinoOptions, level: 'silent' }); // Or enabled: false if preferred
 } else {
-  // For MCP, default to a no-op logger if no path is specified, to prevent stdout/stderr pollution.
-  // The spec is a bit ambiguous here. It says "no-op logger by default if not explicitly configured for output"
-  // This interprets "explicitly configured for output" as setting CONDUIT_LOG_PATH.
-  // We will use pino's ability to write to an NUL stream equivalent or make it silent.
-  const nullStream = {
-    write: () => {},
-  };
-  logger = pino(pinoOptions, nullStream);
-  // Alternatively, to make it truly silent and less overhead:
-  // logger = pino({ ...pinoOptions,ระดับ: 'silent' });
-  // Or, even more simply, if no features of pino are needed when it's no-op:
-  // logger = pino({ enabled: false });
+  // Default to logging to [SYSTEM_TEMP_DIR]/conduit-mcp.log
+  const defaultLogDir = os.tmpdir();
+  const defaultLogFile = path.join(defaultLogDir, 'conduit-mcp.log');
+  try {
+    logger = pino(pinoOptions, pino.destination(defaultLogFile));
+  } catch (error) {
+    // Fallback to no-op if default log file creation fails (e.g., permissions)
+    console.error(`Failed to create default log file at ${defaultLogFile}: ${error instanceof Error ? error.message : String(error)}. Logging will be disabled.`);
+    logger = pino({ ...pinoOptions, enabled: false });
+  }
 }
 
-// Initial log to confirm logger setup, this will only go to file if CONDUIT_LOG_PATH is set.
-logger.info(`Internal logger initialized with level: ${pinoOptions.level}`);
-if (process.env.CONDUIT_LOG_PATH) {
-  logger.info(`Logging to file: ${process.env.CONDUIT_LOG_PATH}`);
+// Initial log to confirm logger setup
+if (logFilePathFromEnv === "NONE") {
+  // Log to console because the main logger is disabled.
+  console.log(`Internal logger is explicitly disabled via CONDUIT_LOG_FILE_PATH="NONE".`);
+} else if (process.env.NODE_ENV === 'test' && pinoOptions.level === 'silent') {
+  // No log needed for silent test logger, or it might print if level was overridden by LOG_LEVEL
+  // If truly silent, isLevelEnabled('info') would be false.
 } else {
-  logger.info(
-    'Internal logging to stdout/stderr is disabled for MCP compliance (defaulting to no-op). Set CONDUIT_LOG_PATH to enable file logging.'
-  );
+  // Check if the logger is actually enabled and configured to log at the default/current level.
+  // Use a common level like 'info' for this check, assuming pinoOptions.level is 'info' or more verbose.
+  if (logger.isLevelEnabled(pinoOptions.level || 'info')) {
+    if (logFilePathFromEnv) {
+      logger.info(`Internal logger initialized. Logging to file: ${logFilePathFromEnv}`);
+    } else {
+      // This case covers the default log file path since "NONE" and explicit path are handled above.
+      const defaultLogFile = path.join(os.tmpdir(), 'conduit-mcp.log');
+      logger.info(`Internal logger initialized. Logging to default file: ${defaultLogFile}`);
+    }
+  } else {
+    // This case would be unusual if not NODE_ENV=test and not NONE, implies log level is very restrictive e.g. fatal only
+    // or some other issue like failed stream, but we have a try-catch for that.
+    // For safety, we can log to console if logger seems non-operational for info messages.
+    console.log(`Internal logger configured, but current log level (${pinoOptions.level}) may prevent initialization messages. Check CONDUIT_LOG_FILE_PATH or LOG_LEVEL.`);
+  }
 }
 
 export default logger;

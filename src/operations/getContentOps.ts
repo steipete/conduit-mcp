@@ -717,23 +717,25 @@ async function getContentFromUrl(
         }
       } else {
         markdownConversionStatus = 'skipped_unsupported_content_type';
-        markdownSkippedReason = `Content type ${sourceMimeType} is not HTML. Cannot convert to Markdown.`;
+        // markdownSkippedReason = `Content type ${sourceMimeType} is not HTML. Cannot convert to Markdown.`;
+        const userNote = "Content could not be converted to Markdown as it is not HTML.";
         operationLogger.info(
-          `Markdown format requested for non-HTML URL ${fetchedData.finalUrl} (MIME: ${sourceMimeType}). Cannot convert.`
+          `Markdown format requested for non-HTML URL ${fetchedData.finalUrl} (MIME: ${sourceMimeType}). ${userNote}`
         );
         return {
           source: fetchedData.finalUrl,
           source_type: 'url',
           status: 'success',
-          output_format_used: 'text', // Fallback to text
-          content:
-            '[Non-HTML content, cannot convert to Markdown. Request as base64 or original text format.]',
-          mime_type: sourceMimeType,
-          size_bytes: contentBuffer.length,
+          output_format_used: 'markdown', // As per spec, reflect requested format
+          content: null, // As per spec
+          detected_format: sourceMimeType, // As per spec
+          user_note: userNote, // As per spec
+          // mime_type: sourceMimeType, // Keep original mime_type if also desired, or remove if detected_format replaces its role here
+          size_bytes: 0, // Content is null, so 0 bytes for the content field itself.
           http_status_code: fetchedData.httpStatus,
           range_request_status: finalRangeStatus,
           markdown_conversion_status: markdownConversionStatus,
-          markdown_conversion_skipped_reason: markdownSkippedReason,
+          markdown_conversion_skipped_reason: `Content type ${sourceMimeType} is not HTML.`, // Retain this for internal/debugging if needed
         } as ReadTool.ContentResultSuccess;
       }
     }

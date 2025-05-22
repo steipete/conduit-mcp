@@ -75,8 +75,10 @@ export namespace ReadTool {
 
   export interface ContentResultSuccess extends MCPSuccess, BaseResult {
     output_format_used: ContentFormat | 'text'; // 'text' if markdown fallback
-    content?: string; // Text, base64, markdown, binary placeholder, or checksum string
-    mime_type?: string;
+    content?: string | null; // Text, base64, markdown, binary placeholder, checksum string, or null
+    mime_type?: string; // Original mime_type from source
+    detected_format?: string; // Actual mime_type if different or for clarity (e.g. for non-HTML fallback)
+    user_note?: string; // For user-facing notes, e.g. why markdown conversion was skipped
     size_bytes?: number; // Size of content field for text/base64/markdown, or original for checksum
     original_size_bytes?: number; // If image compression applied
     compression_applied?: boolean;
@@ -142,37 +144,43 @@ export namespace WriteTool {
     | 'delete'
     | 'touch'
     | 'archive'
-    | 'unarchive';
+    | 'unarchive'
+    | 'extract';
   export type InputEncoding = 'text' | 'base64';
   export type WriteMode = 'overwrite' | 'append' | 'error_if_exists';
   export type ArchiveFormat = 'zip' | 'tar.gz' | 'tgz';
 
   // Entry types for batchable operations
-  export interface PutEntry {
+  export interface BaseWriteEntry {
     path: string;
-    content: string; // string, as Buffer cannot be in JSON. Base64 handled by input_encoding.
-    input_encoding?: InputEncoding;
-    write_mode?: WriteMode;
+  }
+
+  export interface PutEntry extends BaseWriteEntry {
+    content: string; // Can be text or base64 encoded binary
+    input_encoding?: 'text' | 'base64';
+    write_mode?: 'overwrite' | 'append' | 'error_if_exists';
     checksum_algorithm?: string;
   }
-  export interface MkdirEntry {
-    path: string;
+
+  export interface MkdirEntry extends BaseWriteEntry {
     recursive?: boolean;
   }
+
+  export interface TouchEntry extends BaseWriteEntry { }
+
   export interface CopyEntry {
     source_path: string;
     destination_path: string;
   }
+
   export interface MoveEntry {
     source_path: string;
     destination_path: string;
   }
+
   export interface DeleteEntry {
     path: string;
     recursive?: boolean;
-  }
-  export interface TouchEntry {
-    path: string;
   }
 
   // Base parameters for actions that use the 'entries' array

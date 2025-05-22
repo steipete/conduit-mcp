@@ -12,6 +12,7 @@ import {
   webFetcher,
   ReadTool,
   ConduitServerConfig,
+  getMimeType as internalGetMimeType,
 } from '@/internal';
 
 // Mock @/internal using the robust spread pattern
@@ -37,20 +38,23 @@ vi.mock('@/internal', async (importOriginal) => {
     },
     getMimeType: vi.fn(),
     // ConduitError, ErrorCode, ReadTool etc. will be passed from originalModule
+    ConduitError: originalModule.ConduitError,
+    ErrorCode: originalModule.ErrorCode,
+    ReadTool: originalModule.ReadTool,
+    ConduitServerConfig: originalModule.ConduitServerConfig,
   };
 });
 
-import { getMimeType as internalGetMimeType, webFetcher as internalWebFetcher } from '@/internal';
+// Use the imported mocks
+const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
+const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
+const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
+const mockedFetchUrlContent = webFetcher.fetchUrlContent as MockedFunction<
+  typeof webFetcher.fetchUrlContent
+>;
+const mockedGetMimeType = internalGetMimeType as MockedFunction<typeof internalGetMimeType>;
 
 describe('diffOps', () => {
-  const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
-  const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
-  const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
-  const mockedFetchUrlContent = internalWebFetcher.fetchUrlContent as MockedFunction<
-    typeof internalWebFetcher.fetchUrlContent
-  >;
-  const mockedGetMimeType = internalGetMimeType as MockedFunction<typeof internalGetMimeType>;
-
   const defaultTestConfig: Partial<ConduitServerConfig> = {
     // workspaceRoot: '/test/workspace', // Set if your tests rely on a specific root
     logLevel: 'ERROR',
@@ -67,19 +71,17 @@ describe('diffOps', () => {
 
   beforeEach(() => {
     mockReset(mockedLogger);
-    // @ts-ignore
-    if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      // @ts-ignore
-      mockedLogger.child.mockReset();
-    }
-    // @ts-ignore
-    mockedLogger.child.mockReturnValue(mockedLogger);
+    // The child mock setup for logger needs to ensure it returns the parent mock correctly after reset
+    // if child is also a deep mock, it might need its own reset or careful setup.
+    // For simplicity, if logger.child().info() is called, ensure logger.child returns mockedLogger.
+    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
 
-    mockReset(mockedConfig as any);
+    mockReset(mockedConfig); // This should now work
     Object.assign(mockedConfig, defaultTestConfig);
+    // Ensure type safety if defaultTestConfig properties are all optional
     mockedConfig.maxFileReadBytes = defaultTestConfig.maxFileReadBytes!;
     mockedConfig.maxUrlDownloadSizeBytes = defaultTestConfig.maxUrlDownloadSizeBytes!;
-    mockedConfig.httpTimeoutMs = defaultTestConfig.httpTimeoutMs!; // Ensure it's assigned
+    mockedConfig.httpTimeoutMs = defaultTestConfig.httpTimeoutMs!;
 
     mockReset(mockedFsOps);
     mockedFetchUrlContent.mockReset();

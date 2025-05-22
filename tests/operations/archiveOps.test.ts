@@ -90,16 +90,25 @@ describe('archiveOps', () => {
   const mockedTarExtract = vi.mocked(tar.extract, true);
 
   const mockConfig: ConduitServerConfig = {
+    logLevel: 'INFO',
     allowedPaths: [path.join(os.tmpdir(), 'conduit-mcp-tests')],
+    workspaceRoot: path.join(os.tmpdir(), 'conduit-mcp-tests'),
+    httpTimeoutMs: 5000,
     maxPayloadSizeBytes: 1 * 1024 * 1024,
     maxFileReadBytes: 10 * 1024 * 1024,
-    maxUrlDownloadSizeBytes: 10 * 1024 * 1024,
-    httpTimeoutMs: 5000,
+    imageCompressionThresholdBytes: 1024 * 50, // 50KB
     imageCompressionQuality: 80,
+    defaultChecksumAlgorithm: 'sha256',
     maxRecursiveDepth: 10,
-    logLevel: 'INFO', // Corrected case
-    workspaceRoot: path.join(os.tmpdir(), 'conduit-mcp-tests'), // Added
-    maxFileReadBytesFind: 1 * 1024 * 1024, // Added
+    recursiveSizeTimeoutMs: 5000,
+    serverStartTimeIso: '2024-01-01T00:00:00.000Z',
+    serverVersion: '1.0.0-test',
+    maxUrlDownloadSizeBytes: 10 * 1024 * 1024,
+    maxFileReadBytesFind: 1 * 1024 * 1024,
+    allowTildeExpansion: false, // Optional, good to be explicit
+    userDidSpecifyAllowedPaths: true, // Or false, depending on test needs
+    resolvedAllowedPaths: [path.join(os.tmpdir(), 'conduit-mcp-tests')],
+    // isDefaultPathsUsed and resolvedDefaultPathsUsed are typically set by configLoader, might not be needed here unless tests depend on them
   };
 
   const testZipArchivePath = '/test/workspace/archive.zip';
