@@ -7,15 +7,6 @@ import logger from '@/utils/logger'; // Leverages the global mock from setupTest
 
 const MOCK_HOME_DIR_FOR_TESTS = '/mock/home/user';
 
-// Mock os module specifically for homedir
-vi.mock('os', async (importOriginal) => {
-  const originalOS = await importOriginal<typeof os>();
-  return {
-    ...originalOS, // Spread original os module
-    homedir: vi.fn(() => MOCK_HOME_DIR_FOR_TESTS), // Mock homedir to return a predefined path
-  };
-});
-
 // Mock package.json
 vi.mock('../../package.json', () => ({
   version: 'test-version-1.2.3',
@@ -30,14 +21,8 @@ describe('configLoader', () => {
     originalEnv = { ...process.env };
     vi.resetModules();
 
-    // os.homedir is now globally mocked by vi.mock above.
-    // If a test needs to assert calls to os.homedir, it can spy on it:
-    // vi.spyOn(os, 'homedir');
-    // Or if it needs to change return value for a specific test:
-    // vi.mocked(os.homedir).mockReturnValueOnce('/different/home');
-
+    vi.spyOn(os, 'homedir').mockReturnValue(MOCK_HOME_DIR_FOR_TESTS);
     vi.spyOn(process, 'cwd').mockReturnValue(mockCwd);
-    vi.clearAllMocks(); // Clears call history for spies, etc.
   });
 
   afterEach(() => {
@@ -67,6 +52,7 @@ describe('configLoader', () => {
       expect(typeof config.serverStartTimeIso).toBe('string');
       expect(config.serverStartTimeIso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 
+      expect(os.homedir).toHaveBeenCalled();
       expect(logger.info).toHaveBeenCalledWith('Server configuration loaded successfully.');
       expect(logger.debug).toHaveBeenCalledWith(
         { config: expect.any(Object) },

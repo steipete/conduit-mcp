@@ -62,6 +62,7 @@ npm install
 The server is configured via environment variables with sensible defaults. For local development, you can:
 
 **Option A: Set environment variables directly**
+
 ```bash
 export CONDUIT_ALLOWED_PATHS="~:/tmp:/your/project/path"
 export LOG_LEVEL="DEBUG"
@@ -71,10 +72,13 @@ export CONDUIT_MAX_FILE_READ_BYTES="104857600"
 **Option B: Create a `.env` file** (recommended for development)
 
 If an `.env.example` file exists, copy it to `.env` to get started:
+
 ```bash
 # cp .env.example .env (if .env.example exists)
 ```
+
 Then edit `.env` with your preferred settings. Key variables include:
+
 - `CONDUIT_ALLOWED_PATHS="~:/tmp:/your/development/paths"`
 - `LOG_LEVEL="DEBUG"`
 - `CONDUIT_HTTP_TIMEOUT_MS="30000"`
@@ -82,6 +86,7 @@ Then edit `.env` with your preferred settings. Key variables include:
 Refer to `README.md` or `docs/spec.md` for a full list of `CONDUIT_*` environment variables and their descriptions.
 
 **Important Configuration Notes:**
+
 - **`CONDUIT_ALLOWED_PATHS`**: Colon-separated list of directories the server can access. Defaults to `~:/tmp` if not set. Use `~` for home directory (automatically resolved). Example: `"~/projects:/workspace:/tmp"`.
 - **Security**: Always set `CONDUIT_ALLOWED_PATHS` explicitly for production use.
 - **First-run notice**: If using defaults for allowed paths, the server sends a one-time informational message in the first MCP response.
@@ -89,24 +94,31 @@ Refer to `README.md` or `docs/spec.md` for a full list of `CONDUIT_*` environmen
 ### 4. Running the Server
 
 **For Development (with hot reload):**
+
 ```bash
 npm run dev
 ```
+
 This typically uses `tsx` to run `src/server.ts` and watches for changes.
 
 **Using the `start.sh` script:**
+
 ```bash
 ./start.sh
 ```
+
 This script attempts to run the compiled version from `dist/server.js` first, and falls back to using `tsx` with `src/server.ts` if the compiled version isn't found. It also handles a local `tsx` installation if needed.
 
 **Build for Production:**
+
 ```bash
 npm run build
 ```
+
 This compiles the TypeScript source to JavaScript in the `dist/` directory.
 
 **Run Compiled Production Version:**
+
 ```bash
 node dist/server.js
 ```
@@ -129,6 +141,7 @@ When running the server locally (either via `npm run dev` or `./start.sh`), conf
   }
 }
 ```
+
 If running directly with `npm run dev`, the client would need to know how to invoke that (which might be more complex if `npm run dev` involves `tsx watch`). Using `start.sh` is generally more straightforward for client configuration pointing to a local dev version.
 
 ## Building for Production
@@ -151,20 +164,22 @@ The `start.sh` script automatically prioritizes running the compiled version fro
 
 The project uses Vitest as the testing framework with comprehensive test coverage goals as specified in `docs/spec.md` Section 8.
 
-*   **Run all tests:**
-    ```bash
-    npm test
-    ```
+- **Run all tests:**
 
-*   **Run tests in watch mode (reruns on file changes):**
-    ```bash
-    npm run test:watch
-    ```
+  ```bash
+  npm test
+  ```
 
-*   **Run tests with coverage report:**
-    ```bash
-    npm run coverage
-    ```
+- **Run tests in watch mode (reruns on file changes):**
+
+  ```bash
+  npm run test:watch
+  ```
+
+- **Run tests with coverage report:**
+  ```bash
+  npm run coverage
+  ```
 
 The test suite includes unit tests, integration tests, and end-to-end testing to ensure reliability and correctness of all functionality. Test files are organized in the `tests/` directory, mirroring the structure of the `src/` directory.
 
@@ -172,15 +187,16 @@ The test suite includes unit tests, integration tests, and end-to-end testing to
 
 This project uses ESLint for linting and Prettier for code formatting to maintain consistent code quality and style.
 
-*   **Check for linting errors:**
-    ```bash
-    npm run lint
-    ```
+- **Check for linting errors:**
 
-*   **Automatically fix formatting issues with Prettier:**
-    ```bash
-    npm run format
-    ```
+  ```bash
+  npm run lint
+  ```
+
+- **Automatically fix formatting issues with Prettier:**
+  ```bash
+  npm run format
+  ```
 
 The configuration includes TypeScript-specific ESLint rules (`@typescript-eslint/eslint-plugin`) and Prettier integration (`eslint-config-prettier`, `eslint-plugin-prettier`). It's recommended to configure your editor to format on save using Prettier and display ESLint errors inline for the best development experience.
 
@@ -220,6 +236,7 @@ This project follows the [Conventional Commits](https://www.conventionalcommits.
 - `refactor:` for code restructuring without functional changes
 
 **Examples:**
+
 ```
 feat: add compression support to archive operations
 fix: resolve path traversal vulnerability in file operations
@@ -275,6 +292,7 @@ The project maintains consistent code style through automated tooling:
 - **Configuration files**: `.eslintrc.json` and `.prettierrc` define the project's style rules
 
 **Editor setup**: Configure your editor to:
+
 - Format on save using Prettier
 - Display ESLint errors inline
 - Use the project's TypeScript configuration for accurate IntelliSense
@@ -283,10 +301,10 @@ For the best development experience, run `npm run format` and `npm run lint` reg
 
 ## Understanding the MCP Protocol
 
-*   The server communicates via standard input (stdin) for requests and standard output (stdout) for responses.
-*   Each request and response is a single JSON string per line.
-*   The server **must not** write any other data (like logs) to stdout/stderr, as this will break MCP communication. Internal logging should be directed to a file (via `CONDUIT_LOG_PATH`) or be a no-op if not configured.
-*   Refer to `docs/spec.md` and `src/types/mcp.ts` for the base MCP request/response structures.
-*   Tool-specific parameters and response payloads are defined in `src/types/tools.ts`.
+- The server communicates via standard input (stdin) for requests and standard output (stdout) for responses.
+- Each request and response is a single JSON string per line.
+- The server **must not** write any other data (like logs) to stdout/stderr, as this will break MCP communication. Internal logging should be directed to a file (via `CONDUIT_LOG_PATH`) or be a no-op if not configured.
+- Refer to `docs/spec.md` and `src/types/mcp.ts` for the base MCP request/response structures.
+- Tool-specific parameters and response payloads are defined in `src/types/tools.ts`.
 
-By following these guidelines, we can maintain a clean, consistent, and robust codebase. 
+By following these guidelines, we can maintain a clean, consistent, and robust codebase.

@@ -99,7 +99,10 @@ describe('WriteTool', () => {
         action: 'put',
         entries: [{ path: '/file.txt', content: 'Hello' }],
       };
-      const response = (await writeToolHandler(params, mockedConduitConfig)) as WriteTool.DefinedBatchResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedBatchResponse;
       const result = response.results;
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
@@ -114,7 +117,10 @@ describe('WriteTool', () => {
         action: 'mkdir',
         entries: [{ path: '/newdir', recursive: true }],
       };
-      const response = (await writeToolHandler(params, mockedConduitConfig)) as WriteTool.DefinedBatchResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedBatchResponse;
       const result = response.results;
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
@@ -127,7 +133,10 @@ describe('WriteTool', () => {
         action: 'copy',
         entries: [{ source_path: '/src.txt', destination_path: '/dest.txt' }],
       };
-      const response = (await writeToolHandler(params, mockedConduitConfig)) as WriteTool.DefinedBatchResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedBatchResponse;
       const result = response.results;
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
@@ -138,7 +147,9 @@ describe('WriteTool', () => {
     it('should report individual errors in batch operations', async () => {
       mockedFsOps.writeFile
         .mockResolvedValueOnce(10)
-        .mockRejectedValueOnce(new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, 'Access denied'));
+        .mockRejectedValueOnce(
+          new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, 'Access denied')
+        );
       const params: WriteTool.PutParams = {
         action: 'put',
         entries: [
@@ -146,7 +157,10 @@ describe('WriteTool', () => {
           { path: '/file2.txt', content: 'FAIL' },
         ],
       };
-      const response = (await writeToolHandler(params, mockedConduitConfig)) as WriteTool.DefinedBatchResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedBatchResponse;
       const results = response.results;
       expect(results.length).toBe(2);
       expect(results[0].status).toBe('success');
@@ -159,7 +173,7 @@ describe('WriteTool', () => {
 
     it('should throw ERR_MISSING_ENTRIES_FOR_BATCH if entries is empty for batch action', async () => {
       const params = { action: 'put', entries: [] } as WriteTool.PutParams;
-      const response = await writeToolHandler(params, mockedConduitConfig) as MCPErrorStatus;
+      const response = (await writeToolHandler(params, mockedConduitConfig)) as MCPErrorStatus;
       expect(response.status).toBe('error');
       expect(response.error_code).toBe(ErrorCode.ERR_MISSING_ENTRIES_FOR_BATCH);
     });
@@ -173,17 +187,22 @@ describe('WriteTool', () => {
         archive_path: '/myarchive.zip',
         format: 'zip',
       };
-      const response = await writeToolHandler(params, mockedConduitConfig) as WriteTool.DefinedArchiveResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedArchiveResponse;
       const archiveResultItem = response.results[0] as ArchiveTool.CreateArchiveSuccess;
       expect(archiveResultItem.status).toBe('success');
       expect(archiveResultItem.operation).toBe('create');
       expect(archiveResultItem.archive_path).toBe(params.archive_path);
-      expect(mockedCreateArchive).toHaveBeenCalledWith(expect.objectContaining({
-        operation: 'create',
-        source_paths: params.source_paths,
-        archive_path: params.archive_path,
-        compression: undefined
-      }));
+      expect(mockedCreateArchive).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'create',
+          source_paths: params.source_paths,
+          archive_path: params.archive_path,
+          compression: undefined,
+        })
+      );
     });
 
     it('should return error if createArchive fails', async () => {
@@ -195,7 +214,10 @@ describe('WriteTool', () => {
         source_paths: ['/dir1'],
         archive_path: '/myarchive.zip',
       };
-      const response = (await writeToolHandler(params, mockedConduitConfig)) as WriteTool.DefinedArchiveResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedArchiveResponse;
       const result = response.results[0] as ArchiveTool.ArchiveResultError;
       expect(result.status).toBe('error');
       if (result.status === 'error') {
@@ -209,22 +231,27 @@ describe('WriteTool', () => {
         archive_path: '/myarchive.zip',
         destination_path: '/extract_here',
       };
-      const response = await writeToolHandler(params, mockedConduitConfig) as WriteTool.DefinedArchiveResponse;
+      const response = (await writeToolHandler(
+        params,
+        mockedConduitConfig
+      )) as WriteTool.DefinedArchiveResponse;
       const unarchiveResultItem = response.results[0] as ArchiveTool.ExtractArchiveSuccess;
       expect(unarchiveResultItem.status).toBe('success');
       expect(unarchiveResultItem.operation).toBe('extract');
       expect(unarchiveResultItem.entries_extracted).toBe(5);
-      expect(mockedExtractArchive).toHaveBeenCalledWith(expect.objectContaining({
-        operation: 'extract',
-        archive_path: params.archive_path,
-        target_path: params.destination_path
-      }));
+      expect(mockedExtractArchive).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'extract',
+          archive_path: params.archive_path,
+          target_path: params.destination_path,
+        })
+      );
     });
   });
 
   it('should throw error for invalid action', async () => {
     const params = { action: 'invalid_action' } as any;
-    const response = await writeToolHandler(params, mockedConduitConfig) as MCPErrorStatus;
+    const response = (await writeToolHandler(params, mockedConduitConfig)) as MCPErrorStatus;
     expect(response.status).toBe('error');
     expect(response.error_code).toBe(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION);
   });

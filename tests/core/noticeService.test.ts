@@ -1,4 +1,8 @@
-import { generateFirstUseNotice, hasFirstUseNoticeBeenSent, markFirstUseNoticeSent } from '@/core/noticeService';
+import {
+  generateFirstUseNotice,
+  hasFirstUseNoticeBeenSent,
+  markFirstUseNoticeSent,
+} from '@/core/noticeService';
 import os from 'os';
 import path from 'path';
 import { vi, describe, it, expect, beforeEach, afterAll } from 'vitest';

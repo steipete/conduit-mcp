@@ -127,8 +127,24 @@ describe('fileSystemOps', () => {
     // Provide default implementations for commonly used fs functions
     mockFs.realpath.mockImplementation(async (p) => p.toString()); // Default pass-through
     mockFs.access.mockResolvedValue(undefined); // Default: path exists
-    mockFs.stat.mockResolvedValue({ isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false, size: 100, mode: 0o644, mtime: new Date(), birthtime: new Date() } as Stats);
-    mockFs.lstat.mockResolvedValue({ isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false, size: 100, mode: 0o644, mtime: new Date(), birthtime: new Date() } as Stats);
+    mockFs.stat.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+      size: 100,
+      mode: 0o644,
+      mtime: new Date(),
+      birthtime: new Date(),
+    } as Stats);
+    mockFs.lstat.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+      size: 100,
+      mode: 0o644,
+      mtime: new Date(),
+      birthtime: new Date(),
+    } as Stats);
     mockFs.writeFile.mockResolvedValue(undefined);
     mockFs.appendFile.mockResolvedValue(undefined);
     mockFs.mkdir.mockResolvedValue(undefined);

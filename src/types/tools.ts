@@ -166,7 +166,7 @@ export namespace WriteTool {
     recursive?: boolean;
   }
 
-  export interface TouchEntry extends BaseWriteEntry { }
+  export interface TouchEntry extends BaseWriteEntry {}
 
   export interface CopyEntry {
     source_path: string;

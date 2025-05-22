@@ -15,11 +15,13 @@ vi.mock('@/internal', async (importOriginal) => {
   };
 });
 vi.mock('@/operations/findOps', () => ({
-  findEntriesRecursive: vi.fn()
+  findEntriesRecursive: vi.fn(),
 }));
 
 const mockedConduitConfig = conduitConfig as any;
-const mockedFindEntriesRecursive = findEntriesRecursive as MockedFunction<typeof findEntriesRecursive>;
+const mockedFindEntriesRecursive = findEntriesRecursive as MockedFunction<
+  typeof findEntriesRecursive
+>;
 
 describe('FindTool', () => {
   const mockBasePath = '/allowed/search_base';
@@ -106,32 +108,53 @@ describe('FindTool', () => {
 
   it('should return error response if base_path is missing', async () => {
     const params: Partial<FindTool.Parameters> = { match_criteria: [] };
-    mockedFindEntriesRecursive.mockRejectedValueOnce(new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing 'base_path' parameter for find tool."));
-    const result = await findToolHandler(params as FindTool.Parameters, mockedConduitConfig as ConduitServerConfig);
+    mockedFindEntriesRecursive.mockRejectedValueOnce(
+      new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing 'base_path' parameter for find tool.")
+    );
+    const result = await findToolHandler(
+      params as FindTool.Parameters,
+      mockedConduitConfig as ConduitServerConfig
+    );
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.INVALID_PARAMETER,
-      error_message: "Missing 'base_path' parameter for find tool."
+      error_message: "Missing 'base_path' parameter for find tool.",
     });
   });
 
   it('should return error response if match_criteria is missing or empty', async () => {
     let params: Partial<FindTool.Parameters> = { base_path: mockBasePath };
-    mockedFindEntriesRecursive.mockRejectedValueOnce(new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing or empty 'match_criteria' for find tool."));
-    let result = await findToolHandler(params as FindTool.Parameters, mockedConduitConfig as ConduitServerConfig);
+    mockedFindEntriesRecursive.mockRejectedValueOnce(
+      new ConduitError(
+        ErrorCode.INVALID_PARAMETER,
+        "Missing or empty 'match_criteria' for find tool."
+      )
+    );
+    let result = await findToolHandler(
+      params as FindTool.Parameters,
+      mockedConduitConfig as ConduitServerConfig
+    );
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.INVALID_PARAMETER,
-      error_message: "Missing or empty 'match_criteria' for find tool."
+      error_message: "Missing or empty 'match_criteria' for find tool.",
     });
-    
+
     params = { base_path: mockBasePath, match_criteria: [] };
-    mockedFindEntriesRecursive.mockRejectedValueOnce(new ConduitError(ErrorCode.INVALID_PARAMETER, "Missing or empty 'match_criteria' for find tool."));
-    result = await findToolHandler(params as FindTool.Parameters, mockedConduitConfig as ConduitServerConfig);
+    mockedFindEntriesRecursive.mockRejectedValueOnce(
+      new ConduitError(
+        ErrorCode.INVALID_PARAMETER,
+        "Missing or empty 'match_criteria' for find tool."
+      )
+    );
+    result = await findToolHandler(
+      params as FindTool.Parameters,
+      mockedConduitConfig as ConduitServerConfig
+    );
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.INVALID_PARAMETER,
-      error_message: "Missing or empty 'match_criteria' for find tool."
+      error_message: "Missing or empty 'match_criteria' for find tool.",
     });
   });
 
@@ -146,7 +169,7 @@ describe('FindTool', () => {
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.OPERATION_FAILED,
-      error_message: 'Specific find op failure'
+      error_message: 'Specific find op failure',
     });
   });
 
@@ -161,7 +184,7 @@ describe('FindTool', () => {
     expect(result).toEqual({
       status: 'error',
       error_code: ErrorCode.INTERNAL_ERROR,
-      error_message: 'Internal server error: Generic find op failure'
+      error_message: 'Internal server error: Generic find op failure',
     });
   });
 });

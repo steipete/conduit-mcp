@@ -2,49 +2,45 @@
 /// <reference types="vitest/globals" />
 
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
+import { mockDeep, type DeepMockProxy, mockReset, type MockedFunction } from 'vitest-mock-extended';
 import * as path from 'path'; // For path.resolve if needed in tests, or for matching paths
 
 import { makeDirectory } from '@/operations/mkdirOps';
-import {
-  WriteTool,
-  ConduitServerConfig,
-  ErrorCode,
-  logger as internalLogger,
-  configLoader,
-  fileSystemOps as internalFileSystemOps,
-  ConduitError,
-  conduitConfig,
-} from '@/internal';
+import { WriteTool, ConduitServerConfig, ErrorCode, ConduitError } from '@/internal';
 
 // Mock @/internal essentials using the robust spread pattern
 vi.mock('@/internal', async (importOriginal) => {
   const originalModule = await importOriginal<typeof import('@/internal')>();
 
-  const loggerMock = mockDeep<import('pino').Logger<string>>();
-  loggerMock.child.mockReturnValue(loggerMock);
-
-  const configLoaderMock = {
-    ...mockDeep<typeof originalModule.configLoader>(),
-    conduitConfig: mockDeep<ConduitServerConfig>(),
-  };
-
-  const fileSystemOpsMock = mockDeep<typeof originalModule.fileSystemOps>();
+  const mockedConduitConfig = mockDeep<ConduitServerConfig>();
+  const mockedLogger = mockDeep<import('pino').Logger<string>>();
+  mockedLogger.child.mockReturnValue(mockedLogger);
+  const mockedFileSystemOps = mockDeep<typeof originalModule.fileSystemOps>();
+  const mockedSecurityHandler = mockDeep<typeof originalModule.securityHandler>();
 
   return {
     ...originalModule, // Spread original module first
     // Override specific parts with mocks
-    logger: loggerMock,
-    configLoader: configLoaderMock,
-    fileSystemOps: fileSystemOpsMock,
-    // ConduitError, ErrorCode, WriteTool etc. will be passed from originalModule
+    conduitConfig: mockedConduitConfig,
+    logger: mockedLogger,
+    fileSystemOps: mockedFileSystemOps,
+    securityHandler: mockedSecurityHandler,
+    // Pass through types/enums from originalModule
+    ErrorCode: originalModule.ErrorCode,
+    ConduitError: originalModule.ConduitError,
+    WriteTool: originalModule.WriteTool,
   };
 });
 
+// Import mocked items after mock setup
+import { conduitConfig, logger, fileSystemOps, securityHandler } from '@/internal';
+
 describe('mkdirOps', () => {
-  const mockedLogger = internalLogger as DeepMockProxy<import('pino').Logger>;
+  // Initialize test-level variables for these mocks with correct proxy/mocked function types
   const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
-  const mockedFsOps = internalFileSystemOps as DeepMockProxy<typeof internalFileSystemOps>;
+  const mockedLogger = logger as DeepMockProxy<import('pino').Logger<string>>;
+  const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
+  const mockedSecurityHandler = securityHandler as DeepMockProxy<typeof securityHandler>;
 
   const defaultTestConfig: Partial<ConduitServerConfig> = {
     workspaceRoot: '/test/workspace',
@@ -53,18 +49,24 @@ describe('mkdirOps', () => {
   const absoluteTestDirPath = path.join(defaultTestConfig.workspaceRoot!, testDirPath);
 
   beforeEach(() => {
+    // Call mockReset on all these mocks
+    mockReset(mockedConfig);
     mockReset(mockedLogger);
-    if (mockedLogger.child && typeof mockedLogger.child.mockReset === 'function') {
-      mockedLogger.child.mockReset();
-    }
-    mockedLogger.child.mockReturnValue(mockedLogger as any); // Ensure child() returns the mock post-reset
-
-    mockReset(mockedConfig as any);
-    Object.assign(mockedConfig, defaultTestConfig);
-    // Ensure workspaceRoot is set for path resolution in tests
-    mockedConfig.workspaceRoot = defaultTestConfig.workspaceRoot!;
-
     mockReset(mockedFsOps);
+    mockReset(mockedSecurityHandler);
+
+    // Assign defaultTestConfig to mockedConfig
+    Object.assign(mockedConfig, defaultTestConfig);
+
+    // Set up default implementations
+    mockedSecurityHandler.validateAndResolvePath.mockResolvedValue(absoluteTestDirPath);
+    mockedFsOps.createDirectory.mockResolvedValue(undefined);
+    mockedFsOps.getStats.mockResolvedValue({ isDirectory: () => false } as any);
+    mockedFsOps.pathExists.mockResolvedValue(false);
+    mockedFsOps.ensureDirectoryExists.mockResolvedValue(undefined);
+
+    // Ensure logger.child returns the logger
+    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
   });
 
   afterEach(() => {

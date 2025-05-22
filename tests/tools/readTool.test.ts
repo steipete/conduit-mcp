@@ -74,7 +74,6 @@ describe('ReadTool', () => {
       // ... other necessary default config properties for readTool tests
     });
 
-
     // Use directly imported mocks from @/internal
     securityHandler.validateAndResolvePath.mockImplementation(async (p: string) => p);
     fileSystemOps.readFileAsBuffer.mockResolvedValue(Buffer.from('File content'));
@@ -113,11 +112,13 @@ describe('ReadTool', () => {
     });
     webFetcher.cleanHtmlToMarkdown.mockReturnValue('# Markdown Content');
 
-    imageProcessor.compressImageIfNecessary.mockImplementation(async (buf: Buffer, _mime: string) => ({
-      buffer: buf,
-      original_size_bytes: buf.length,
-      compression_applied: false,
-    }));
+    imageProcessor.compressImageIfNecessary.mockImplementation(
+      async (buf: Buffer, _mime: string) => ({
+        buffer: buf,
+        original_size_bytes: buf.length,
+        compression_applied: false,
+      })
+    );
 
     (mockedCrypto.createHash as import('vitest').Mock).mockReturnValue({
       update: vi.fn().mockReturnThis(),
@@ -138,7 +139,10 @@ describe('ReadTool', () => {
         format: 'text',
       };
       // Pass the mockedConduitConfig (the separate one)
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -156,7 +160,10 @@ describe('ReadTool', () => {
         format: 'base64',
       };
       fileSystemOps.readFileAsBuffer.mockResolvedValueOnce(Buffer.from('Base64Test'));
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -172,7 +179,10 @@ describe('ReadTool', () => {
         sources: [mockSourceUrl],
         format: 'markdown',
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -180,10 +190,7 @@ describe('ReadTool', () => {
         expect(response.results[0].output_format_used).toBe('markdown');
         expect(response.results[0].markdown_conversion_status).toBe('success');
       }
-      expect(webFetcher.cleanHtmlToMarkdown).toHaveBeenCalledWith(
-        'URL content',
-        mockSourceUrl
-      );
+      expect(webFetcher.cleanHtmlToMarkdown).toHaveBeenCalledWith('URL content', mockSourceUrl);
     });
 
     it('should fallback to text for markdown if URL content is not HTML', async () => {
@@ -200,15 +207,22 @@ describe('ReadTool', () => {
         sources: [mockSourceUrl],
         format: 'markdown',
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
         expect(response.results[0].content).toBeNull(); // content is null
         expect(response.results[0].output_format_used).toBe('markdown'); // output_format_used is markdown
         expect(response.results[0].detected_format).toBe('application/json');
-        expect(response.results[0].user_note).toBe('Content could not be converted to Markdown as it is not HTML.');
-        expect(response.results[0].markdown_conversion_status).toBe('skipped_unsupported_content_type');
+        expect(response.results[0].user_note).toBe(
+          'Content could not be converted to Markdown as it is not HTML.'
+        );
+        expect(response.results[0].markdown_conversion_status).toBe(
+          'skipped_unsupported_content_type'
+        );
       }
     });
 
@@ -219,7 +233,10 @@ describe('ReadTool', () => {
         format: 'checksum',
         checksum_algorithm: 'sha256',
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -234,7 +251,8 @@ describe('ReadTool', () => {
     it('should handle image compression for base64 format', async () => {
       // REMOVED: const internal = require('@/internal');
       mimeService.getMimeType.mockResolvedValue('image/png'); // Was using internal.mimeService
-      imageProcessor.compressImageIfNecessary.mockResolvedValueOnce({ // Was using internal.imageProcessor
+      imageProcessor.compressImageIfNecessary.mockResolvedValueOnce({
+        // Was using internal.imageProcessor
         buffer: Buffer.from('compressed_image_data'),
         original_size_bytes: 2000,
         compression_applied: true,
@@ -245,11 +263,16 @@ describe('ReadTool', () => {
         sources: [mockSourceFile],
         format: 'base64',
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
-        expect(response.results[0].content).toBe(Buffer.from('compressed_image_data').toString('base64'));
+        expect(response.results[0].content).toBe(
+          Buffer.from('compressed_image_data').toString('base64')
+        );
         expect(response.results[0].compression_applied).toBe(true);
         expect(response.results[0].original_size_bytes).toBe(2000);
       }
@@ -259,7 +282,10 @@ describe('ReadTool', () => {
       // REMOVED: const internal = require('@/internal');
       mimeService.getMimeType.mockResolvedValueOnce('text/plain'); // Was using internal.mimeService
       const params: ReadTool.ContentParams = { operation: 'content', sources: [mockSourceFile] };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -273,7 +299,10 @@ describe('ReadTool', () => {
       mimeService.getMimeType.mockResolvedValueOnce('image/jpeg');
       fileSystemOps.readFileAsBuffer.mockResolvedValueOnce(Buffer.from('jpegdata'));
       const params: ReadTool.ContentParams = { operation: 'content', sources: [mockSourceFile] };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -284,7 +313,10 @@ describe('ReadTool', () => {
 
     it('should return INVALID_PARAMETER error if sources array is empty for content op', async () => {
       const params: ReadTool.Parameters = { operation: 'content', sources: [] };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedContentResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedContentResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('error');
       if (response.results[0].status === 'error') {
@@ -300,7 +332,10 @@ describe('ReadTool', () => {
         operation: 'metadata',
         sources: [mockSourceFile],
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedMetadataResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedMetadataResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -327,7 +362,10 @@ describe('ReadTool', () => {
         operation: 'metadata',
         sources: [mockImageUrl],
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedMetadataResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedMetadataResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -337,7 +375,11 @@ describe('ReadTool', () => {
         expect(response.results[0].metadata?.size_bytes).toBe(12345);
         expect(response.results[0].metadata?.modified_at).toBe('1994-11-15T12:45:26.000Z');
       }
-      expect(internal.webFetcher.fetchUrlContent).toHaveBeenCalledWith(mockImageUrl, true, undefined);
+      expect(internal.webFetcher.fetchUrlContent).toHaveBeenCalledWith(
+        mockImageUrl,
+        true,
+        undefined
+      );
     });
   });
 
@@ -354,7 +396,10 @@ describe('ReadTool', () => {
         operation: 'diff',
         sources: [file1, file2] as [string, string],
       };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedDiffResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedDiffResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results.status).toBe('success');
       if (response.results.status === 'success') {
@@ -377,7 +422,9 @@ describe('ReadTool', () => {
         operation: 'diff',
         sources: [mockSourceFile] as any, // Invalid
       };
-      await expect(readToolHandler(params, mockedConduitConfig as ConduitServerConfig)).rejects.toThrow(
+      await expect(
+        readToolHandler(params, mockedConduitConfig as ConduitServerConfig)
+      ).rejects.toThrow(
         new ConduitError(
           ErrorCode.INVALID_PARAMETER,
           'Diff operation requires exactly two source file paths.'
@@ -390,7 +437,9 @@ describe('ReadTool', () => {
         operation: 'diff',
         sources: [mockSourceFile, mockSourceUrl] as [string, string],
       };
-      await expect(readToolHandler(params, mockedConduitConfig as ConduitServerConfig)).rejects.toThrow(
+      await expect(
+        readToolHandler(params, mockedConduitConfig as ConduitServerConfig)
+      ).rejects.toThrow(
         new ConduitError(
           ErrorCode.INVALID_PARAMETER,
           'Diff operation only supports local files, not URLs.'
@@ -400,7 +449,10 @@ describe('ReadTool', () => {
 
     it('should return INVALID_PARAMETER error if sources array has more than two for diff op', async () => {
       const params: ReadTool.Parameters = { operation: 'diff', sources: ['s1', 's2'] };
-      const response = await readToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ReadTool.DefinedDiffResponse;
+      const response = (await readToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ReadTool.DefinedDiffResponse;
       expect(response.tool_name).toBe('read');
       expect(response.results.status).toBe('error');
       if (response.results.status === 'error') {
@@ -414,8 +466,8 @@ describe('ReadTool', () => {
 
   it('should throw error for invalid operation', async () => {
     const params = { operation: 'invalid_op', sources: ['s'] } as any;
-    await expect(readToolHandler(params, mockedConduitConfig as ConduitServerConfig)).rejects.toThrow(
-      new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION)
-    );
+    await expect(
+      readToolHandler(params, mockedConduitConfig as ConduitServerConfig)
+    ).rejects.toThrow(new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION));
   });
 });

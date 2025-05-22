@@ -1,6 +1,15 @@
 /// <reference types="vitest/globals" />
 
-import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction, type MockedClass } from 'vitest';
+import {
+  vi,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  type MockedFunction,
+  type MockedClass,
+} from 'vitest';
 import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
 import * as fsExtra from 'fs-extra'; // Changed from fs/promises
 import * as tar from 'tar'; // Corrected import for tar

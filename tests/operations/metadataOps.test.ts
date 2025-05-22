@@ -12,7 +12,7 @@ import {
 // Mock @/internal
 vi.mock('@/internal', async (importOriginal) => {
   const originalModule = await importOriginal<typeof import('@/internal')>();
-  
+
   return {
     ...originalModule,
     conduitConfig: mockDeep<import('@/types/config').ConduitServerConfig>(),

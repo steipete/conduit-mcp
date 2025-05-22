@@ -718,7 +718,7 @@ async function getContentFromUrl(
       } else {
         markdownConversionStatus = 'skipped_unsupported_content_type';
         // markdownSkippedReason = `Content type ${sourceMimeType} is not HTML. Cannot convert to Markdown.`;
-        const userNote = "Content could not be converted to Markdown as it is not HTML.";
+        const userNote = 'Content could not be converted to Markdown as it is not HTML.';
         operationLogger.info(
           `Markdown format requested for non-HTML URL ${fetchedData.finalUrl} (MIME: ${sourceMimeType}). ${userNote}`
         );

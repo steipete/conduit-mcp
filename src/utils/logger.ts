@@ -31,7 +31,7 @@ let logger: Logger;
 
 const logFilePathFromEnv = process.env.CONDUIT_LOG_FILE_PATH;
 
-if (logFilePathFromEnv === "NONE") {
+if (logFilePathFromEnv === 'NONE') {
   // Explicitly disable logging
   logger = pino({ ...pinoOptions, enabled: false });
 } else if (logFilePathFromEnv) {
@@ -48,13 +48,15 @@ if (logFilePathFromEnv === "NONE") {
     logger = pino(pinoOptions, pino.destination(defaultLogFile));
   } catch (error) {
     // Fallback to no-op if default log file creation fails (e.g., permissions)
-    console.error(`Failed to create default log file at ${defaultLogFile}: ${error instanceof Error ? error.message : String(error)}. Logging will be disabled.`);
+    console.error(
+      `Failed to create default log file at ${defaultLogFile}: ${error instanceof Error ? error.message : String(error)}. Logging will be disabled.`
+    );
     logger = pino({ ...pinoOptions, enabled: false });
   }
 }
 
 // Initial log to confirm logger setup
-if (logFilePathFromEnv === "NONE") {
+if (logFilePathFromEnv === 'NONE') {
   // Log to console because the main logger is disabled.
   console.log(`Internal logger is explicitly disabled via CONDUIT_LOG_FILE_PATH="NONE".`);
 } else if (process.env.NODE_ENV === 'test' && pinoOptions.level === 'silent') {
@@ -75,7 +77,9 @@ if (logFilePathFromEnv === "NONE") {
     // This case would be unusual if not NODE_ENV=test and not NONE, implies log level is very restrictive e.g. fatal only
     // or some other issue like failed stream, but we have a try-catch for that.
     // For safety, we can log to console if logger seems non-operational for info messages.
-    console.log(`Internal logger configured, but current log level (${pinoOptions.level}) may prevent initialization messages. Check CONDUIT_LOG_FILE_PATH or LOG_LEVEL.`);
+    console.log(
+      `Internal logger configured, but current log level (${pinoOptions.level}) may prevent initialization messages. Check CONDUIT_LOG_FILE_PATH or LOG_LEVEL.`
+    );
   }
 }
 

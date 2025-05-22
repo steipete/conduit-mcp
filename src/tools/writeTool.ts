@@ -92,16 +92,21 @@ export async function writeToolHandler(
 
       case 'archive': {
         const writeToolArchiveParams = params as WriteTool.ArchiveParams;
-        
+
         const createArchiveToolParams: ArchiveTool.CreateArchiveParams = {
           operation: 'create',
           source_paths: writeToolArchiveParams.source_paths,
           archive_path: writeToolArchiveParams.archive_path,
-          compression: writeToolArchiveParams.format === 'tar.gz' || writeToolArchiveParams.format === 'tgz' ? 'gzip' : (writeToolArchiveParams.format === 'zip' ? undefined : 'none'),
+          compression:
+            writeToolArchiveParams.format === 'tar.gz' || writeToolArchiveParams.format === 'tgz'
+              ? 'gzip'
+              : writeToolArchiveParams.format === 'zip'
+                ? undefined
+                : 'none',
           options: undefined,
           metadata: undefined,
         };
-        
+
         const archiveResult = await createArchive(createArchiveToolParams, config);
 
         return {
@@ -292,8 +297,7 @@ export async function writeToolHandler(
               message: 'File touched/created.',
             });
           } catch (e) {
-            const errorCode =
-              e instanceof ConduitError ? e.errorCode : ErrorCode.OPERATION_FAILED;
+            const errorCode = e instanceof ConduitError ? e.errorCode : ErrorCode.OPERATION_FAILED;
             const message = e instanceof Error ? e.message : String(e);
 
             results.push(
@@ -310,14 +314,14 @@ export async function writeToolHandler(
 
       case 'unarchive': {
         const writeToolUnarchiveParams = params as WriteTool.UnarchiveParams;
-        
+
         const extractArchiveToolParams: ArchiveTool.ExtractArchiveParams = {
           operation: 'extract',
           archive_path: writeToolUnarchiveParams.archive_path,
           target_path: writeToolUnarchiveParams.destination_path,
           options: undefined,
         };
-        
+
         const unarchiveResult = await extractArchive(extractArchiveToolParams, config);
 
         return {

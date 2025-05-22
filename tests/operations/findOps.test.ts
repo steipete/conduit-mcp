@@ -94,14 +94,14 @@ describe('findOps', () => {
     mockReset(mockedConfig);
     mockReset(mockedFsOps);
     mockReset(mockedLogger);
-    
+
     // Reset vi.fn() mocks
     mockedValidateAndResolvePath.mockReset();
     mockedGetMimeType.mockReset();
 
     // Set up default config after reset
     Object.assign(mockedConfig, defaultTestConfig);
-    
+
     // Explicitly set critical config values to ensure they're properly defined
     mockedConfig.maxFileReadBytes = defaultTestConfig.maxFileReadBytes!;
     mockedConfig.maxFileReadBytesFind = defaultTestConfig.maxFileReadBytesFind!;

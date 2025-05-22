@@ -80,7 +80,10 @@ describe('ListTool', () => {
       }
 
       const params: ListTool.EntriesParams = { operation: 'entries', path: '/testdir' };
-      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ListTool.DefinedEntriesResponse;
+      const response = (await listToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ListTool.DefinedEntriesResponse;
 
       expect(response.results.length).toBe(2);
       expect(response.results[0].name).toBe('file1.txt');
@@ -122,7 +125,10 @@ describe('ListTool', () => {
         path: '/testdir',
         recursive_depth: 1,
       };
-      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ListTool.DefinedEntriesResponse;
+      const response = (await listToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ListTool.DefinedEntriesResponse;
       expect(response.results.length).toBe(1);
       expect(response.results[0].name).toBe('subdir');
       expect(response.results[0].children).toBeDefined();
@@ -158,29 +164,31 @@ describe('ListTool', () => {
 
     it('should throw error if path is not a directory', async () => {
       const params: ListTool.EntriesParams = { operation: 'entries', path: '/notadir' };
-      
+
       if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
         mockedListOps.handleListEntries.mockRejectedValueOnce(
           new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE)
         );
       }
 
-      await expect(listToolHandler(params, mockedConduitConfig as ConduitServerConfig)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE)
-      );
+      await expect(
+        listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
+      ).rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE));
     });
 
     // Test case: path is a file, not a directory
     it('should return ERR_FS_PATH_IS_FILE if base path is a file', async () => {
       const params: ListTool.Parameters = { operation: 'entries', path: '/test/file.txt' };
-      
+
       if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
         mockedListOps.handleListEntries.mockRejectedValueOnce(
           new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE, 'Path is a file, not a directory')
         );
       }
 
-      await expect(listToolHandler(params, mockedConduitConfig as ConduitServerConfig)).rejects.toThrow(
+      await expect(
+        listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
+      ).rejects.toThrow(
         new ConduitError(ErrorCode.ERR_FS_PATH_IS_FILE, 'Path is a file, not a directory')
       );
     });
@@ -192,9 +200,17 @@ describe('ListTool', () => {
         operation: 'system_info',
         info_type: 'server_capabilities',
       };
-      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ListTool.DefinedServerCapabilitiesResponse;
+      const response = (await listToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ListTool.DefinedServerCapabilitiesResponse;
       expect(response.results.server_version).toBe('1.0.0-test');
-      expect(response.results.supported_checksum_algorithms).toEqual(['md5', 'sha1', 'sha256', 'sha512']);
+      expect(response.results.supported_checksum_algorithms).toEqual([
+        'md5',
+        'sha1',
+        'sha256',
+        'sha512',
+      ]);
       expect(response.results.active_configuration).toBeDefined();
     });
 
@@ -215,7 +231,10 @@ describe('ListTool', () => {
         operation: 'system_info',
         info_type: 'filesystem_stats',
       };
-      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig) as { tool_name: string; results: ListTool.FilesystemStatsNoPath };
+      const response = (await listToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as { tool_name: string; results: ListTool.FilesystemStatsNoPath };
       expect(response.results.status_message).toContain('No specific path provided');
       expect(response.results.configured_allowed_paths).toEqual(mockedConduitConfig.allowedPaths);
     });
@@ -225,17 +244,25 @@ describe('ListTool', () => {
         operation: 'system_info',
         info_type: 'server_capabilities',
       };
-      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig) as ListTool.DefinedServerCapabilitiesResponse;
+      const response = (await listToolHandler(
+        params,
+        mockedConduitConfig as ConduitServerConfig
+      )) as ListTool.DefinedServerCapabilitiesResponse;
       expect(response.results.server_version).toBe('1.0.0-test');
-      expect(response.results.supported_checksum_algorithms).toEqual(['md5', 'sha1', 'sha256', 'sha512']);
+      expect(response.results.supported_checksum_algorithms).toEqual([
+        'md5',
+        'sha1',
+        'sha256',
+        'sha512',
+      ]);
       expect(response.results.active_configuration).toBeDefined();
     });
   });
 
   it('should throw error for invalid operation', async () => {
     const params = { operation: 'invalid_op' } as any;
-    await expect(listToolHandler(params, mockedConduitConfig as ConduitServerConfig)).rejects.toThrow(
-      new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION)
-    );
+    await expect(
+      listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
+    ).rejects.toThrow(new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION));
   });
 });

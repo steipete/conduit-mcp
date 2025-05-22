@@ -45,7 +45,6 @@ vi.mock('@/internal', async (importOriginal) => {
     resolvedAllowedPaths: ['/test/workspace'],
   };
 
-
   return {
     ...original,
     logger: loggerForInternalMock,

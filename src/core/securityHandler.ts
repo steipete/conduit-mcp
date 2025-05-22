@@ -52,7 +52,10 @@ export async function validateAndResolvePath(
   // 1. Tilde expansion
   if (currentPath.startsWith('~')) {
     if (conduitConfig.allowTildeExpansion !== true) {
-        throw new ConduitError(ErrorCode.INVALID_PARAMETER, "Tilde (~) expansion is not allowed by server configuration.");
+      throw new ConduitError(
+        ErrorCode.INVALID_PARAMETER,
+        'Tilde (~) expansion is not allowed by server configuration.'
+      );
     }
     currentPath = path.join(os.homedir(), currentPath.substring(1));
   }
@@ -94,11 +97,11 @@ export async function validateAndResolvePath(
       // If we are *creating* something, the realpath up to the parent should exist and be allowed.
       // This simple `realPath = currentPath` after ENOENT from `fs.realpath` is okay if `checkAllowed` uses `currentPath`.
     } else if (e.code === 'ELOOP') {
-        logger.error(`[securityHandler] Too many symbolic links for ${currentPath}: ${e.message}`);
-        throw new ConduitError(
-            ErrorCode.ERR_FS_INVALID_PATH,
-            `Too many symbolic links encountered while resolving path: ${originalPath}.`
-        );
+      logger.error(`[securityHandler] Too many symbolic links for ${currentPath}: ${e.message}`);
+      throw new ConduitError(
+        ErrorCode.ERR_FS_INVALID_PATH,
+        `Too many symbolic links encountered while resolving path: ${originalPath}.`
+      );
     } else {
       logger.error(`[securityHandler] Error during fs.realpath for ${currentPath}: ${e.message}`);
       throw new ConduitError(
