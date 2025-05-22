@@ -145,14 +145,20 @@ describe('securityHandler', () => {
     it('should deny access to a path outside allowed directories', async () => {
       const userPath = '/disallowed/path/somefile.txt';
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
+        new ConduitError(
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to path is denied: ${userPath}`
+        )
       );
     });
 
     it('should deny access using path traversal like ..', async () => {
       const userPath = '/allowed/path1/../../disallowed/file.txt';
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
+        new ConduitError(
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to path is denied: ${userPath}`
+        )
       );
     });
 
@@ -173,7 +179,10 @@ describe('securityHandler', () => {
       // Let's refine mocks for symlink tests if current ones are insufficient.
       mockFs.realpath.mockResolvedValueOnce(path.resolve('/disallowed/file.txt'));
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
+        new ConduitError(
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to path is denied: ${userPath}`
+        )
       );
     });
 
@@ -198,7 +207,10 @@ describe('securityHandler', () => {
       mockFs.realpath.mockResolvedValueOnce(path.resolve('/outside/file.txt'));
 
       await expect(validateAndResolvePath(userPath)).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`)
+        new ConduitError(
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to path is denied: ${userPath}`
+        )
       );
     });
 
@@ -227,7 +239,12 @@ describe('securityHandler', () => {
       mockFs.realpath.mockRejectedValueOnce({ code: 'ENOENT' });
       await expect(
         validateAndResolvePath(userPath, { isExistenceRequired: false })
-      ).rejects.toThrow(new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, `Access to path is denied: ${userPath}`));
+      ).rejects.toThrow(
+        new ConduitError(
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to path is denied: ${userPath}`
+        )
+      );
     });
 
     it('should throw ERR_FS_BAD_PATH_INPUT for empty or whitespace path', async () => {

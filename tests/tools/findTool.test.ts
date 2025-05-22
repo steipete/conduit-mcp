@@ -1,13 +1,13 @@
 import { findToolHandler } from '@/tools/findTool';
 import { FindTool } from '@/types/tools';
-import { 
-  EntryInfo, 
-  ConduitError, 
-  ErrorCode, 
-  conduitConfig, 
+import {
+  EntryInfo,
+  ConduitError,
+  ErrorCode,
+  conduitConfig,
   ConduitServerConfig,
   validateAndResolvePath,
-  fileSystemOps
+  fileSystemOps,
 } from '@/internal';
 import { findEntries } from '@/operations/findOps';
 import { vi, type MockedFunction } from 'vitest';
@@ -31,9 +31,11 @@ vi.mock('@/operations/findOps', () => ({
   findEntries: vi.fn(),
 }));
 
-const mockedConduitConfig = conduitConfig as any;
-const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<typeof validateAndResolvePath>;
-const mockedFileSystemOps = fileSystemOps as any;
+const mockedConduitConfig = conduitConfig as vi.Mocked<ConduitServerConfig>;
+const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<
+  typeof validateAndResolvePath
+>;
+const mockedFileSystemOps = fileSystemOps as vi.Mocked<typeof fileSystemOps>;
 const mockedFindEntries = findEntries as MockedFunction<typeof findEntries>;
 
 describe('FindTool', () => {
@@ -135,7 +137,10 @@ describe('FindTool', () => {
   });
 
   it('should return error response if path validation fails', async () => {
-    const validationError = new ConduitError(ErrorCode.ERR_PATH_VALIDATION, 'Path validation failed');
+    const validationError = new ConduitError(
+      ErrorCode.ERR_PATH_VALIDATION,
+      'Path validation failed'
+    );
     mockedValidateAndResolvePath.mockRejectedValue(validationError);
 
     const params: FindTool.Parameters = {

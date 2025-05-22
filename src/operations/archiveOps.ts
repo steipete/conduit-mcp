@@ -300,13 +300,13 @@ export const archiveToolHandler = async (
       default: {
         const exhaustiveCheck: never = params;
         logger.error('Unhandled archive operation:', exhaustiveCheck);
+        const unknownParams = params as Record<string, unknown>;
+        const operation = unknownParams.operation || 'unknown_operation_type';
         resultItem = createErrorArchiveResultItem(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- exhaustive switch handling unknown params
-          (params as any).operation || 'unknown_operation_type', // Provide a fallback string
+          operation as string, // Provide a fallback string
           'Invalid or unsupported archive operation.',
           ErrorCode.UNSUPPORTED_OPERATION,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- exhaustive switch handling unknown params
-          `Operation type '${(params as any).operation}' is not supported by archiveToolHandler.`
+          `Operation type '${operation}' is not supported by archiveToolHandler.`
         );
         break;
       }

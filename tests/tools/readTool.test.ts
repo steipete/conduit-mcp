@@ -1,6 +1,6 @@
 import { readToolHandler } from '@/tools/readTool';
 import { ReadTool } from '@/types/tools';
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
+import { ErrorCode } from '@/utils/errorHandler';
 import { vi } from 'vitest';
 
 // Mock internal module
@@ -49,6 +49,11 @@ const { getContent } = await import('@/operations/getContentOps');
 const { getMetadata } = await import('@/operations/metadataOps');
 const { getDiff } = await import('@/operations/diffOps');
 
+// Type the mocked functions
+const mockedGetContent = getContent as vi.MockedFunction<typeof getContent>;
+const mockedGetMetadata = getMetadata as vi.MockedFunction<typeof getMetadata>;
+const mockedGetDiff = getDiff as vi.MockedFunction<typeof getDiff>;
+
 describe('ReadTool', () => {
   const mockSourceFile = '/allowed/file.txt';
   const mockSourceUrl = 'http://example.com/page.html';
@@ -60,7 +65,7 @@ describe('ReadTool', () => {
 
   describe('handleContentOperation', () => {
     it('should read text file content correctly', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -79,7 +84,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -91,7 +96,7 @@ describe('ReadTool', () => {
     });
 
     it('should read file content as base64', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -110,7 +115,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -121,7 +126,7 @@ describe('ReadTool', () => {
     });
 
     it('should fetch URL and convert to markdown', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceUrl,
         source_type: 'url',
         status: 'success',
@@ -141,7 +146,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -153,7 +158,7 @@ describe('ReadTool', () => {
     });
 
     it('should fallback to text for markdown if URL content is not HTML', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceUrl,
         source_type: 'url',
         status: 'success',
@@ -175,7 +180,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -193,7 +198,7 @@ describe('ReadTool', () => {
     });
 
     it('should calculate checksum for a file', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -215,7 +220,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -228,7 +233,7 @@ describe('ReadTool', () => {
     });
 
     it('should handle image compression for base64 format', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -249,7 +254,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -263,7 +268,7 @@ describe('ReadTool', () => {
     });
 
     it('should use default format if not specified (text file)', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -278,7 +283,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -289,7 +294,7 @@ describe('ReadTool', () => {
     });
 
     it('should use default format if not specified (image file -> base64)', async () => {
-      (getContent as any).mockResolvedValue({
+      mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -304,7 +309,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -320,7 +325,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedContentResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results).toHaveLength(0);
       expect(getContent).not.toHaveBeenCalled();
@@ -329,7 +334,7 @@ describe('ReadTool', () => {
 
   describe('handleMetadataOperation', () => {
     it('should fetch metadata for a local file', async () => {
-      (getMetadata as any).mockResolvedValue({
+      mockedGetMetadata.mockResolvedValue({
         source: mockSourceFile,
         source_type: 'file',
         status: 'success',
@@ -352,7 +357,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedMetadataResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -364,7 +369,7 @@ describe('ReadTool', () => {
     });
 
     it('should fetch metadata for a URL (HEAD request)', async () => {
-      (getMetadata as any).mockResolvedValue({
+      mockedGetMetadata.mockResolvedValue({
         source: mockImageUrl,
         source_type: 'url',
         status: 'success',
@@ -384,7 +389,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedMetadataResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results[0].status).toBe('success');
       if (response.results[0].status === 'success') {
@@ -402,8 +407,8 @@ describe('ReadTool', () => {
     it('should perform a diff between two local files', async () => {
       const file1 = '/allowed/file1.txt';
       const file2 = '/allowed/file2.txt';
-      
-      (getDiff as any).mockResolvedValue({
+
+      mockedGetDiff.mockResolvedValue({
         status: 'success',
         diff_content: '--- a/file1\n+++ b/file2\n',
         sources_compared: [file1, file2],
@@ -417,7 +422,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedDiffResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results.status).toBe('success');
       if (response.results.status === 'success') {
@@ -429,7 +434,7 @@ describe('ReadTool', () => {
 
     it('should handle error if diff sources are not two files', async () => {
       // This test simulates what would happen if getDiff was called with invalid params
-      (getDiff as any).mockResolvedValue({
+      mockedGetDiff.mockResolvedValue({
         status: 'error',
         error_code: ErrorCode.INVALID_PARAMETER,
         error_message: 'Diff operation requires exactly two source file paths.',
@@ -454,7 +459,7 @@ describe('ReadTool', () => {
 
     it('should handle error if diff sources include a URL', async () => {
       // This test simulates what would happen if getDiff was called with URL params
-      (getDiff as any).mockResolvedValue({
+      mockedGetDiff.mockResolvedValue({
         status: 'error',
         error_code: ErrorCode.INVALID_PARAMETER,
         error_message: 'Diff operation only supports local files, not URLs.',
@@ -478,7 +483,7 @@ describe('ReadTool', () => {
     });
 
     it('should return INVALID_PARAMETER error if sources array has more than two for diff op', async () => {
-      (getDiff as any).mockResolvedValue({
+      mockedGetDiff.mockResolvedValue({
         status: 'error',
         error_code: ErrorCode.INVALID_PARAMETER,
         error_message: 'Diff operation requires exactly two sources',
@@ -489,7 +494,7 @@ describe('ReadTool', () => {
         params,
         conduitConfig
       )) as ReadTool.DefinedDiffResponse;
-      
+
       expect(response.tool_name).toBe('read');
       expect(response.results.status).toBe('error');
       if (response.results.status === 'error') {
@@ -505,7 +510,7 @@ describe('ReadTool', () => {
   it('should return error for invalid operation', async () => {
     const params = { operation: 'invalid_op', sources: ['s'] } as unknown;
     const response = await readToolHandler(params, conduitConfig);
-    
+
     expect(response.status).toBe('error');
     if ('error_code' in response) {
       expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);

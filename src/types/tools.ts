@@ -148,7 +148,7 @@ export namespace WriteTool {
     | 'archive'
     | 'unarchive'
     | 'extract';
-  export type InputEncoding = 'text' | 'base64';
+  export type InputEncoding = 'text' | 'base64' | 'base64_gzipped_file_ref';
   export type WriteMode = 'overwrite' | 'append' | 'error_if_exists';
   export type ArchiveFormat = 'zip' | 'tar.gz' | 'tgz';
 
@@ -313,8 +313,7 @@ export namespace ListTool {
 
   export interface ServerCapabilities {
     server_version: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- configuration object structure varies
-    active_configuration: Record<string, any>; // Simplified, actual config object structure
+    active_configuration: Record<string, unknown>; // Simplified, actual config object structure
     supported_checksum_algorithms: string[];
     supported_archive_formats: string[];
     default_checksum_algorithm: string;
@@ -385,8 +384,7 @@ export namespace FindTool {
     type: 'metadata_filter';
     attribute: MetadataAttribute | string;
     operator: StringOperator | NumericOperator | DateOperator | string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- value can be string, number, or date
-    value: any; // string, number, or ISO date string
+    value: string | number | Date; // string, number, or ISO date string
     case_sensitive?: boolean; // For string operators
   }
 
@@ -416,8 +414,7 @@ export namespace FindTool {
 export namespace TestTool {
   export interface EchoParams {
     operation: 'echo';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- params can be any structure for testing
-    params_to_echo: any;
+    params_to_echo: unknown; // params can be any structure for testing
   }
 
   export interface GenerateErrorParams {
@@ -430,8 +427,7 @@ export namespace TestTool {
 
   // --- Result Types ---
   export interface EchoResultSuccess extends MCPSuccess {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- echoed params can be any structure for testing
-    echoed_params: any;
+    echoed_params: unknown; // echoed params can be any structure for testing
   }
   // For generate_error, the result IS an error, so it will conform to MCPErrorStatus directly.
   // No specific success type for generate_error.
@@ -461,8 +457,7 @@ export namespace ArchiveTool {
     source_paths: string[];
     archive_path: string;
     compression?: 'gzip' | 'none';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can have various structures
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>; // metadata can have various structures
     options?: ArchiveOptions;
   }
 
@@ -492,8 +487,7 @@ export namespace ArchiveTool {
     entries_processed: number; // Number of top-level source paths processed
     checksum_sha256?: string;
     compression_used?: 'zip' | 'gzip' | 'none';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can have various structures
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>; // metadata can have various structures
     options_applied?: ArchiveOptions;
     message?: string;
   }

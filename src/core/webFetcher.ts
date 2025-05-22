@@ -166,7 +166,7 @@ export function cleanHtmlToMarkdown(html: string, baseUrl?: string): string {
 
   const turndownService = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
   // Add any custom Turndown rules if needed, e.g., for tables, specific tags.
-  
+
   let markdown: string;
   try {
     markdown = turndownService.turndown(article.content);

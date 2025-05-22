@@ -60,7 +60,9 @@ export function loadConfig(): ConduitServerConfig {
     })();
 
   const userDidSpecifyAllowedPaths = 'CONDUIT_ALLOWED_PATHS' in process.env;
-  const rawAllowedPaths = userDidSpecifyAllowedPaths ? process.env.CONDUIT_ALLOWED_PATHS! : '~:/tmp';
+  const rawAllowedPaths = userDidSpecifyAllowedPaths
+    ? process.env.CONDUIT_ALLOWED_PATHS!
+    : '~:/tmp';
   const resolvedAllowedPaths = rawAllowedPaths
     .split(':')
     .map((p) => p.trim())

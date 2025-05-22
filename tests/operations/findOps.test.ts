@@ -84,7 +84,6 @@ describe('findOps', () => {
       (fileSystemOps.listDirectory as any).mockImplementation(async () => ['file1.txt']);
       (fileSystemOps.getLstats as any).mockImplementation(async () => createMockStats(true, false));
       (fileSystemOps.createEntryInfo as any).mockImplementation(async () => mockEntries[0]);
-      
 
       const params = {
         base_path: '/test/dir',
@@ -106,8 +105,7 @@ describe('findOps', () => {
         recursive: false,
       };
 
-      await expect(handleFindEntries(params, defaultTestConfig))
-        .rejects.toThrow(ConduitError);
+      await expect(handleFindEntries(params, defaultTestConfig)).rejects.toThrow(ConduitError);
     });
   });
 
@@ -133,9 +131,13 @@ describe('findOps', () => {
     it('should find files matching name pattern', async () => {
       (fileSystemOps.pathExists as any).mockResolvedValue(true);
       (fileSystemOps.getStats as any).mockResolvedValue(createMockStats(false, true));
-      (fileSystemOps.listDirectory as any).mockResolvedValue(['test.txt', 'other.md', 'readme.txt']);
+      (fileSystemOps.listDirectory as any).mockResolvedValue([
+        'test.txt',
+        'other.md',
+        'readme.txt',
+      ]);
       (fileSystemOps.getLstats as any).mockResolvedValue(createMockStats(true, false));
-      
+
       // Mock createEntryInfo for each file
       (fileSystemOps.createEntryInfo as any)
         .mockResolvedValueOnce({
@@ -168,10 +170,12 @@ describe('findOps', () => {
 
       const params = {
         base_path: '/test',
-        match_criteria: [{
-          type: 'name_pattern' as const,
-          pattern: '*.txt'
-        }],
+        match_criteria: [
+          {
+            type: 'name_pattern' as const,
+            pattern: '*.txt',
+          },
+        ],
         recursive: false,
       };
 
@@ -179,9 +183,9 @@ describe('findOps', () => {
       expect(Array.isArray(result)).toBe(true);
       if (Array.isArray(result)) {
         expect(result).toHaveLength(2);
-        expect(result.map(r => r.name)).toContain('test.txt');
-        expect(result.map(r => r.name)).toContain('readme.txt');
-        expect(result.map(r => r.name)).not.toContain('other.md');
+        expect(result.map((r) => r.name)).toContain('test.txt');
+        expect(result.map((r) => r.name)).toContain('readme.txt');
+        expect(result.map((r) => r.name)).not.toContain('other.md');
       }
     });
   });

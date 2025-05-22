@@ -18,7 +18,7 @@ vi.mock('@/internal', async (importOriginal) => {
     conduitConfig: mockDeep<import('@/types/config').ConduitServerConfig>(),
     logger: (() => {
       const mockLogger = mockDeep<import('pino').Logger<string>>();
-      (mockLogger.child as MockedFunction<any>).mockReturnValue(mockLogger);
+      (mockLogger.child as MockedFunction<typeof mockLogger.child>).mockReturnValue(mockLogger);
       return mockLogger;
     })(),
     fileSystemOps: mockDeep<typeof import('@/core/fileSystemOps')>(),
@@ -56,7 +56,9 @@ describe('metadataOps', () => {
   const mockedMimeService = mimeService as DeepMockProxy<typeof mimeService>;
   const mockedGetMimeType = getMimeType as MockedFunction<typeof getMimeType>;
   const mockedFormatToISO = formatToISO8601UTC as MockedFunction<typeof formatToISO8601UTC>;
-  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<typeof validateAndResolvePath>;
+  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<
+    typeof validateAndResolvePath
+  >;
 
   const defaultTestConfig: Partial<ConduitServerConfig> = {
     // Add any specific config defaults needed for metadataOps if any
@@ -81,7 +83,7 @@ describe('metadataOps', () => {
     Object.assign(mockedConfig, defaultTestConfig);
 
     // Ensure logger.child returns the logger itself
-    (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
+    (mockedLogger.child as MockedFunction<typeof mockedLogger.child>).mockReturnValue(mockedLogger);
 
     // Set up default implementations for metadata tests
     mockedFsOps.getLstats.mockResolvedValue({} as fs.Stats);
@@ -131,7 +133,7 @@ describe('metadataOps', () => {
         mtimeMs: new Date('2023-01-02T11:00:00Z').getTime(),
         mode: 33188, // Corresponds to -rw-r--r--
       } as fs.Stats;
-      
+
       // Mock validateAndResolvePath to return the same path
       mockedValidateAndResolvePath.mockResolvedValue(testFilePath);
       mockedFsOps.pathExists.mockResolvedValue(true);

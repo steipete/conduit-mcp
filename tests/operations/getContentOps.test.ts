@@ -83,7 +83,9 @@ describe('getContentOps', () => {
   const mockedGetCurrentISO8601UTC = getCurrentISO8601UTC as MockedFunction<
     typeof getCurrentISO8601UTC
   >;
-  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<typeof validateAndResolvePath>;
+  const mockedValidateAndResolvePath = validateAndResolvePath as MockedFunction<
+    typeof validateAndResolvePath
+  >;
 
   const defaultTestConfig: ConduitServerConfig = {
     maxFileReadBytes: 1024 * 1024,
@@ -119,7 +121,7 @@ describe('getContentOps', () => {
     // Reset the conduitConfig mock
     // The mockedConfig alias points to conduitConfig
     // So, resetting mockedConfig effectively resets the conduitConfig mock.
-    mockReset(mockedConfig as any);
+    mockReset(mockedConfig);
     Object.assign(mockedConfig, defaultTestConfig); // Re-apply defaults
 
     mockReset(mockedFsOps);
@@ -130,7 +132,7 @@ describe('getContentOps', () => {
     mockedFsOpen.mockReset();
     mockedGetCurrentISO8601UTC.mockReturnValue('2023-01-01T00:00:00.000Z');
     mockedValidateAndResolvePath.mockReset();
-    
+
     // Default mock for validateAndResolvePath
     mockedValidateAndResolvePath.mockImplementation(async (inputPath: string) => {
       if (inputPath.startsWith('/')) {
@@ -156,7 +158,7 @@ describe('getContentOps', () => {
     it('should return error if source is a directory', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => false,
         isDirectory: () => true,
@@ -179,7 +181,7 @@ describe('getContentOps', () => {
     it('should default to "text" format for text-like MIME types', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -207,7 +209,7 @@ describe('getContentOps', () => {
     it('should default to "base64" format for non-text-like MIME types', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -235,7 +237,7 @@ describe('getContentOps', () => {
     it('should use specified "text" format', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -259,7 +261,7 @@ describe('getContentOps', () => {
     it('should use specified "base64" format', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -283,7 +285,7 @@ describe('getContentOps', () => {
     it('should handle "checksum" format', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       const checksumValue = 'mockedChecksum';
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
@@ -318,7 +320,7 @@ describe('getContentOps', () => {
     it('should handle "checksum" format with default algorithm', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       const checksumValue = 'defaultAlgoChecksum';
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
@@ -327,7 +329,7 @@ describe('getContentOps', () => {
       } as fs.Stats);
       mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(Buffer.from('data for default checksum'));
       mockedCalculateChecksum.mockResolvedValueOnce(checksumValue);
-      (mockedConfig as any).defaultChecksumAlgorithm = 'md5';
+      Object.assign(mockedConfig, { defaultChecksumAlgorithm: 'md5' });
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'checksum' };
       const result = (await getContent(
@@ -342,13 +344,15 @@ describe('getContentOps', () => {
         Buffer.from('data for default checksum'),
         'md5'
       );
-      (mockedConfig as any).defaultChecksumAlgorithm = defaultTestConfig.defaultChecksumAlgorithm;
+      Object.assign(mockedConfig, {
+        defaultChecksumAlgorithm: defaultTestConfig.defaultChecksumAlgorithm,
+      });
     });
 
     it('should handle range requests for "text" format', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       const fileContent = 'This is a long line of text for range testing.';
       const offset = 5;
       const length = 10;
@@ -377,7 +381,7 @@ describe('getContentOps', () => {
         close: vi.fn().mockResolvedValue(undefined),
       };
       (fsPromises.open as MockedFunction<typeof fsPromises.open>).mockResolvedValueOnce(
-        mockFileHandle as any
+        mockFileHandle as fsPromises.FileHandle
       );
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'text', offset, length };
@@ -397,7 +401,7 @@ describe('getContentOps', () => {
     it('should handle range requests for "base64" format', async () => {
       // Mock validateAndResolvePath to return the path
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       const fileContent = 'BinaryDataForRangeTest';
       const offset = 3;
       const length = 6;
@@ -426,7 +430,7 @@ describe('getContentOps', () => {
         close: vi.fn().mockResolvedValue(undefined),
       };
       (fsPromises.open as MockedFunction<typeof fsPromises.open>).mockResolvedValueOnce(
-        mockFileHandle as any
+        mockFileHandle as fsPromises.FileHandle
       );
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'base64', offset, length };
@@ -445,7 +449,7 @@ describe('getContentOps', () => {
 
     it('should return error if fs.stat fails', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       // Simulate the error that fileSystemOps.getStats would throw
       const originalFsError = new Error('FS stat failed'); // The message from the raw fs error
       const expectedConduitErrorMessage = `Failed to get stats for path: ${filePath}. Error: ${originalFsError.message}`;
@@ -470,7 +474,7 @@ describe('getContentOps', () => {
 
     it('should return error if getMimeType fails', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -492,7 +496,7 @@ describe('getContentOps', () => {
 
     it('should return error if readFileAsString fails for text format (now fs.open or readFileAsBuffer)', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -516,7 +520,7 @@ describe('getContentOps', () => {
 
     it('should return error if readFileAsBuffer fails for base64 format', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -543,7 +547,7 @@ describe('getContentOps', () => {
 
     it('should apply image compression for image MIME types and base64 format', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       const originalImageData = Buffer.from('originalImageData');
       const compressedImageData = Buffer.from('compressedImageData');
 
@@ -559,8 +563,10 @@ describe('getContentOps', () => {
         original_size_bytes: originalImageData.length,
         compression_applied: true,
       });
-      (mockedConfig as any).imageCompressionQuality = 70;
-      (mockedConfig as any).imageCompressionThresholdBytes = 500;
+      Object.assign(mockedConfig, {
+        imageCompressionQuality: 70,
+        imageCompressionThresholdBytes: 500,
+      });
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'base64' };
       const result = (await getContent(
@@ -579,14 +585,15 @@ describe('getContentOps', () => {
         originalImageData,
         'image/jpeg'
       );
-      (mockedConfig as any).imageCompressionQuality = defaultTestConfig.imageCompressionQuality;
-      (mockedConfig as any).imageCompressionThresholdBytes =
-        defaultTestConfig.imageCompressionThresholdBytes;
+      Object.assign(mockedConfig, {
+        imageCompressionQuality: defaultTestConfig.imageCompressionQuality,
+        imageCompressionThresholdBytes: defaultTestConfig.imageCompressionThresholdBytes,
+      });
     });
 
     it('should skip image compression if imageProcessor.compressImageIfNecessary fails', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       const originalImageData = Buffer.from('originalImageData');
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
@@ -601,7 +608,7 @@ describe('getContentOps', () => {
         compression_applied: false,
         compression_error_note: 'Compression boom',
       });
-      (mockedConfig as any).imageCompressionThresholdBytes = 500;
+      Object.assign(mockedConfig, { imageCompressionThresholdBytes: 500 });
 
       const params: ReadTool.ContentParams = { ...baseParams, format: 'base64' };
       const result = (await getContent(
@@ -614,13 +621,14 @@ describe('getContentOps', () => {
       expect(result.content).toBe(originalImageData.toString('base64'));
       expect(result.compression_applied).toBe(false);
       expect(result.compression_error_note).toContain('Compression boom');
-      (mockedConfig as any).imageCompressionThresholdBytes =
-        defaultTestConfig.imageCompressionThresholdBytes;
+      Object.assign(mockedConfig, {
+        imageCompressionThresholdBytes: defaultTestConfig.imageCompressionThresholdBytes,
+      });
     });
 
     it('should not apply image compression for non-image MIME types', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -643,7 +651,7 @@ describe('getContentOps', () => {
 
     it('should not apply image compression for "checksum" format', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -668,7 +676,7 @@ describe('getContentOps', () => {
 
     it('should return error if calculateChecksum fails', async () => {
       mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce({
         isFile: () => true,
         isDirectory: () => false,
@@ -800,7 +808,7 @@ describe('getContentOps', () => {
       };
       mockedWebFetcher.fetchUrlContent.mockResolvedValueOnce(mockFetchedContent);
       mockedCalculateChecksum.mockResolvedValueOnce(checksumValue);
-      (mockedConfig as any).defaultChecksumAlgorithm = 'sha512';
+      Object.assign(mockedConfig, { defaultChecksumAlgorithm: 'sha512' });
 
       const params: ReadTool.ContentParams = { ...baseParamsUrl, format: 'checksum' };
       const result = (await getContent(
@@ -815,7 +823,9 @@ describe('getContentOps', () => {
         Buffer.from('data for url default checksum'),
         'sha512'
       );
-      (mockedConfig as any).defaultChecksumAlgorithm = defaultTestConfig.defaultChecksumAlgorithm;
+      Object.assign(mockedConfig, {
+        defaultChecksumAlgorithm: defaultTestConfig.defaultChecksumAlgorithm,
+      });
     });
 
     it('should handle native range request for text from URL (server returns 206)', async () => {
@@ -928,7 +938,7 @@ describe('getContentOps', () => {
         ErrorCode.ERR_HTTP_STATUS_ERROR,
         'Request to http://example.com/test.txt failed with HTTP status 404. Message: Not Found'
       );
-      (fetchError as any).httpStatus = 404;
+      Object.assign(fetchError, { httpStatus: 404 });
       mockedWebFetcher.fetchUrlContent.mockRejectedValueOnce(fetchError);
 
       const params: ReadTool.ContentParams = { ...baseParamsUrl, format: 'text' };
@@ -998,8 +1008,10 @@ describe('getContentOps', () => {
         original_size_bytes: originalImageData.length,
         compression_applied: true,
       });
-      (mockedConfig as any).imageCompressionQuality = 75;
-      (mockedConfig as any).imageCompressionThresholdBytes = 10; // Ensure compression is attempted
+      Object.assign(mockedConfig, {
+        imageCompressionQuality: 75,
+        imageCompressionThresholdBytes: 10, // Ensure compression is attempted
+      });
 
       const params: ReadTool.ContentParams = { ...baseParamsUrl, format: 'base64' };
       const result = (await getContent(
@@ -1018,9 +1030,10 @@ describe('getContentOps', () => {
         originalImageData, // In this non-ranged URL case, it receives the full fetched buffer
         'image/jpeg'
       );
-      (mockedConfig as any).imageCompressionQuality = defaultTestConfig.imageCompressionQuality;
-      (mockedConfig as any).imageCompressionThresholdBytes =
-        defaultTestConfig.imageCompressionThresholdBytes;
+      Object.assign(mockedConfig, {
+        imageCompressionQuality: defaultTestConfig.imageCompressionQuality,
+        imageCompressionThresholdBytes: defaultTestConfig.imageCompressionThresholdBytes,
+      });
     });
 
     describe('Markdown conversion from URL', () => {

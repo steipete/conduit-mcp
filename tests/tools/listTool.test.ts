@@ -7,6 +7,7 @@ import { vi, Mocked } from 'vitest';
 import * as listOps from '@/operations/listOps';
 import * as securityHandler from '@/core/securityHandler';
 import * as fileSystemOps from '@/core/fileSystemOps';
+import * as fs from 'fs';
 
 // Mocks
 vi.mock('@/internal', async (importOriginal) => {
@@ -49,7 +50,10 @@ describe('ListTool', () => {
     vi.clearAllMocks();
 
     // Setup default successful mocks
-    if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+    if (
+      mockedSecurityHandler &&
+      typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+    ) {
       mockedSecurityHandler.validateAndResolvePath.mockResolvedValue('/resolved/path');
     }
 
@@ -57,7 +61,7 @@ describe('ListTool', () => {
       mockedFileSystemOps.getStats.mockResolvedValue({
         isDirectory: () => true,
         isFile: () => false,
-      } as any);
+      } as fs.Stats);
     }
 
     if (mockedListOps && typeof mockedListOps.handleListEntries === 'function') {
@@ -99,7 +103,10 @@ describe('ListTool', () => {
         },
       ] as EntryInfo[];
 
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/testdir');
       }
 
@@ -144,7 +151,10 @@ describe('ListTool', () => {
         },
       ] as EntryInfo[];
 
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/testdir');
       }
 
@@ -182,7 +192,10 @@ describe('ListTool', () => {
         },
       ] as EntryInfo[];
 
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/testdir');
       }
 
@@ -203,7 +216,10 @@ describe('ListTool', () => {
     });
 
     it('should return error status object when path validation fails', async () => {
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockRejectedValueOnce(
           new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, 'Path not allowed')
         );
@@ -220,7 +236,10 @@ describe('ListTool', () => {
     });
 
     it('should return error status object when path is a file', async () => {
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockResolvedValueOnce('/test/file.txt');
       }
 
@@ -228,7 +247,7 @@ describe('ListTool', () => {
         mockedFileSystemOps.getStats.mockResolvedValueOnce({
           isDirectory: () => false,
           isFile: () => true,
-        } as any);
+        } as fs.Stats);
       }
 
       const params: ListTool.EntriesParams = { operation: 'entries', path: '/test/file.txt' };
@@ -242,7 +261,10 @@ describe('ListTool', () => {
     });
 
     it('should return error status object when path does not exist', async () => {
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockRejectedValueOnce(
           new ConduitError(ErrorCode.ERR_FS_NOT_FOUND, 'Path does not exist')
         );
@@ -259,7 +281,10 @@ describe('ListTool', () => {
     });
 
     it('should return error status object for unexpected validation errors', async () => {
-      if (mockedSecurityHandler && typeof mockedSecurityHandler.validateAndResolvePath === 'function') {
+      if (
+        mockedSecurityHandler &&
+        typeof mockedSecurityHandler.validateAndResolvePath === 'function'
+      ) {
         mockedSecurityHandler.validateAndResolvePath.mockRejectedValueOnce(
           new Error('Unexpected filesystem error')
         );
@@ -344,7 +369,7 @@ describe('ListTool', () => {
   it('should return error status object for invalid operation', async () => {
     const params = { operation: 'invalid_op' } as unknown;
     const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
-    
+
     expect(response).toMatchObject({
       status: 'error',
       error_code: ErrorCode.INVALID_PARAMETER,

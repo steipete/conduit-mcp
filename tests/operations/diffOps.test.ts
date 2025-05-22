@@ -78,12 +78,12 @@ describe('diffOps', () => {
   beforeEach(() => {
     // Use vi.clearAllMocks() to reset all mocks
     vi.clearAllMocks();
-    
+
     // Reset deep mocks
     mockReset(mockedLogger);
     mockReset(mockedConfig);
     mockReset(mockedFsOps);
-    
+
     // The child mock setup for logger needs to ensure it returns the parent mock correctly after reset
     (mockedLogger.child as MockedFunction<any>).mockReturnValue(mockedLogger);
 
@@ -117,7 +117,7 @@ describe('diffOps', () => {
       mockedValidateAndResolvePath
         .mockResolvedValueOnce(source1Path)
         .mockResolvedValueOnce(source2Path);
-      
+
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');
       mockedFsOps.readFileAsBuffer.mockResolvedValueOnce(
@@ -153,7 +153,7 @@ describe('diffOps', () => {
       mockedValidateAndResolvePath
         .mockResolvedValueOnce(source1Path)
         .mockResolvedValueOnce(source2Path);
-      
+
       mockedFsOps.getStats.mockResolvedValue(mockFileStats);
       mockedGetMimeType.mockResolvedValue('text/plain');
       mockedFsOps.readFileAsBuffer.mockResolvedValue(
@@ -245,7 +245,7 @@ describe('diffOps', () => {
     it('should return a text diff for a file and a URL', async () => {
       // Mock validateAndResolvePath for the file path only (URL should not be validated)
       mockedValidateAndResolvePath.mockResolvedValueOnce(source1Path);
-      
+
       // Mock for source1Path (file)
       mockedFsOps.getStats.mockResolvedValueOnce(mockFileStats);
       mockedGetMimeType.mockResolvedValueOnce('text/plain');

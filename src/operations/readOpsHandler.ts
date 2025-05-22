@@ -75,8 +75,8 @@ export async function readToolHandler(
     return { tool_name: 'read', results: diffResult };
   } else {
     // If switch is exhaustive, params.operation is never here. This line ensures type checking for op.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- exhaustive switch handling for unsupported operations
-    const op = (params as any).operation;
+    const unknownParams = params as Record<string, unknown>;
+    const op = unknownParams.operation;
     throw new ConduitError(ErrorCode.INVALID_PARAMETER, `Unsupported read operation: ${op}`);
   }
 }

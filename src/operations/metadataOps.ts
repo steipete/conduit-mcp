@@ -69,8 +69,7 @@ export async function getMetadata(
         error.errorCode,
         error.message,
         error instanceof ConduitError && 'httpStatus' in error
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
-            (error as any).httpStatus
+          ? (error as ConduitError & { httpStatus: number }).httpStatus
           : undefined
       );
     }
@@ -233,8 +232,7 @@ async function getMetadataFromUrl(
     operationLogger.error(`Error fetching metadata for URL ${urlString}:`, error);
     const httpStatus =
       error instanceof ConduitError && 'httpStatus' in error
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
-          (error as any).httpStatus
+        ? (error as ConduitError & { httpStatus: number }).httpStatus
         : undefined;
     if (error instanceof ConduitError) {
       return createErrorMetadataResultItem(

@@ -16,7 +16,11 @@ vi.mock('axios', async () => {
     default: vi.fn(),
     isAxiosError: vi.fn((error) => {
       // Return true for errors that have the expected axios error structure
-      return error && typeof error === 'object' && ('config' in error || 'response' in error || 'request' in error);
+      return (
+        error &&
+        typeof error === 'object' &&
+        ('config' in error || 'response' in error || 'request' in error)
+      );
     }),
   };
 });
@@ -31,7 +35,7 @@ vi.mock('@/core/configLoader', () => {
     maxUrlDownloadBytes: 5 * 1024 * 1024,
     // Add other config properties if webFetcher uses them
   };
-  
+
   return {
     conduitConfig: mockConfig,
     loadConfig: () => mockConfig,
@@ -57,7 +61,7 @@ describe('webFetcher', () => {
       () =>
         ({
           turndown: mockTurndownMethod,
-        }) as any
+        }) as TurndownService
     );
     mockTurndownMethod.mockReturnValue('# Mocked Markdown'); // Default markdown output
   });
@@ -74,7 +78,7 @@ describe('webFetcher', () => {
         status: 200,
         headers: mockResponseHeaders,
         request: { res: { responseUrl: mockUrl } }, // Simplified mock for responseUrl
-      } as any);
+      });
 
       const result = await fetchUrlContent(mockUrl);
       expect(result.content).toEqual(mockDataBuffer);
@@ -92,7 +96,7 @@ describe('webFetcher', () => {
         status: 200,
         headers: new AxiosHeaders(),
         request: { res: { responseUrl: mockUrl } },
-      } as any);
+      });
       await fetchUrlContent(mockUrl, true);
       expect(mockedAxios).toHaveBeenCalledWith(
         expect.objectContaining({ url: mockUrl, method: 'HEAD' })
@@ -108,11 +112,11 @@ describe('webFetcher', () => {
         status: 206,
         headers: new AxiosHeaders({ 'content-type': 'video/mp4' }),
         request: { res: { responseUrl: mockUrl } },
-      } as any);
+      });
       await fetchUrlContent(mockUrl, false, rangeObject);
       expect(mockedAxios).toHaveBeenCalledWith(
-        expect.objectContaining({ 
-          headers: expect.objectContaining({ Range: rangeHeaderString })
+        expect.objectContaining({
+          headers: expect.objectContaining({ Range: rangeHeaderString }),
         })
       );
     });
@@ -120,10 +124,7 @@ describe('webFetcher', () => {
     it('should throw HTTP_INVALID_URL for invalid URL format', async () => {
       // Invalid URL format causes new URL() to throw, which is caught before axios is called
       await expect(fetchUrlContent('invalid-url')).rejects.toThrow(
-        new ConduitError(
-          ErrorCode.ERR_HTTP_INVALID_URL,
-          'Invalid URL: invalid-url'
-        )
+        new ConduitError(ErrorCode.ERR_HTTP_INVALID_URL, 'Invalid URL: invalid-url')
       );
     });
 
@@ -134,7 +135,7 @@ describe('webFetcher', () => {
         code: 'ERR_INVALID_PROTOCOL',
         config: {},
       });
-      
+
       (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce(axiosError);
       await expect(fetchUrlContent('ftp://example.com')).rejects.toThrow(
         new ConduitError(
@@ -150,10 +151,13 @@ describe('webFetcher', () => {
         code: 'ECONNABORTED',
         config: {},
       });
-      
+
       (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce(axiosError);
       await expect(fetchUrlContent('http://example.com/timeout')).rejects.toThrow(
-        new ConduitError(ErrorCode.ERR_HTTP_TIMEOUT, 'Request to http://example.com/timeout timed out.')
+        new ConduitError(
+          ErrorCode.ERR_HTTP_TIMEOUT,
+          'Request to http://example.com/timeout timed out.'
+        )
       );
     });
 
@@ -171,7 +175,7 @@ describe('webFetcher', () => {
           config: {},
         },
       });
-      
+
       (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce(axiosError);
       await expect(fetchUrlContent(mockUrl)).rejects.toThrow(
         new ConduitError(
@@ -188,7 +192,7 @@ describe('webFetcher', () => {
         config: {},
         request: {}, // Has request but no response
       });
-      
+
       (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce(axiosError);
       await expect(fetchUrlContent('http://example.com/noresponse')).rejects.toThrow(
         new ConduitError(
@@ -204,7 +208,7 @@ describe('webFetcher', () => {
         code: 'ERR_NETWORK',
         config: {},
       });
-      
+
       (mockedAxios as unknown as import('vitest').Mock).mockRejectedValueOnce(axiosError);
       await expect(fetchUrlContent('http://example.com/networkerror')).rejects.toThrow(
         new ConduitError(
@@ -226,7 +230,7 @@ describe('webFetcher', () => {
         status: 200,
         headers: mockResponseHeaders,
         request: { res: { responseUrl: mockUrl } },
-      } as any);
+      });
 
       const result = await fetchUrlContent(mockUrl, false, undefined, mockMaxUrlDownloadBytes);
       expect(result.content).not.toBeNull();
@@ -245,17 +249,19 @@ describe('webFetcher', () => {
     const mockCleanedHtml = '<h1>Title</h1><p>Some text.</p>'; // After our own script/style removal
     const mockMarkdown = '# Title\n\nSome text.';
 
-    let mockReadabilityInstance: { parse: any };
+    let mockReadabilityInstance: {
+      parse: vi.MockedFunction<() => { title?: string; content?: string } | null>;
+    };
 
     beforeEach(() => {
       // Mock JSDOM constructor and its document object
       const mockDom = { window: { document: 'mockDocument' } };
-      (mockedJSDOM as unknown as import('vitest').Mock).mockImplementation(() => mockDom as any);
+      (mockedJSDOM as unknown as import('vitest').Mock).mockImplementation(() => mockDom);
 
       // Mock Readability constructor and parse method
       mockReadabilityInstance = { parse: vi.fn() };
       (mockedReadability as unknown as import('vitest').Mock).mockImplementation(
-        () => mockReadabilityInstance as any
+        () => mockReadabilityInstance
       );
       mockReadabilityInstance.parse.mockReturnValue({
         title: 'Title',
@@ -280,12 +286,18 @@ describe('webFetcher', () => {
     it('should throw ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED if Readability returns no content', () => {
       mockReadabilityInstance.parse.mockReturnValueOnce(null);
       expect(() => cleanHtmlToMarkdown(mockHtmlContent, mockPageUrl)).toThrow(
-        new ConduitError(ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED, 'Failed to extract readable content from HTML.')
+        new ConduitError(
+          ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED,
+          'Failed to extract readable content from HTML.'
+        )
       );
 
       mockReadabilityInstance.parse.mockReturnValueOnce({ content: null });
       expect(() => cleanHtmlToMarkdown(mockHtmlContent, mockPageUrl)).toThrow(
-        new ConduitError(ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED, 'Failed to extract readable content from HTML.')
+        new ConduitError(
+          ErrorCode.ERR_MARKDOWN_CONTENT_EXTRACTION_FAILED,
+          'Failed to extract readable content from HTML.'
+        )
       );
     });
 
@@ -303,9 +315,11 @@ describe('webFetcher', () => {
         throw new Error('Turndown failed');
       });
       expect(() => cleanHtmlToMarkdown(mockHtmlContent, mockPageUrl)).toThrow(
-        new ConduitError(ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED, 'Failed to convert HTML to Markdown: Turndown failed')
+        new ConduitError(
+          ErrorCode.ERR_MARKDOWN_CONVERSION_FAILED,
+          'Failed to convert HTML to Markdown: Turndown failed'
+        )
       );
     });
-
   });
 });

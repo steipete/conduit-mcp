@@ -40,9 +40,9 @@ const originalHomeDir = os.homedir;
 
 describe('noticeService', () => {
   const originalEnv = { ...process.env };
-  let hasFirstUseNoticeBeenSent: any;
-  let markFirstUseNoticeSent: any;
-  let generateFirstUseNotice: any;
+  let hasFirstUseNoticeBeenSent: () => boolean;
+  let markFirstUseNoticeSent: () => void;
+  let generateFirstUseNotice: () => string;
 
   beforeEach(async () => {
     process.env = { ...originalEnv };

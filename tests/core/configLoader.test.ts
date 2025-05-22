@@ -25,17 +25,18 @@ describe('configLoader', () => {
 
   beforeEach(() => {
     originalEnv = { ...process.env };
-    
+
     // Clear npm_package_version to force reading from package.json
     delete process.env.npm_package_version;
-    
+
     // Mock fs.readFileSync for package.json
     vi.spyOn(fs, 'readFileSync').mockImplementation((filePath, encoding) => {
       if (typeof filePath === 'string' && filePath.includes('package.json')) {
         return JSON.stringify({ version: 'test-version-1.2.3' });
       }
       // Call the original implementation for other files
-      return vi.importActual('fs').readFileSync(filePath, encoding);
+      const actualFs = vi.importActual('fs') as typeof fs;
+      return actualFs.readFileSync(filePath, encoding);
     });
 
     vi.spyOn(process, 'cwd').mockReturnValue(mockCwd);

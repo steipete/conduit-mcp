@@ -55,11 +55,11 @@ describe('mimeService', () => {
       });
 
       const { getMimeType } = await import('@/core/mimeService');
-      
+
       const filePath = 'any.file';
       const mimeType = await getMimeType(filePath);
       expect(mimeType).toBeUndefined();
-      
+
       // Verify the mock was called (since it threw an error during execution)
       expect(mockFileTypeFromFile).toHaveBeenCalledWith(filePath);
     });

@@ -41,7 +41,7 @@ vi.mock('@/core/configLoader', () => {
     serverStartTimeIso: new Date().toISOString(),
     serverVersion: '1.0.0-test',
   };
-  
+
   return {
     conduitConfig: mockConfig,
     loadConfig: () => mockConfig,
@@ -53,7 +53,15 @@ const mockCompressionThreshold = 1024; // 1KB
 const mockCompressionQuality = 75;
 
 describe('imageProcessor', () => {
-  let mockSharpInstance: any; // This will hold the mock instance returned by sharp()
+  let mockSharpInstance: {
+    jpeg: vi.MockedFunction<(options?: sharp.JpegOptions) => any>;
+    png: vi.MockedFunction<(options?: sharp.PngOptions) => any>;
+    webp: vi.MockedFunction<(options?: sharp.WebpOptions) => any>;
+    tiff: vi.MockedFunction<(options?: sharp.TiffOptions) => any>;
+    gif: vi.MockedFunction<(options?: sharp.GifOptions) => any>;
+    avif: vi.MockedFunction<(options?: sharp.AvifOptions) => any>;
+    toBuffer: vi.MockedFunction<() => Promise<Buffer>>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();

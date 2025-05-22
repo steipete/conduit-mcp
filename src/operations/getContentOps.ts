@@ -68,8 +68,7 @@ export async function getContent(
         error.errorCode,
         error.message,
         error instanceof ConduitError && 'httpStatus' in error
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
-            (error as any).httpStatus
+          ? (error as ConduitError & { httpStatus: number }).httpStatus
           : undefined
       );
     }
@@ -563,8 +562,8 @@ async function getContentFromUrl(
           ErrorCode.ERR_CHECKSUM_FAILED,
           `Checksum calculation failed for URL ${url}: ${errorMessage}`
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- adding dynamic httpStatus property
-        (conduitChecksumError as any).httpStatus = fetchedData.httpStatus;
+        (conduitChecksumError as ConduitError & { httpStatus: number }).httpStatus =
+          fetchedData.httpStatus;
         throw conduitChecksumError;
       }
     }
@@ -799,8 +798,7 @@ async function getContentFromUrl(
     operationLogger.error(`Error in getContentFromUrl for ${url}:`, error);
     const httpStatus =
       error instanceof ConduitError && 'httpStatus' in error
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
-          (error as any).httpStatus
+        ? (error as ConduitError & { httpStatus: number }).httpStatus
         : undefined;
     if (error instanceof ConduitError) {
       return createErrorContentResultItem(url, 'url', error.errorCode, error.message, httpStatus);

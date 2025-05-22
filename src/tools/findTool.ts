@@ -9,7 +9,6 @@ import {
   fileSystemOps,
   createMCPErrorStatus,
 } from '@/internal';
-import { createErrorResponse } from '@/utils/errorHandler';
 import { findEntries } from '@/operations/findOps';
 
 export async function findToolHandler(
@@ -37,11 +36,11 @@ export async function findToolHandler(
     // Create updated params with resolved path
     const updatedParams = { ...params, base_path: resolvedBasePath };
     const result = await findEntries(updatedParams, config);
-    
+
     if (result instanceof ConduitError) {
       return createMCPErrorStatus(result.errorCode, result.message);
     }
-    
+
     return { tool_name: 'find', results: result };
   } catch (error) {
     if (error instanceof ConduitError) {

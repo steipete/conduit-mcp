@@ -28,8 +28,90 @@ async function isTextBasedFileForContentSearch(
     }
     return false;
   }
+
+  // First check common text file extensions that might not have detectable MIME types
+  const ext = path.extname(filePath).toLowerCase();
+  const commonTextExtensions = [
+    '.txt',
+    '.text',
+    '.log',
+    '.md',
+    '.markdown',
+    '.rst',
+    '.js',
+    '.ts',
+    '.jsx',
+    '.tsx',
+    '.json',
+    '.json5',
+    '.xml',
+    '.html',
+    '.htm',
+    '.css',
+    '.scss',
+    '.sass',
+    '.less',
+    '.py',
+    '.rb',
+    '.java',
+    '.c',
+    '.cpp',
+    '.cc',
+    '.cxx',
+    '.h',
+    '.hpp',
+    '.cs',
+    '.go',
+    '.rs',
+    '.php',
+    '.pl',
+    '.sh',
+    '.bash',
+    '.zsh',
+    '.fish',
+    '.ps1',
+    '.bat',
+    '.cmd',
+    '.yaml',
+    '.yml',
+    '.toml',
+    '.ini',
+    '.cfg',
+    '.conf',
+    '.sql',
+    '.csv',
+    '.tsv',
+    '.dockerfile',
+    '.gitignore',
+    '.gitattributes',
+    '.env',
+    '.editorconfig',
+    '.eslintrc',
+    '.prettierrc',
+  ];
+
+  if (commonTextExtensions.includes(ext)) {
+    return true;
+  }
+
+  // For files without extensions or unknown extensions, check MIME type
   const mime = await getMimeType(filePath);
-  if (!mime) return false;
+  if (!mime) {
+    // If no MIME type is detected and no extension, try to read a small portion to check if it's text
+    // This handles files without extensions that might be plain text
+    if (!ext) {
+      try {
+        const buffer = await fileSystemOps.readFileAsBuffer(filePath, 1024); // Read first 1KB
+        const content = buffer.toString('utf-8');
+        // Check if content appears to be text (no null bytes and mostly printable characters)
+        return !content.includes('\0') && /^[\x20-\x7E\s]*$/.test(content);
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
   return (
     mime.startsWith('text/') ||
     mime.includes('json') ||
@@ -55,8 +137,17 @@ async function matchesContentPattern(
     const content = buffer.toString('utf-8');
     const pattern = criterion.pattern;
     if (criterion.is_regex) {
-      const regex = new RegExp(pattern, criterion.case_sensitive === false ? 'i' : '');
-      return regex.test(content);
+      const flags = criterion.case_sensitive === false ? 'i' : '';
+      const regex = new RegExp(pattern, flags);
+
+      // If the pattern contains line anchors (^ or $), apply it line by line
+      if (pattern.includes('^') || pattern.includes('$')) {
+        const lines = content.split('\n');
+        return lines.some((line) => regex.test(line));
+      } else {
+        // For patterns without line anchors, test against the entire content
+        return regex.test(content);
+      }
     } else {
       if (criterion.case_sensitive === false) {
         return content.toLowerCase().includes(pattern.toLowerCase());
@@ -82,8 +173,9 @@ function matchesMetadataFilter(
 ): boolean {
   const operationLogger = logger.child({ component: 'findOps' });
   const attributeName = criterion.attribute === 'entry_type' ? 'type' : criterion.attribute;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic attribute access for metadata filtering
-  const attributeValue = (entryInfo as any)[attributeName];
+
+  const entryRecord = entryInfo as Record<string, unknown>;
+  const attributeValue = entryRecord[attributeName];
 
   if (
     attributeValue === undefined &&

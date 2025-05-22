@@ -51,11 +51,7 @@ export async function putContent(
   let bytesSuccessfullyWritten: number | undefined = undefined;
 
   try {
-    if (
-      entry.content === undefined &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing with string literal for type checking
-      entry.input_encoding !== ('base64_gzipped_file_ref' as any)
-    ) {
+    if (entry.content === undefined && entry.input_encoding !== 'base64_gzipped_file_ref') {
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.INVALID_PARAMETER,
@@ -67,8 +63,7 @@ export async function putContent(
     if (
       entry.input_encoding !== 'text' &&
       entry.input_encoding !== 'base64' &&
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing with string literal for type checking
-      entry.input_encoding !== ('base64_gzipped_file_ref' as any)
+      entry.input_encoding !== 'base64_gzipped_file_ref'
     ) {
       return createErrorPutResultItem(
         targetPath,
@@ -105,8 +100,7 @@ export async function putContent(
           `Invalid base64 content (Buffer.from error): ${errorMessage}`
         );
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing with string literal for type checking
-    } else if (entry.input_encoding === ('base64_gzipped_file_ref' as any)) {
+    } else if (entry.input_encoding === 'base64_gzipped_file_ref') {
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.NOT_IMPLEMENTED,

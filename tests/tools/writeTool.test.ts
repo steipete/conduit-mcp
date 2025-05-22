@@ -110,7 +110,12 @@ describe('WriteTool', () => {
       expect(result[0].action_performed).toBe('put');
       expect(result[0].path).toBe('/file.txt');
       expect((result[0] as WriteTool.WriteResultSuccess).bytes_written).toBe(100);
-      expect(mockedFsOps.writeFile).toHaveBeenCalledWith('/file.txt', 'Hello', undefined, 'overwrite');
+      expect(mockedFsOps.writeFile).toHaveBeenCalledWith(
+        '/file.txt',
+        'Hello',
+        undefined,
+        'overwrite'
+      );
     });
 
     it('should handle mkdir action successfully', async () => {

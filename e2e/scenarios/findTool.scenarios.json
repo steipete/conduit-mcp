@@ -1,0 +1,1568 @@
+{
+  "scenarios": [
+    {
+      "name": "complex_glob_pattern_multiple_extensions",
+      "description": "Test complex glob pattern with multiple extensions and wildcards",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "**/*.{ts,tsx,js,jsx}"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "component.tsx",
+            "path_contains": "component.tsx"
+          },
+          {
+            "type": "file", 
+            "name": "utils.ts",
+            "path_contains": "utils.ts"
+          },
+          {
+            "type": "file",
+            "name": "legacy.js",
+            "path_contains": "legacy.js"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "src/components/component.tsx",
+          "content": "export const Component = () => <div>Hello</div>;"
+        },
+        {
+          "type": "createFile", 
+          "path": "src/utils/utils.ts",
+          "content": "export const helper = () => 'utility';"
+        },
+        {
+          "type": "createFile",
+          "path": "legacy/legacy.js",
+          "content": "function oldCode() { return true; }"
+        },
+        {
+          "type": "createFile",
+          "path": "config.json", 
+          "content": "{\"setting\": \"value\"}"
+        },
+        {
+          "type": "createFile",
+          "path": "readme.md",
+          "content": "# Project Documentation"
+        }
+      ],
+      "cleanup_filesystem": [
+        "src/",
+        "legacy/",
+        "config.json",
+        "readme.md"
+      ]
+    },
+    {
+      "name": "complex_glob_pattern_negation_simulation",
+      "description": "Test glob pattern that simulates negation by searching specific patterns",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "*.ts"
+            },
+            {
+              "type": "metadata_filter",
+              "attribute": "name",
+              "operator": "not_equals",
+              "value": "test.ts",
+              "case_sensitive": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "main.ts",
+            "path_contains": "main.ts"
+          },
+          {
+            "type": "file",
+            "name": "helper.ts", 
+            "path_contains": "helper.ts"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "main.ts",
+          "content": "console.log('main');"
+        },
+        {
+          "type": "createFile",
+          "path": "helper.ts",
+          "content": "export const help = () => {};"
+        },
+        {
+          "type": "createFile",
+          "path": "test.ts",
+          "content": "// This file should be excluded"
+        }
+      ],
+      "cleanup_filesystem": [
+        "main.ts",
+        "helper.ts", 
+        "test.ts"
+      ]
+    },
+    {
+      "name": "symbolic_links_following",
+      "description": "Test how the tool handles symbolic links pointing to files and directories",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "*"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "real_file.txt",
+            "path_contains": "real_file.txt"
+          },
+          {
+            "type": "directory",
+            "name": "real_dir",
+            "path_contains": "real_dir"
+          },
+          {
+            "type": "symlink",
+            "name": "file_link.txt",
+            "path_contains": "file_link.txt"
+          },
+          {
+            "type": "symlink", 
+            "name": "dir_link",
+            "path_contains": "dir_link"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "real_file.txt",
+          "content": "This is a real file"
+        },
+        {
+          "type": "createDirectory",
+          "path": "real_dir"
+        },
+        {
+          "type": "createFile",
+          "path": "real_dir/nested_file.txt",
+          "content": "Nested content"
+        },
+        {
+          "type": "createSymlink",
+          "target": "real_file.txt",
+          "link": "file_link.txt"
+        },
+        {
+          "type": "createSymlink", 
+          "target": "real_dir",
+          "link": "dir_link"
+        }
+      ],
+      "cleanup_filesystem": [
+        "real_file.txt",
+        "real_dir/",
+        "file_link.txt",
+        "dir_link"
+      ]
+    },
+    {
+      "name": "deep_directory_structure",
+      "description": "Test search in deep nested directory structure (10+ levels)",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER", 
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "target*.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "target_level5.txt",
+            "path_contains": "level1/level2/level3/level4/level5/target_level5.txt"
+          },
+          {
+            "type": "file",
+            "name": "target_level10.txt", 
+            "path_contains": "level1/level2/level3/level4/level5/level6/level7/level8/level9/level10/target_level10.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "level1/level2/level3/level4/level5/target_level5.txt",
+          "content": "Found at level 5"
+        },
+        {
+          "type": "createFile",
+          "path": "level1/level2/level3/level4/level5/level6/level7/level8/level9/level10/target_level10.txt",
+          "content": "Found at level 10"
+        },
+        {
+          "type": "createFile", 
+          "path": "level1/level2/level3/other.txt",
+          "content": "Not a target file"
+        }
+      ],
+      "cleanup_filesystem": [
+        "level1/"
+      ]
+    },
+    {
+      "name": "file_encoding_utf8_content_search",
+      "description": "Test content search with UTF-8 encoded files containing unicode characters",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "測試",
+              "case_sensitive": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find", 
+        "results": [
+          {
+            "type": "file",
+            "name": "chinese.txt",
+            "path_contains": "chinese.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "chinese.txt",
+          "content": "這是一個測試文件 (This is a test file)",
+          "encoding": "utf-8"
+        },
+        {
+          "type": "createFile",
+          "path": "english.txt", 
+          "content": "This is just English text",
+          "encoding": "utf-8"
+        },
+        {
+          "type": "createFile",
+          "path": "emoji.txt",
+          "content": "Hello 🌍 World! 😀",
+          "encoding": "utf-8"
+        }
+      ],
+      "cleanup_filesystem": [
+        "chinese.txt",
+        "english.txt",
+        "emoji.txt"
+      ]
+    },
+    {
+      "name": "advanced_filter_combinations_size_and_content",
+      "description": "Test complex combination of size, content and name pattern filters",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "*.log"
+            },
+            {
+              "type": "content_pattern",
+              "pattern": "ERROR",
+              "case_sensitive": true
+            },
+            {
+              "type": "metadata_filter",
+              "attribute": "size_bytes",
+              "operator": "gt",
+              "value": 50
+            },
+            {
+              "type": "metadata_filter",
+              "attribute": "size_bytes", 
+              "operator": "lt",
+              "value": 200
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "application.log",
+            "path_contains": "application.log"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "application.log",
+          "content": "INFO: Application started\nERROR: Database connection failed\nWARN: Retrying connection\nINFO: Connection restored"
+        },
+        {
+          "type": "createFile",
+          "path": "debug.log",
+          "content": "DEBUG: Small file with no errors"
+        },
+        {
+          "type": "createFile",
+          "path": "system.log",
+          "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nERROR: This file is too large"
+        },
+        {
+          "type": "createFile",
+          "path": "access.txt",
+          "content": "ERROR: Wrong extension but has error content and correct size"
+        }
+      ],
+      "cleanup_filesystem": [
+        "application.log",
+        "debug.log", 
+        "system.log",
+        "access.txt"
+      ]
+    },
+    {
+      "name": "timestamp_based_search_modified_after",
+      "description": "Test searching files modified after a specific timestamp",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "modified_at",
+              "operator": "after",
+              "value": "2024-01-01T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "recent_file.txt",
+            "path_contains": "recent_file.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "old_file.txt",
+          "content": "Old content",
+          "mtime": "2023-12-31T10:00:00Z"
+        },
+        {
+          "type": "createFile",
+          "path": "recent_file.txt",
+          "content": "Recent content",
+          "mtime": "2024-01-02T14:00:00Z"
+        }
+      ],
+      "cleanup_filesystem": [
+        "old_file.txt",
+        "recent_file.txt"
+      ]
+    },
+    {
+      "name": "timestamp_based_search_created_on_date",
+      "description": "Test searching files created on a specific date",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "created_at",
+              "operator": "on_date",
+              "value": "2024-01-15"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "created_today.txt",
+            "path_contains": "created_today.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "created_today.txt",
+          "content": "Created on target date",
+          "ctime": "2024-01-15T10:30:00Z"
+        },
+        {
+          "type": "createFile",
+          "path": "created_different_day.txt",
+          "content": "Created on different date",
+          "ctime": "2024-01-16T10:30:00Z"
+        }
+      ],
+      "cleanup_filesystem": [
+        "created_today.txt",
+        "created_different_day.txt"
+      ]
+    },
+    {
+      "name": "empty_content_search",
+      "description": "Test content search for empty strings and whitespace-only content",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern", 
+              "pattern": "^\\s*$",
+              "is_regex": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "empty.txt",
+            "path_contains": "empty.txt"
+          },
+          {
+            "type": "file",
+            "name": "whitespace_only.txt",
+            "path_contains": "whitespace_only.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "empty.txt",
+          "content": ""
+        },
+        {
+          "type": "createFile",
+          "path": "whitespace_only.txt",
+          "content": "   \n\t  \n  "
+        },
+        {
+          "type": "createFile",
+          "path": "has_content.txt",
+          "content": "This file has actual content"
+        }
+      ],
+      "cleanup_filesystem": [
+        "empty.txt",
+        "whitespace_only.txt", 
+        "has_content.txt"
+      ]
+    },
+    {
+      "name": "special_regex_characters_content_search",
+      "description": "Test content search with special regex characters in literal search",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "[ERROR]",
+              "is_regex": false,
+              "case_sensitive": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "log_with_brackets.txt",
+            "path_contains": "log_with_brackets.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "log_with_brackets.txt",
+          "content": "2024-01-01 [ERROR] Something went wrong"
+        },
+        {
+          "type": "createFile",
+          "path": "log_without_brackets.txt",
+          "content": "2024-01-01 ERROR Something went wrong"
+        },
+        {
+          "type": "createFile",
+          "path": "regex_match.txt",
+          "content": "2024-01-01 E Something went wrong"
+        }
+      ],
+      "cleanup_filesystem": [
+        "log_with_brackets.txt",
+        "log_without_brackets.txt",
+        "regex_match.txt"
+      ]
+    },
+    {
+      "name": "special_characters_in_filenames",
+      "description": "Test finding files with special characters, spaces, and unicode in names",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "*"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "file with spaces.txt",
+            "path_contains": "file with spaces.txt"
+          },
+          {
+            "type": "file",
+            "name": "file-with-dashes.txt", 
+            "path_contains": "file-with-dashes.txt"
+          },
+          {
+            "type": "file",
+            "name": "file_with_underscores.txt",
+            "path_contains": "file_with_underscores.txt"
+          },
+          {
+            "type": "file",
+            "name": "file.with.dots.txt",
+            "path_contains": "file.with.dots.txt"
+          },
+          {
+            "type": "file",
+            "name": "файл.txt",
+            "path_contains": "файл.txt"
+          },
+          {
+            "type": "file",
+            "name": "文件.txt",
+            "path_contains": "文件.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "file with spaces.txt",
+          "content": "File with spaces in name"
+        },
+        {
+          "type": "createFile",
+          "path": "file-with-dashes.txt",
+          "content": "File with dashes in name"
+        },
+        {
+          "type": "createFile",
+          "path": "file_with_underscores.txt",
+          "content": "File with underscores in name"
+        },
+        {
+          "type": "createFile",
+          "path": "file.with.dots.txt",
+          "content": "File with dots in name"
+        },
+        {
+          "type": "createFile",
+          "path": "файл.txt",
+          "content": "Cyrillic filename"
+        },
+        {
+          "type": "createFile",
+          "path": "文件.txt", 
+          "content": "Chinese filename"
+        }
+      ],
+      "cleanup_filesystem": [
+        "file with spaces.txt",
+        "file-with-dashes.txt",
+        "file_with_underscores.txt",
+        "file.with.dots.txt",
+        "файл.txt",
+        "文件.txt"
+      ]
+    },
+    {
+      "name": "case_sensitivity_filename_search",
+      "description": "Test case sensitivity in filename pattern matching on case-sensitive filesystems",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "name",
+              "operator": "equals",
+              "value": "TestFile.txt",
+              "case_sensitive": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "TestFile.txt",
+            "path_contains": "TestFile.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "TestFile.txt",
+          "content": "Exact case match"
+        },
+        {
+          "type": "createFile",
+          "path": "testfile.txt",
+          "content": "Different case"
+        },
+        {
+          "type": "createFile",
+          "path": "TESTFILE.TXT",
+          "content": "All uppercase"
+        }
+      ],
+      "cleanup_filesystem": [
+        "TestFile.txt",
+        "testfile.txt",
+        "TESTFILE.TXT"
+      ]
+    },
+    {
+      "name": "case_insensitive_filename_search",
+      "description": "Test case insensitive filename pattern matching",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "name",
+              "operator": "contains",
+              "value": "test",
+              "case_sensitive": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "TestFile.txt",
+            "path_contains": "TestFile.txt"
+          },
+          {
+            "type": "file",
+            "name": "testfile.txt",
+            "path_contains": "testfile.txt"
+          },
+          {
+            "type": "file",
+            "name": "TESTFILE.TXT",
+            "path_contains": "TESTFILE.TXT"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "TestFile.txt",
+          "content": "Mixed case"
+        },
+        {
+          "type": "createFile",
+          "path": "testfile.txt", 
+          "content": "Lowercase"
+        },
+        {
+          "type": "createFile",
+          "path": "TESTFILE.TXT",
+          "content": "Uppercase"
+        },
+        {
+          "type": "createFile",
+          "path": "document.txt",
+          "content": "No match"
+        }
+      ],
+      "cleanup_filesystem": [
+        "TestFile.txt",
+        "testfile.txt",
+        "TESTFILE.TXT",
+        "document.txt"
+      ]
+    },
+    {
+      "name": "very_long_filename_search",
+      "description": "Test finding files with very long filenames (200+ characters)",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER", 
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "a*.txt"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name_contains": "aaaaaaaaaa",
+            "path_contains": ".txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "{{LONG_FILENAME}}.txt",
+          "content": "File with very long name",
+          "filename_pattern": "a{200}.txt"
+        },
+        {
+          "type": "createFile",
+          "path": "short.txt",
+          "content": "File with short name"
+        }
+      ],
+      "cleanup_filesystem": [
+        "a*.txt",
+        "short.txt"
+      ]
+    },
+    {
+      "name": "mixed_entry_types_filter",
+      "description": "Test filtering for specific entry types in mixed directory structure",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "entry_type_filter": "directory",
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "name",
+              "operator": "ends_with",
+              "value": "_dir",
+              "case_sensitive": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "directory",
+            "name": "test_dir",
+            "path_contains": "test_dir"
+          },
+          {
+            "type": "directory",
+            "name": "config_dir",
+            "path_contains": "config_dir"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createDirectory",
+          "path": "test_dir"
+        },
+        {
+          "type": "createDirectory",
+          "path": "config_dir"
+        },
+        {
+          "type": "createFile",
+          "path": "test_dir_file.txt",
+          "content": "This is a file, not a directory"
+        },
+        {
+          "type": "createFile",
+          "path": "regular_file.txt",
+          "content": "Regular file"
+        }
+      ],
+      "cleanup_filesystem": [
+        "test_dir/",
+        "config_dir/", 
+        "test_dir_file.txt",
+        "regular_file.txt"
+      ]
+    },
+    {
+      "name": "regex_metadata_filter_complex",
+      "description": "Test complex regex patterns in metadata filtering",
+      "request_payload": {
+        "tool_name": "find", 
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "name",
+              "operator": "matches_regex",
+              "value": "^(log|debug)_\\d{4}-\\d{2}-\\d{2}\\.(txt|log)$"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "log_2024-01-15.txt",
+            "path_contains": "log_2024-01-15.txt"
+          },
+          {
+            "type": "file",
+            "name": "debug_2024-01-16.log",
+            "path_contains": "debug_2024-01-16.log"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "log_2024-01-15.txt",
+          "content": "Log file content"
+        },
+        {
+          "type": "createFile",
+          "path": "debug_2024-01-16.log",
+          "content": "Debug file content"
+        },
+        {
+          "type": "createFile",
+          "path": "error_2024-01-17.txt",
+          "content": "Wrong prefix"
+        },
+        {
+          "type": "createFile",
+          "path": "log_invalid-date.txt",
+          "content": "Invalid date format"
+        }
+      ],
+      "cleanup_filesystem": [
+        "log_2024-01-15.txt",
+        "debug_2024-01-16.log",
+        "error_2024-01-17.txt",
+        "log_invalid-date.txt"
+      ]
+    },
+    {
+      "name": "content_search_specific_file_types",
+      "description": "Test content search limited to specific file extensions",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "function",
+              "case_sensitive": false,
+              "file_types_to_search": [".js", ".ts"]
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "code.js",
+            "path_contains": "code.js"
+          },
+          {
+            "type": "file",
+            "name": "utils.ts",
+            "path_contains": "utils.ts"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "code.js", 
+          "content": "function hello() { return 'world'; }"
+        },
+        {
+          "type": "createFile",
+          "path": "utils.ts",
+          "content": "export function utility(): string { return 'helper'; }"
+        },
+        {
+          "type": "createFile",
+          "path": "document.txt",
+          "content": "This document describes a function but won't be searched"
+        },
+        {
+          "type": "createFile",
+          "path": "styles.css",
+          "content": "/* Function comment in CSS */"
+        }
+      ],
+      "cleanup_filesystem": [
+        "code.js",
+        "utils.ts",
+        "document.txt",
+        "styles.css"
+      ]
+    },
+    {
+      "name": "multiple_size_range_filters",
+      "description": "Test finding files within specific size ranges using multiple size filters",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "size_bytes",
+              "operator": "gte",
+              "value": 100
+            },
+            {
+              "type": "metadata_filter",
+              "attribute": "size_bytes",
+              "operator": "lte", 
+              "value": 500
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "medium_file.txt",
+            "path_contains": "medium_file.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "small_file.txt",
+          "content": "Small"
+        },
+        {
+          "type": "createFile",
+          "path": "medium_file.txt",
+          "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        },
+        {
+          "type": "createFile",
+          "path": "large_file.txt",
+          "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        }
+      ],
+      "cleanup_filesystem": [
+        "small_file.txt",
+        "medium_file.txt",
+        "large_file.txt"
+      ]
+    },
+    {
+      "name": "empty_directory_search",
+      "description": "Test search in completely empty directory",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER/empty_subdir",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern",
+              "pattern": "*"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": []
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createDirectory",
+          "path": "empty_subdir"
+        }
+      ],
+      "cleanup_filesystem": [
+        "empty_subdir/"
+      ]
+    },
+    {
+      "name": "hidden_files_and_directories",
+      "description": "Test finding hidden files and directories (starting with dot)",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "name_pattern", 
+              "pattern": ".*"
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": ".hidden_file.txt",
+            "path_contains": ".hidden_file.txt"
+          },
+          {
+            "type": "directory",
+            "name": ".hidden_dir",
+            "path_contains": ".hidden_dir"
+          },
+          {
+            "type": "file",
+            "name": ".env",
+            "path_contains": ".env"
+          },
+          {
+            "type": "file",
+            "name": ".gitignore",
+            "path_contains": ".gitignore"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile", 
+          "path": ".hidden_file.txt",
+          "content": "Hidden file content"
+        },
+        {
+          "type": "createDirectory",
+          "path": ".hidden_dir"
+        },
+        {
+          "type": "createFile",
+          "path": ".env",
+          "content": "SECRET=value"
+        },
+        {
+          "type": "createFile",
+          "path": ".gitignore",
+          "content": "node_modules/\n*.log"
+        },
+        {
+          "type": "createFile",
+          "path": "visible_file.txt",
+          "content": "Not hidden"
+        }
+      ],
+      "cleanup_filesystem": [
+        ".hidden_file.txt",
+        ".hidden_dir/",
+        ".env",
+        ".gitignore",
+        "visible_file.txt"
+      ]
+    },
+    {
+      "name": "complex_content_regex_multiline",
+      "description": "Test complex regex content search across multiple lines",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "function\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{",
+              "is_regex": true,
+              "case_sensitive": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "code.js",
+            "path_contains": "code.js"
+          },
+          {
+            "type": "file",
+            "name": "script.js",
+            "path_contains": "script.js"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "code.js",
+          "content": "function calculateSum(a, b) {\n  return a + b;\n}"
+        },
+        {
+          "type": "createFile",
+          "path": "script.js", 
+          "content": "const myFunc = function  processData( input )   {\n  return input.trim();\n};"
+        },
+        {
+          "type": "createFile",
+          "path": "arrow_func.js",
+          "content": "const arrowFunc = (x, y) => {\n  return x * y;\n};"
+        },
+        {
+          "type": "createFile",
+          "path": "text.txt",
+          "content": "This is not a function definition"
+        }
+      ],
+      "cleanup_filesystem": [
+        "code.js",
+        "script.js",
+        "arrow_func.js",
+        "text.txt"
+      ]
+    },
+    {
+      "name": "binary_files_content_search",
+      "description": "Test content search behavior with binary files (should be skipped)",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "text",
+              "case_sensitive": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "document.txt",
+            "path_contains": "document.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "document.txt",
+          "content": "This is a text file with text content"
+        },
+        {
+          "type": "createBinaryFile",
+          "path": "image.png",
+          "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+          "encoding": "base64"
+        },
+        {
+          "type": "createBinaryFile",
+          "path": "data.bin",
+          "binary_content": [137, 80, 78, 71, 13, 10, 26, 10]
+        }
+      ],
+      "cleanup_filesystem": [
+        "document.txt",
+        "image.png",
+        "data.bin"
+      ]
+    },
+    {
+      "name": "large_file_content_search_limit",
+      "description": "Test content search with files exceeding size limits",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "findme",
+              "case_sensitive": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "small_with_match.txt",
+            "path_contains": "small_with_match.txt"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "small_with_match.txt",
+          "content": "This small file contains findme keyword"
+        },
+        {
+          "type": "createFile", 
+          "path": "large_with_match.txt",
+          "content": "This is a large file that contains findme somewhere in the middle of a lot of content. This file is designed to test content search in large files."
+        },
+        {
+          "type": "createFile",
+          "path": "small_no_match.txt",
+          "content": "This small file has no keyword"
+        }
+      ],
+      "cleanup_filesystem": [
+        "small_with_match.txt",
+        "large_with_match.txt",
+        "small_no_match.txt"
+      ]
+    },
+    {
+      "name": "invalid_regex_pattern_handling",
+      "description": "Test handling of invalid regex patterns in content search",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "match_criteria": [
+            {
+              "type": "content_pattern",
+              "pattern": "[unclosed_bracket",
+              "is_regex": true
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": []
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "test_file.txt",
+          "content": "This file has some content"
+        }
+      ],
+      "cleanup_filesystem": [
+        "test_file.txt"
+      ]
+    },
+    {
+      "name": "search_with_all_entry_types",
+      "description": "Test search across files, directories, and symlinks with entry_type_filter 'any'",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "entry_type_filter": "any",
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "name",
+              "operator": "contains",
+              "value": "test",
+              "case_sensitive": false
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "test_file.txt",
+            "path_contains": "test_file.txt"
+          },
+          {
+            "type": "directory", 
+            "name": "test_dir",
+            "path_contains": "test_dir"
+          },
+          {
+            "type": "symlink",
+            "name": "test_link",
+            "path_contains": "test_link"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "test_file.txt",
+          "content": "Test file content"
+        },
+        {
+          "type": "createDirectory",
+          "path": "test_dir"
+        },
+        {
+          "type": "createFile",
+          "path": "target.txt",
+          "content": "Link target"
+        },
+        {
+          "type": "createSymlink",
+          "target": "target.txt",
+          "link": "test_link"
+        },
+        {
+          "type": "createFile",
+          "path": "normal_file.txt",
+          "content": "No match"
+        }
+      ],
+      "cleanup_filesystem": [
+        "test_file.txt",
+        "test_dir/",
+        "target.txt",
+        "test_link",
+        "normal_file.txt"
+      ]
+    },
+    {
+      "name": "zero_byte_files_search",
+      "description": "Test finding zero-byte (empty) files specifically",
+      "request_payload": {
+        "tool_name": "find",
+        "params": {
+          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "recursive": true,
+          "entry_type_filter": "file",
+          "match_criteria": [
+            {
+              "type": "metadata_filter",
+              "attribute": "size_bytes",
+              "operator": "eq",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "find",
+        "results": [
+          {
+            "type": "file",
+            "name": "empty1.txt",
+            "path_contains": "empty1.txt"
+          },
+          {
+            "type": "file",
+            "name": "empty2.log",
+            "path_contains": "empty2.log"
+          }
+        ]
+      },
+      "should_show_notice": false,
+      "setup_filesystem": [
+        {
+          "type": "createFile",
+          "path": "empty1.txt",
+          "content": ""
+        },
+        {
+          "type": "createFile",
+          "path": "empty2.log",
+          "content": ""
+        },
+        {
+          "type": "createFile",
+          "path": "has_content.txt",
+          "content": "Not empty"
+        }
+      ],
+      "cleanup_filesystem": [
+        "empty1.txt",
+        "empty2.log",
+        "has_content.txt"
+      ]
+    }
+  ]
+}

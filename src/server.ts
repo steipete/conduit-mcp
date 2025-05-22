@@ -51,16 +51,22 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsing unknown JSON structure
-      let request: any;
+      let request: unknown;
       try {
         request = JSON.parse(line);
-      } catch (parseError) {
+      } catch {
         sendErrorResponse(ErrorCode.ERR_MCP_INVALID_REQUEST, 'Malformed MCP request JSON.');
         return;
       }
 
-      if (!request.tool_name || !request.params) {
+      if (
+        !request ||
+        typeof request !== 'object' ||
+        !('tool_name' in request) ||
+        !('params' in request) ||
+        !(request as { tool_name: unknown }).tool_name ||
+        !(request as { params: unknown }).params
+      ) {
         sendErrorResponse(
           ErrorCode.INVALID_PARAMETER,
           'Invalid request structure: missing tool_name or params.'
@@ -68,28 +74,30 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
         return;
       }
 
+      const requestObj = request as { tool_name: string; params: unknown };
+
       let toolResponse: unknown;
-      switch (request.tool_name) {
+      switch (requestObj.tool_name) {
         case 'read':
-          toolResponse = await readToolHandler(request.params, conduitConfig);
+          toolResponse = await readToolHandler(requestObj.params, conduitConfig);
           break;
         case 'write':
-          toolResponse = await writeToolHandler(request.params, conduitConfig);
+          toolResponse = await writeToolHandler(requestObj.params, conduitConfig);
           break;
         case 'list':
-          toolResponse = await listToolHandler(request.params, conduitConfig);
+          toolResponse = await listToolHandler(requestObj.params, conduitConfig);
           break;
         case 'find':
-          toolResponse = await findToolHandler(request.params, conduitConfig);
+          toolResponse = await findToolHandler(requestObj.params, conduitConfig);
           break;
         case 'ArchiveTool':
-          toolResponse = await archiveToolHandler(request.params, conduitConfig);
+          toolResponse = await archiveToolHandler(requestObj.params, conduitConfig);
           break;
         case 'test':
-          toolResponse = await testToolHandler(request.params, conduitConfig);
+          toolResponse = await testToolHandler(requestObj.params, conduitConfig);
           break;
         default:
-          sendErrorResponse(ErrorCode.ERR_UNKNOWN_TOOL, `Unknown tool: ${request.tool_name}`);
+          sendErrorResponse(ErrorCode.ERR_UNKNOWN_TOOL, `Unknown tool: ${requestObj.tool_name}`);
           return;
       }
 

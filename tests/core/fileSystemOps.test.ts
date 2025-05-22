@@ -55,7 +55,7 @@ vi.mock('fs/promises', () => {
 
 // Create a more comprehensive mock for @/internal including conduitConfig
 vi.mock('@/internal', async (importOriginal) => {
-  const original = await importOriginal<any>();
+  const original = await importOriginal<typeof import('@/internal')>();
 
   // Create a mock config for testing specific to fileSystemOps
   const mockConduitConfig = {
@@ -102,7 +102,7 @@ import * as fsPromisesActual from 'fs/promises';
 // We need to cast because the imported 'fsPromisesActual' will have the functions
 // but not directly the vi.fn() mock controls like .mockResolvedValue for TypeScript.
 // The default export will also contain these functions.
-const mockFs = (fsPromisesActual as any).default as {
+const mockFs = (fsPromisesActual as unknown as { default: unknown }).default as {
   access: MockedFunction<typeof import('fs/promises').access>;
   stat: MockedFunction<typeof import('fs/promises').stat>;
   lstat: MockedFunction<typeof import('fs/promises').lstat>;
@@ -192,28 +192,32 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ConduitError.ERR_FS_NOT_FOUND if fs.stat throws ENOENT', async () => {
-      const error = new Error('Path not found') as any;
-      error.code = 'ENOENT';
+      const error = Object.assign(new Error('Path not found'), {
+        code: 'ENOENT',
+      }) as NodeJS.ErrnoException;
       mockFs.stat.mockRejectedValue(error);
       await expect(getStats('notfound/path')).rejects.toThrow(ConduitError);
       try {
         await getStats('notfound/path');
-      } catch (e: any) {
-        expect(e.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
-        expect(e.message).toContain('Path not found: notfound/path');
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConduitError);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+        expect((e as ConduitError).message).toContain('Path not found: notfound/path');
       }
     });
 
     it('should throw ConduitError.ERR_FS_OPERATION_FAILED for other fs.stat errors', async () => {
-      const error = new Error('Permission denied') as any;
-      error.code = 'EACCES';
+      const error = Object.assign(new Error('Permission denied'), {
+        code: 'EACCES',
+      }) as NodeJS.ErrnoException;
       mockFs.stat.mockRejectedValue(error);
       await expect(getStats('protected/path')).rejects.toThrow(ConduitError);
       try {
         await getStats('protected/path');
-      } catch (e: any) {
-        expect(e.errorCode).toBe(ErrorCode.OPERATION_FAILED);
-        expect(e.message).toContain(
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConduitError);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.OPERATION_FAILED);
+        expect((e as ConduitError).message).toContain(
           'Failed to get stats for path: protected/path. Error: Permission denied'
         );
       }
@@ -231,27 +235,30 @@ describe('fileSystemOps', () => {
     });
 
     it('should throw ConduitError.ERR_FS_NOT_FOUND if fs.lstat throws ENOENT', async () => {
-      const error = new Error('No such file or directory') as any;
-      error.code = 'ENOENT';
+      const error = Object.assign(new Error('No such file or directory'), {
+        code: 'ENOENT',
+      }) as NodeJS.ErrnoException;
       mockFs.lstat.mockRejectedValue(error);
       await expect(getLstats('nonexistent/symlink')).rejects.toThrow(ConduitError);
       try {
         await getLstats('nonexistent/symlink');
-      } catch (e: any) {
-        expect(e.errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
-        expect(e.message).toContain('Path not found: nonexistent/symlink');
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConduitError);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+        expect((e as ConduitError).message).toContain('Path not found: nonexistent/symlink');
       }
     });
 
     it('should throw ConduitError.ERR_FS_OPERATION_FAILED for other fs.lstat errors', async () => {
-      const error = new Error('I/O error') as any;
+      const error = new Error('I/O error');
       mockFs.lstat.mockRejectedValue(error);
       await expect(getLstats('broken/symlink')).rejects.toThrow(ConduitError);
       try {
         await getLstats('broken/symlink');
-      } catch (e: any) {
-        expect(e.errorCode).toBe(ErrorCode.OPERATION_FAILED);
-        expect(e.message).toContain(
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConduitError);
+        expect((e as ConduitError).errorCode).toBe(ErrorCode.OPERATION_FAILED);
+        expect((e as ConduitError).message).toContain(
           'Failed to get lstats for path: broken/symlink. Error: I/O error'
         );
       }

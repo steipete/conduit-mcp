@@ -1,0 +1,181 @@
+{
+  "scenarios": [
+    {
+      "name": "echo_simple_string",
+      "description": "Test echo operation with a simple string parameter",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": "Hello, World!"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": "Hello, World!"
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "echo_complex_object",
+      "description": "Test echo operation with a complex object parameter",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": {
+            "nested": {
+              "value": 42,
+              "array": [1, 2, 3],
+              "boolean": true
+            },
+            "string": "test"
+          }
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": {
+            "nested": {
+              "value": 42,
+              "array": [1, 2, 3],
+              "boolean": true
+            },
+            "string": "test"
+          }
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "echo_null_value",
+      "description": "Test echo operation with null parameter",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": null
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": null
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "echo_empty_array",
+      "description": "Test echo operation with empty array parameter",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": []
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": []
+        }
+      },
+      "should_show_notice": true,
+      "notice_code": "DEFAULT_PATHS_USED"
+    },
+    {
+      "name": "generate_error_known_code",
+      "description": "Test error generation with a known error code",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "generate_error",
+          "error_code_to_generate": "ERR_FS_FILE_NOT_FOUND",
+          "error_message_to_generate": "Test file not found error"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_FS_FILE_NOT_FOUND",
+        "error_message": "Test file not found error"
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "generate_error_unknown_code",
+      "description": "Test error generation with an unknown error code",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "generate_error",
+          "error_code_to_generate": "CUSTOM_TEST_ERROR",
+          "error_message_to_generate": "Custom test error message"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "CUSTOM_TEST_ERROR",
+        "error_message": "Custom test error message"
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "unsupported_operation",
+      "description": "Test handling of unsupported operation",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "invalid_operation",
+          "some_param": "value"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "status": "error",
+        "error_code": "ERR_UNSUPPORTED_OPERATION",
+        "error_message": "Unsupported test operation: invalid_operation"
+      },
+      "should_show_notice": false
+    },
+    {
+      "name": "echo_no_notice_with_allowed_paths",
+      "description": "Test echo operation without notice when CONDUIT_ALLOWED_PATHS is set",
+      "request_payload": {
+        "tool_name": "test",
+        "params": {
+          "operation": "echo",
+          "params_to_echo": "No notice test"
+        }
+      },
+      "expected_exit_code": 0,
+      "expected_stdout": {
+        "tool_name": "test",
+        "results": {
+          "status": "success",
+          "echoed_params": "No notice test"
+        }
+      },
+      "should_show_notice": false,
+      "env_vars": {
+        "CONDUIT_ALLOWED_PATHS": "/tmp"
+      }
+    }
+  ]
+}
