@@ -1,5 +1,5 @@
 ---
-description: 
+description: mcp inspector
 globs: 
 alwaysApply: false
 ---
@@ -24,6 +24,10 @@ Description: Debugging and verifying the `macos-automator-mcp` server via the MC
 **Main Flow:**
 
 **Phase 1: Start MCP Inspector Server**
+0.  **Ensure Inspector is Installed (One-Time Setup):**
+    *   Action: Run the following command in your terminal if you haven't already installed the inspector globally.
+    *   `command`: `npm install -g @modelcontextprotocol/inspector`
+    *   Expected: Installs the MCP Inspector globally, so `npx` doesn't need to download it each time. Subsequent `npx @modelcontextprotocol/inspector` calls will use the globally installed version.
 1.  **Kill Existing Inspector Processes:**
     *   Action: Call `run_terminal_cmd`.
     *   `command`: `pkill -f 'npx @modelcontextprotocol/inspector' || true`
