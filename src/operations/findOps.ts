@@ -1,5 +1,4 @@
 import * as path from 'path';
-import * as fs from 'fs/promises';
 import {
   ConduitServerConfig,
   EntryInfo,
@@ -11,8 +10,6 @@ import {
 } from '@/internal';
 import micromatch from 'micromatch';
 import { logger } from '@/internal';
-
-const MAX_CONTENT_PEEK_BYTES = 1024 * 10; // 10KB to peek into files for content matching
 
 async function isTextBasedFileForContentSearch(
   filePath: string,
@@ -66,13 +63,14 @@ async function matchesContentPattern(
       }
       return content.includes(pattern);
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ConduitError && err.errorCode === ErrorCode.RESOURCE_LIMIT_EXCEEDED) {
       operationLogger.warn(
         `Content search for ${filePath} skipped: file exceeds max size (${config.maxFileReadBytesFind} bytes).`
       );
     } else {
-      operationLogger.error(`Error reading file for content search ${filePath}: ${err.message}`);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      operationLogger.error(`Error reading file for content search ${filePath}: ${errorMessage}`);
     }
     return false;
   }
@@ -84,6 +82,7 @@ function matchesMetadataFilter(
 ): boolean {
   const operationLogger = logger.child({ component: 'findOps' });
   const attributeName = criterion.attribute === 'entry_type' ? 'type' : criterion.attribute;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic attribute access for metadata filtering
   const attributeValue = (entryInfo as any)[attributeName];
 
   if (
@@ -132,8 +131,9 @@ function matchesMetadataFilter(
         case 'matches_regex':
           try {
             return new RegExp(strVal).test(strAttr);
-          } catch (e: any) {
-            operationLogger.warn(`Invalid regex '${strVal}' in metadata filter: ${e.message}`);
+          } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            operationLogger.warn(`Invalid regex '${strVal}' in metadata filter: ${errorMessage}`);
             return false;
           }
         default:
@@ -274,8 +274,9 @@ export async function findEntriesRecursive(
   let dirContents: string[];
   try {
     dirContents = await fileSystemOps.listDirectory(currentPath);
-  } catch (error: any) {
-    operationLogger.error(`Error listing directory for find: ${currentPath}, ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    operationLogger.error(`Error listing directory for find: ${currentPath}, ${errorMessage}`);
     return foundEntries;
   }
 
@@ -312,9 +313,10 @@ export async function findEntriesRecursive(
           ))
         );
       }
-    } catch (statError: any) {
+    } catch (statError: unknown) {
+      const errorMessage = statError instanceof Error ? statError.message : String(statError);
       operationLogger.warn(
-        `Could not stat or process entry during find ${entryAbsolutePath}: ${statError.message}. Skipping.`
+        `Could not stat or process entry during find ${entryAbsolutePath}: ${errorMessage}. Skipping.`
       );
     }
   }
@@ -370,10 +372,11 @@ export async function findEntries(
           return [entryInfo];
         }
         return [];
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
         return new ConduitError(
           ErrorCode.OPERATION_FAILED,
-          `Failed to process base_path file ${params.base_path}: ${e.message}`
+          `Failed to process base_path file ${params.base_path}: ${errorMessage}`
         );
       }
     } else {
@@ -403,9 +406,10 @@ export async function findEntries(
           if (await checkAllCriteria(entryInfoBase, params.match_criteria, config)) {
             results.push(entryInfoBase);
           }
-        } catch (statError: any) {
+        } catch (statError: unknown) {
+          const errorMessage = statError instanceof Error ? statError.message : String(statError);
           operationLogger.warn(
-            `Could not stat or process entry ${entryPath} in non-recursive find: ${statError.message}. Skipping.`
+            `Could not stat or process entry ${entryPath} in non-recursive find: ${errorMessage}. Skipping.`
           );
         }
       }
@@ -420,8 +424,9 @@ export async function findEntries(
       );
       return Array.from(new Map(allFound.map((e) => [e.path, e])).values());
     }
-  } catch (error: any) {
-    operationLogger.error(`Failed to find entries for ${params.base_path}: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    operationLogger.error(`Failed to find entries for ${params.base_path}: ${errorMessage}`);
     if (error instanceof ConduitError) return error;
     return new ConduitError(
       ErrorCode.ERR_INTERNAL_SERVER_ERROR,

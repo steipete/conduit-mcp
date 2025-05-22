@@ -66,7 +66,10 @@ export async function getContent(
         sourceType,
         error.errorCode,
         error.message,
-        (error as any).httpStatus
+        error instanceof ConduitError && 'httpStatus' in error
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
+            (error as any).httpStatus
+          : undefined
       );
     }
     return createErrorContentResultItem(
@@ -237,13 +240,13 @@ export async function getContentFromFile(
           size_bytes: fileBuffer.length,
           mime_type: detectedMimeType,
         } as ReadTool.ContentResultSuccess;
-      } catch (checksumError: any) {
-        operationLogger.error(
-          `Checksum calculation failed for ${filePath}: ${checksumError.message}`
-        );
+      } catch (checksumError: unknown) {
+        const errorMessage =
+          checksumError instanceof Error ? checksumError.message : 'Unknown error';
+        operationLogger.error(`Checksum calculation failed for ${filePath}: ${errorMessage}`);
         throw new ConduitError(
           ErrorCode.ERR_CHECKSUM_FAILED,
-          `Checksum calculation failed for ${filePath}: ${checksumError.message || 'Unknown error'}`
+          `Checksum calculation failed for ${filePath}: ${errorMessage}`
         );
       }
     }
@@ -321,9 +324,10 @@ export async function getContentFromFile(
             size_bytes: Buffer.byteLength(markdownContent, 'utf8'),
             markdown_conversion_status: 'success',
           } as ReadTool.ContentResultSuccess;
-        } catch (mdError: any) {
+        } catch (mdError: unknown) {
+          const errorMessage = mdError instanceof Error ? mdError.message : 'Unknown error';
           operationLogger.warn(
-            `Markdown conversion failed for local HTML file ${filePath}: ${mdError.message}`
+            `Markdown conversion failed for local HTML file ${filePath}: ${errorMessage}`
           );
           const errorCode =
             mdError instanceof ConduitError &&
@@ -335,7 +339,7 @@ export async function getContentFromFile(
             filePath,
             'file',
             errorCode,
-            `Markdown processing failed for ${filePath}: ${mdError.message}`
+            `Markdown processing failed for ${filePath}: ${errorMessage}`
           );
         }
       } else {
@@ -386,32 +390,35 @@ export async function getContentFromFile(
       ErrorCode.INVALID_PARAMETER,
       `Unsupported format specified: ${format}`
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     operationLogger.error(`Error in getContentFromFile for ${filePath}:`, error);
     if (error instanceof ConduitError) {
       return createErrorContentResultItem(filePath, 'file', error.errorCode, error.message);
     }
-    if (error.code === 'ENOENT') {
-      return createErrorContentResultItem(
-        filePath,
-        'file',
-        ErrorCode.ERR_FS_NOT_FOUND,
-        `File not found: ${filePath}`
-      );
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'ENOENT') {
+        return createErrorContentResultItem(
+          filePath,
+          'file',
+          ErrorCode.ERR_FS_NOT_FOUND,
+          `File not found: ${filePath}`
+        );
+      }
+      if (error.code === 'EACCES' || error.code === 'EPERM') {
+        return createErrorContentResultItem(
+          filePath,
+          'file',
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Permission denied for file: ${filePath}`
+        );
+      }
     }
-    if (error.code === 'EACCES' || error.code === 'EPERM') {
-      return createErrorContentResultItem(
-        filePath,
-        'file',
-        ErrorCode.ERR_FS_PERMISSION_DENIED,
-        `Permission denied for file: ${filePath}`
-      );
-    }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return createErrorContentResultItem(
       filePath,
       'file',
       ErrorCode.ERR_FS_READ_FAILED,
-      `Failed to read file ${filePath}: ${error.message || 'Unknown error'}`
+      `Failed to read file ${filePath}: ${errorMessage}`
     );
   }
 }
@@ -507,22 +514,21 @@ async function getContentFromUrl(
           http_status_code: fetchedData.httpStatus,
           range_request_status: finalRangeStatus,
         } as ReadTool.ContentResultSuccess;
-      } catch (checksumError: any) {
-        operationLogger.error(
-          `Checksum calculation failed for URL ${url}: ${checksumError.message}`
-        );
+      } catch (checksumError: unknown) {
+        const errorMessage =
+          checksumError instanceof Error ? checksumError.message : 'Unknown error';
+        operationLogger.error(`Checksum calculation failed for URL ${url}: ${errorMessage}`);
         const conduitChecksumError = new ConduitError(
           ErrorCode.ERR_CHECKSUM_FAILED,
-          `Checksum calculation failed for URL ${url}: ${checksumError.message || 'Unknown error'}`
+          `Checksum calculation failed for URL ${url}: ${errorMessage}`
         );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- adding dynamic httpStatus property
         (conduitChecksumError as any).httpStatus = fetchedData.httpStatus;
         throw conduitChecksumError;
       }
     }
 
     let markdownConversionStatus: ReadTool.ContentResultSuccess['markdown_conversion_status'] =
-      undefined;
-    let markdownSkippedReason: ReadTool.ContentResultSuccess['markdown_conversion_skipped_reason'] =
       undefined;
 
     if (actualFormat === 'text') {
@@ -697,9 +703,10 @@ async function getContentFromUrl(
             range_request_status: finalRangeStatus,
             markdown_conversion_status: markdownConversionStatus,
           } as ReadTool.ContentResultSuccess;
-        } catch (mdError: any) {
+        } catch (mdError: unknown) {
+          const errorMessage = mdError instanceof Error ? mdError.message : 'Unknown error';
           operationLogger.warn(
-            `Markdown conversion failed for URL ${fetchedData.finalUrl}: ${mdError.message}`
+            `Markdown conversion failed for URL ${fetchedData.finalUrl}: ${errorMessage}`
           );
           const errorCode =
             mdError instanceof ConduitError &&
@@ -711,7 +718,7 @@ async function getContentFromUrl(
             fetchedData.finalUrl,
             'url',
             errorCode,
-            `Markdown processing failed for ${fetchedData.finalUrl}: ${mdError.message}`,
+            `Markdown processing failed for ${fetchedData.finalUrl}: ${errorMessage}`,
             fetchedData.httpStatus
           );
         }
@@ -747,17 +754,22 @@ async function getContentFromUrl(
       ErrorCode.INVALID_PARAMETER,
       `Unsupported format specified: ${actualFormat}`
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     operationLogger.error(`Error in getContentFromUrl for ${url}:`, error);
-    const httpStatus = error instanceof ConduitError ? (error as any).httpStatus : undefined;
+    const httpStatus =
+      error instanceof ConduitError && 'httpStatus' in error
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
+          (error as any).httpStatus
+        : undefined;
     if (error instanceof ConduitError) {
       return createErrorContentResultItem(url, 'url', error.errorCode, error.message, httpStatus);
     }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return createErrorContentResultItem(
       url,
       'url',
       ErrorCode.ERR_HTTP_REQUEST_FAILED,
-      `Failed to process URL ${url}: ${error.message || 'Unknown error'}`,
+      `Failed to process URL ${url}: ${errorMessage}`,
       httpStatus
     );
   }

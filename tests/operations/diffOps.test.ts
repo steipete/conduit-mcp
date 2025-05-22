@@ -4,8 +4,6 @@ import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } 
 import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
 import { getDiff } from '@/operations/diffOps';
 import {
-  ConduitError,
-  ErrorCode,
   logger as internalLogger,
   conduitConfig,
   fileSystemOps,

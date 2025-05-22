@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import path from 'path';
 import os from 'os';
-import { ConduitServerConfig } from '@/types/config'; // Assuming this is the path
+// Removed unused ConduitServerConfig import
 import { loadConfig } from '@/core/configLoader';
 import logger from '@/utils/logger'; // Leverages the global mock from setupTests
 

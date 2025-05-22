@@ -4,7 +4,7 @@ import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } 
 import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
 import * as fsPromises from 'fs/promises';
 import * as fs from 'fs';
-import { Readable } from 'stream';
+// Removed unused Readable import
 import { getContent } from '@/operations/getContentOps';
 
 // Import necessary items from @/internal.
@@ -328,7 +328,7 @@ describe('getContentOps', () => {
       const mockFileHandle = {
         read: vi
           .fn()
-          .mockImplementation(async (bufferToFill, bufferOffset, bytesToRead, filePosition) => {
+          .mockImplementation(async (bufferToFill, bufferOffset, bytesToRead, _filePosition) => {
             const sourceBuffer = Buffer.from(expectedSubstring);
             sourceBuffer.copy(
               bufferToFill,
@@ -375,7 +375,7 @@ describe('getContentOps', () => {
       const mockFileHandle = {
         read: vi
           .fn()
-          .mockImplementation(async (bufferToFill, bufferOffset, bytesToRead, filePosition) => {
+          .mockImplementation(async (bufferToFill, bufferOffset, bytesToRead, _filePosition) => {
             expectedSlice.copy(
               bufferToFill,
               bufferOffset,
@@ -1074,5 +1074,5 @@ describe('getContentOps', () => {
     // More tests for getContentFromUrl will go here
   });
 
-  // describe('getContent', () => { ... }); // This might be a remnant or needs removal if all content tests are now nested
+  // Removed commented test block
 });

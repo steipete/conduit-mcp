@@ -31,9 +31,10 @@ export async function getMimeType(filePath: string): Promise<string | undefined>
   try {
     const type = await importer(filePath);
     return type?.mime;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // file-type can sometimes throw if it encounters issues (e.g. permissions, though less likely for just reading header)
-    logger.warn(`Could not determine MIME type for ${filePath} using file-type: ${error.message}`);
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn(`Could not determine MIME type for ${filePath} using file-type: ${message}`);
     return undefined;
   }
 }

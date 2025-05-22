@@ -42,7 +42,7 @@ export async function fetchUrlContent(
     axiosConfig.headers!['Range'] = `bytes=${range.offset}-${range.offset + range.length - 1}`;
   }
 
-  let response: AxiosResponse<any>;
+  let response: AxiosResponse<ArrayBuffer>;
   try {
     operationLogger.debug(
       `Fetching URL (${isMetadataRequest ? 'HEAD' : 'GET'}): ${requestUrl.href}`
@@ -59,8 +59,9 @@ export async function fetchUrlContent(
     if (isMetadataRequest && response.request?.socket) {
       response.request.socket.destroy(); // Ensure connection for HEAD is closed quickly
     }
-  } catch (error: any) {
-    operationLogger.error(`Axios error fetching ${urlString}: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    operationLogger.error(`Axios error fetching ${urlString}: ${errorMessage}`);
     if (isAxiosError(error)) {
       if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
         throw new ConduitError(ErrorCode.ERR_HTTP_TIMEOUT, `Request to ${urlString} timed out.`);
@@ -73,12 +74,12 @@ export async function fetchUrlContent(
       }
       throw new ConduitError(
         ErrorCode.ERR_HTTP_REQUEST_FAILED,
-        `Request to ${urlString} failed: ${error.message}`
+        `Request to ${urlString} failed: ${errorMessage}`
       );
     }
     throw new ConduitError(
       ErrorCode.ERR_HTTP_REQUEST_FAILED,
-      `Unexpected error fetching ${urlString}: ${error.message}`
+      `Unexpected error fetching ${urlString}: ${errorMessage}`
     );
   }
 

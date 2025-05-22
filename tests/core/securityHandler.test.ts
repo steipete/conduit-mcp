@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { validateAndResolvePath } from '@/core/securityHandler';
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import logger from '@/utils/logger';
+// Removed unused logger import
 import fsPromises from 'fs/promises'; // Import fs/promises as a namespace
 import type { Stats, PathLike } from 'fs'; // Import types from 'fs'
 import path from 'path';

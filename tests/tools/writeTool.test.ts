@@ -50,7 +50,6 @@ vi.mock('@/operations/archiveOps', () => ({
 // Import mocked modules
 import {
   conduitConfig,
-  logger,
   fileSystemOps,
   securityHandler,
   ConduitServerConfig,
@@ -58,7 +57,7 @@ import {
 import { createArchive, extractArchive } from '@/operations/archiveOps';
 
 const mockedConduitConfig = conduitConfig as Mocked<ConduitServerConfig>;
-const mockedLogger = logger as Mocked<typeof logger>;
+// Removed unused mockedLogger variable
 const mockedFsOps = fileSystemOps as Mocked<typeof fileSystemOps>;
 const mockedSecurityHandler = securityHandler as Mocked<typeof securityHandler>;
 const mockedCreateArchive = createArchive as MockedFunction<typeof createArchive>;
@@ -250,7 +249,7 @@ describe('WriteTool', () => {
   });
 
   it('should throw error for invalid action', async () => {
-    const params = { action: 'invalid_action' } as any;
+    const params = { action: 'invalid_action' } as unknown;
     const response = (await writeToolHandler(params, mockedConduitConfig)) as MCPErrorStatus;
     expect(response.status).toBe('error');
     expect(response.error_code).toBe(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION);

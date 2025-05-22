@@ -2,10 +2,7 @@
 
 import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
 import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
-import * as findOpsModule from '@/operations/findOps';
 import * as path from 'path';
-import * as fs from 'fs/promises';
-import micromatch from 'micromatch';
 
 // Mock @/internal using the refactored approach
 vi.mock('@/internal', async (importOriginal) => {

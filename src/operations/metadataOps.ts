@@ -5,7 +5,6 @@ import {
   ErrorCode,
   MCPErrorStatus,
   formatToISO8601UTC,
-  getMimeType,
   fileSystemOps, // Namespace for fileSystemOps functions
   webFetcher, // Namespace for webFetcher functions
   logger,
@@ -69,7 +68,10 @@ export async function getMetadata(
         sourceType,
         error.errorCode,
         error.message,
-        (error as any).httpStatus
+        error instanceof ConduitError && 'httpStatus' in error
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
+            (error as any).httpStatus
+          : undefined
       );
     }
     return createErrorMetadataResultItem(
@@ -85,8 +87,8 @@ export async function getMetadata(
 
 async function getMetadataFromFile(
   filePath: string,
-  params: ReadTool.MetadataParams,
-  config: ConduitServerConfig
+  _params: ReadTool.MetadataParams,
+  _config: ConduitServerConfig
 ): Promise<ReadTool.MetadataResultItem> {
   const operationLogger = logger.child({ operation: 'getMetadataFromFile', path: filePath });
   operationLogger.info('Getting metadata from file');
@@ -124,8 +126,9 @@ async function getMetadataFromFile(
       source_type: 'file',
       metadata: metadata,
     };
-  } catch (error: any) {
-    operationLogger.error(`Error getting metadata for file ${filePath}: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    operationLogger.error(`Error getting metadata for file ${filePath}: ${errorMessage}`);
     if (error instanceof ConduitError) {
       if (
         error.errorCode === ErrorCode.ACCESS_DENIED ||
@@ -144,15 +147,15 @@ async function getMetadataFromFile(
       filePath,
       'file',
       ErrorCode.OPERATION_FAILED,
-      `Failed to get metadata for file: ${filePath}. ${error.message}`
+      `Failed to get metadata for file: ${filePath}. ${errorMessage}`
     );
   }
 }
 
 async function getMetadataFromUrl(
   urlString: string,
-  params: ReadTool.MetadataParams,
-  config: ConduitServerConfig
+  _params: ReadTool.MetadataParams,
+  _config: ConduitServerConfig
 ): Promise<ReadTool.MetadataResultItem> {
   const operationLogger = logger.child({ component: 'metadataOps' });
   operationLogger.info(`Fetching metadata for URL: ${urlString}`);
@@ -192,9 +195,13 @@ async function getMetadataFromUrl(
       metadata,
       final_url: fetched.finalUrl !== urlString ? fetched.finalUrl : undefined,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     operationLogger.error(`Error fetching metadata for URL ${urlString}:`, error);
-    const httpStatus = error instanceof ConduitError ? (error as any).httpStatus : undefined;
+    const httpStatus =
+      error instanceof ConduitError && 'httpStatus' in error
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing dynamic httpStatus property
+          (error as any).httpStatus
+        : undefined;
     if (error instanceof ConduitError) {
       return createErrorMetadataResultItem(
         urlString,
@@ -204,12 +211,13 @@ async function getMetadataFromUrl(
         httpStatus
       );
     }
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     // General catch-all if not a ConduitError (e.g. network issue not caught by fetchUrlContent's ConduitError wrapping)
     return createErrorMetadataResultItem(
       urlString,
       'url',
       ErrorCode.ERR_HTTP_REQUEST_FAILED,
-      `Failed to get metadata for URL: ${urlString}. ${error.message}`,
+      `Failed to get metadata for URL: ${urlString}. ${errorMessage}`,
       httpStatus
     );
   }

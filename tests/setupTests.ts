@@ -9,7 +9,7 @@ if (typeof global.TextEncoder === 'undefined') {
   global.TextEncoder = TextEncoder;
 }
 if (typeof global.TextDecoder === 'undefined') {
-  // @ts-expect-error: Polyfilling TextDecoder for test environment if not present
+  // @ts-expect-error Polyfilling TextDecoder for test environment if not present
   global.TextDecoder = TextDecoder;
 }
 
@@ -69,8 +69,8 @@ vi.mock('@/utils/logger', () => {
 // NOTE: Only the APIs that are currently used in the codebase are mapped. If
 // additional Jest helpers are required in the future they can be added here.
 // -----------------------------------------------------------------------------
-if (!(globalThis as any).jest) {
-  (globalThis as any).jest = {
+if (!(globalThis as unknown as { jest?: unknown }).jest) {
+  (globalThis as unknown as { jest: unknown }).jest = {
     mock: vi.mock,
     fn: vi.fn,
     spyOn: vi.spyOn,

@@ -26,7 +26,7 @@ export async function pathExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath, fsConstants.F_OK);
     return true;
-  } catch (_e) {
+  } catch {
     return false;
   }
 }
@@ -325,7 +325,7 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
         if (destStats.isDirectory()) {
           finalDest = path.join(destinationPath, path.basename(sourcePath));
         }
-      } catch (_destStatError: unknown) {
+      } catch {
         // Ignore if destinationPath doesn't exist or isn't a directory, fs.cp will handle creating it.
       }
       // For copying files, fs.cp with force: true will overwrite if finalDest is an existing file.
@@ -337,7 +337,9 @@ export async function copyPath(sourcePath: string, destinationPath: string): Pro
     );
     // If it's a ConduitError or looks like one (has errorCode property)
     if (error && typeof (error as { errorCode?: string }).errorCode === 'string') {
-      logger.debug(`copyPath re-throwing error with known errorCode: ${(error as { errorCode: string }).errorCode}`);
+      logger.debug(
+        `copyPath re-throwing error with known errorCode: ${(error as { errorCode: string }).errorCode}`
+      );
       throw error; // Re-throw ConduitErrors or errors that look like them
     }
 
@@ -517,7 +519,9 @@ export async function createEntryInfo(
     if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
       throw error;
     }
-    const errorMessage = String((error as Error)?.message || 'Unknown error during entry info creation');
+    const errorMessage = String(
+      (error as Error)?.message || 'Unknown error during entry info creation'
+    );
     logger.error(`Failed to create entry info for ${fullPath}: ${errorMessage}`);
     throw new ConduitError(
       ErrorCode.OPERATION_FAILED,

@@ -1,3 +1,4 @@
+import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { ConduitServerConfig } from '../types/config';
@@ -48,9 +49,12 @@ export function loadConfig(): ConduitServerConfig {
     process.env.npm_package_version ||
     (() => {
       try {
-        const { version } = require('../../package.json');
+        const packageJsonPath = path.resolve(__dirname, '../../package.json');
+        const packageJsonContent = fs.readFileSync(packageJsonPath, 'utf8');
+        const { version } = JSON.parse(packageJsonContent);
         return version;
       } catch {
+        logger.warn('Failed to read package.json version, using default: 0.0.0-dev');
         return '0.0.0-dev';
       }
     })();

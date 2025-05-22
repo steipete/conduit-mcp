@@ -35,6 +35,7 @@ export namespace ReadTool {
 }
 */
 
+// eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for ReadTool types
 export namespace ReadTool {
   export type ReadOperation = 'content' | 'metadata' | 'diff';
   export type ContentFormat = 'text' | 'base64' | 'markdown' | 'checksum';
@@ -135,6 +136,7 @@ export namespace ReadTool {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for WriteTool types
 export namespace WriteTool {
   export type WriteAction =
     | 'put'
@@ -166,7 +168,9 @@ export namespace WriteTool {
     recursive?: boolean;
   }
 
-  export interface TouchEntry extends BaseWriteEntry {}
+  export interface TouchEntry extends BaseWriteEntry {
+    // Inherits path from BaseWriteEntry, no additional properties needed
+  }
 
   export interface CopyEntry {
     source_path: string;
@@ -274,6 +278,7 @@ export namespace WriteTool {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for ListTool types
 export namespace ListTool {
   export type ListOperation = 'entries' | 'system_info';
   export type SystemInfoType = 'server_capabilities' | 'filesystem_stats';
@@ -309,6 +314,7 @@ export namespace ListTool {
 
   export interface ServerCapabilities {
     server_version: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- configuration object structure varies
     active_configuration: Record<string, any>; // Simplified, actual config object structure
     supported_checksum_algorithms: string[];
     supported_archive_formats: string[];
@@ -344,6 +350,7 @@ export namespace ListTool {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for FindTool types
 export namespace FindTool {
   export interface NamePatternCriterion {
     type: 'name_pattern';
@@ -379,6 +386,7 @@ export namespace FindTool {
     type: 'metadata_filter';
     attribute: MetadataAttribute | string;
     operator: StringOperator | NumericOperator | DateOperator | string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- value can be string, number, or date
     value: any; // string, number, or ISO date string
     case_sensitive?: boolean; // For string operators
   }
@@ -405,9 +413,11 @@ export namespace FindTool {
 }
 
 // Namespace for the TestTool (New)
+// eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for TestTool types
 export namespace TestTool {
   export interface EchoParams {
     operation: 'echo';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- params can be any structure for testing
     params_to_echo: any;
   }
 
@@ -421,6 +431,7 @@ export namespace TestTool {
 
   // --- Result Types ---
   export interface EchoResultSuccess extends MCPSuccess {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- echoed params can be any structure for testing
     echoed_params: any;
   }
   // For generate_error, the result IS an error, so it will conform to MCPErrorStatus directly.
@@ -434,6 +445,7 @@ export namespace TestTool {
   // Response for generate_error will be MCPErrorStatus, handled by the main MCPToolResponse structure.
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for ArchiveTool types
 export namespace ArchiveTool {
   export interface ArchiveOptions {
     overwrite?: boolean;

@@ -21,27 +21,6 @@ interface BaseResultForError {
   http_status_code?: number;
 }
 
-function createGenericErrorResultItem(
-  source: string,
-  source_type: 'file' | 'url', // Removed 'unknown'
-  errorCode: ErrorCode,
-  errorMessage: string,
-  http_status_code?: number
-): ReadTool.ContentResultItem | ReadTool.MetadataResultItem | ReadTool.DiffResult {
-  const errorResult: MCPErrorStatus & BaseResultForError = {
-    source,
-    source_type: source_type, // Directly assign, should be 'file' or 'url'
-    status: 'error',
-    error_code: errorCode,
-    error_message: errorMessage,
-  };
-  if (http_status_code !== undefined) {
-    errorResult.http_status_code = http_status_code;
-  }
-  // It's an MCPErrorStatus, which is part of ContentResultItem, MetadataResultItem, and DiffResult unions
-  return errorResult;
-}
-
 // Utility function to check if a source is a URL
 function isUrl(source: string): boolean {
   return source.startsWith('http://') || source.startsWith('https://');
@@ -101,6 +80,7 @@ export async function readToolHandler(
     return { tool_name: 'read', results: diffResult };
   } else {
     // If switch is exhaustive, params.operation is never here. This line ensures type checking for op.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- exhaustive switch handling for unsupported operations
     const op = (params as any).operation;
     throw new ConduitError(ErrorCode.INVALID_PARAMETER, `Unsupported read operation: ${op}`);
   }

@@ -5,7 +5,6 @@ import {
   ErrorCode,
   logger,
   MCPErrorStatus,
-  EntryInfo,
 } from '@/internal';
 import { createErrorResponse } from '@/utils/errorHandler';
 import { handleFindEntries } from '@/operations/findOps';

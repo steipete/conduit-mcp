@@ -1,8 +1,8 @@
 import { vi, Mocked } from 'vitest';
 import { fetchUrlContent, cleanHtmlToMarkdown } from '@/core/webFetcher';
-import { conduitConfig } from '@/internal';
+// Removed unused conduitConfig import
 import logger from '@/utils/logger';
-import { ConduitError, ErrorCode, FetchedContent } from '@/internal';
+import { ConduitError, ErrorCode } from '@/internal';
 import axios, { AxiosError, AxiosHeaders } from 'axios';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';

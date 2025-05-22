@@ -3,12 +3,6 @@ import {
   logger,
   conduitConfig,
   loadConduitConfig,
-  ReadTool,
-  WriteTool,
-  ListTool,
-  FindTool,
-  ArchiveTool,
-  TestTool,
   ErrorCode,
   createErrorResponse,
 } from '@/internal';
@@ -19,7 +13,7 @@ import { findToolHandler } from '@/tools/findTool';
 import { archiveToolHandler } from '@/operations/archiveOps';
 import { testToolHandler } from '@/tools/testTool';
 import * as noticeService from '@/core/noticeService';
-import { MCPErrorStatus, InfoNotice } from '@/types/common';
+import { MCPErrorStatus } from '@/types/common';
 
 function sendErrorResponse(errorCode: ErrorCode, message: string, details?: string) {
   const finalMessage = details ? `${message} ${details}` : message;
@@ -57,10 +51,11 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
         return;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsing unknown JSON structure
       let request: any;
       try {
         request = JSON.parse(line);
-      } catch (parseError) {
+      } catch {
         sendErrorResponse(ErrorCode.ERR_MCP_INVALID_REQUEST, 'Malformed MCP request JSON.');
         return;
       }
@@ -73,7 +68,7 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
         return;
       }
 
-      let toolResponse: any;
+      let toolResponse: unknown;
       switch (request.tool_name) {
         case 'read':
           toolResponse = await readToolHandler(request.params, conduitConfig);

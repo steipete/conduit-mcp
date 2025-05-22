@@ -1,11 +1,9 @@
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
   WriteTool,
   ConduitServerConfig,
   ConduitError,
   ErrorCode,
-  MCPErrorStatus,
   fileSystemOps,
   logger,
 } from '@/internal';
@@ -82,7 +80,7 @@ export async function makeDirectory(
         ? 'Directory and any necessary parent directories created.'
         : 'Directory created.',
     } as WriteTool.WriteResultSuccess;
-  } catch (error: any) {
+  } catch (error: unknown) {
     operationLogger.error(`Error in makeDirectory for ${entry.path}:`, error);
     if (error instanceof ConduitError) {
       // Handle specific ConduitErrors more granularly if needed
@@ -108,33 +106,36 @@ export async function makeDirectory(
       return createErrorMkdirResultItem(entry.path, error.errorCode, error.message);
     }
     // Handle common fs errors specifically
-    if (error.code === 'EACCES' || error.code === 'EPERM') {
-      return createErrorMkdirResultItem(
-        entry.path,
-        ErrorCode.ERR_FS_PERMISSION_DENIED,
-        `Permission denied for path: ${entry.path}`
-      );
-    }
-    if (error.code === 'EEXIST') {
-      // Should be caught by pathExists check, but as a safeguard
-      return createErrorMkdirResultItem(
-        entry.path,
-        ErrorCode.RESOURCE_ALREADY_EXISTS,
-        `Path already exists (unexpectedly): ${entry.path}`
-      );
-    }
-    if (error.code === 'ENOTDIR') {
-      return createErrorMkdirResultItem(
-        entry.path,
-        ErrorCode.ERR_FS_PATH_IS_FILE,
-        `A component of the path prefix is not a directory: ${entry.path}`
-      );
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'EACCES' || error.code === 'EPERM') {
+        return createErrorMkdirResultItem(
+          entry.path,
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Permission denied for path: ${entry.path}`
+        );
+      }
+      if (error.code === 'EEXIST') {
+        // Should be caught by pathExists check, but as a safeguard
+        return createErrorMkdirResultItem(
+          entry.path,
+          ErrorCode.RESOURCE_ALREADY_EXISTS,
+          `Path already exists (unexpectedly): ${entry.path}`
+        );
+      }
+      if (error.code === 'ENOTDIR') {
+        return createErrorMkdirResultItem(
+          entry.path,
+          ErrorCode.ERR_FS_PATH_IS_FILE,
+          `A component of the path prefix is not a directory: ${entry.path}`
+        );
+      }
     }
     // Generic fallback
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return createErrorMkdirResultItem(
       entry.path,
       ErrorCode.OPERATION_FAILED,
-      `Failed to create directory ${entry.path}: ${error.message || 'Unknown error'}`
+      `Failed to create directory ${entry.path}: ${errorMessage}`
     );
   }
 }

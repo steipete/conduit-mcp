@@ -139,7 +139,7 @@ export async function getDiff(
       diff_format_used: 'unified',
       diff_content: diffOutput,
     } as ReadTool.DiffResultSuccess;
-  } catch (error: any) {
+  } catch (error: unknown) {
     operationLogger.error(
       `Error in getDiff for ${source1PathOrUrl} vs ${source2PathOrUrl}:`,
       error
@@ -151,9 +151,10 @@ export async function getDiff(
       return createErrorDiffResultItem(error.errorCode, error.message);
     }
     // Fallback for unexpected errors
-    return createErrorDiffResultItem(
-      ErrorCode.ERR_INTERNAL_SERVER_ERROR,
-      error.message || 'An unexpected error occurred during diff operation.'
-    );
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'An unexpected error occurred during diff operation.';
+    return createErrorDiffResultItem(ErrorCode.ERR_INTERNAL_SERVER_ERROR, errorMessage);
   }
 }

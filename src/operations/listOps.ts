@@ -1,8 +1,6 @@
 import * as path from 'path';
-import * as fs from 'fs/promises'; // For direct readdir if needed, though fileSystemOps should cover
 import {
   ListTool,
-  ConduitServerConfig,
   EntryInfo,
   ConduitError,
   ErrorCode,
@@ -35,12 +33,13 @@ async function listDirectoryRecursive(
     // validateAndResolvePath should have been called on the initial basePath.
     // For recursive calls, currentPath is constructed and should be safe if parent was.
     dirents = await fileSystemOps.listDirectory(currentPath);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log and skip this directory if it's not readable, but don't fail the whole operation.
     // Parent operation should still return successfully with what it could list.
     // However, if the *initial* path fails, that's an error handled by handleListEntries.
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     operationLogger.warn(
-      `Error listing directory ${currentPath}: ${error.message}. Skipping this directory.`
+      `Error listing directory ${currentPath}: ${errorMessage}. Skipping this directory.`
     );
     return entries; // Return empty for this problematic path
   }
@@ -52,8 +51,9 @@ async function listDirectoryRecursive(
       // Use lstat to get info about symlinks themselves if not following them for basic type.
       // fileSystemOps.createEntryInfo handles symlink resolution internally for its target info.
       stats = await fileSystemOps.getLstats(entryPath);
-    } catch (statError: any) {
-      operationLogger.warn(`Could not stat ${entryPath}: ${statError.message}. Skipping entry.`);
+    } catch (statError: unknown) {
+      const errorMessage = statError instanceof Error ? statError.message : 'Unknown error';
+      operationLogger.warn(`Could not stat ${entryPath}: ${errorMessage}. Skipping entry.`);
       continue;
     }
 
@@ -78,9 +78,10 @@ async function listDirectoryRecursive(
           if (sizeInfo.note) {
             entry.recursive_size_calculation_note = sizeInfo.note;
           }
-        } catch (sizeError: any) {
+        } catch (sizeError: unknown) {
+          const errorMessage = sizeError instanceof Error ? sizeError.message : 'Unknown error';
           operationLogger.warn(
-            `Error calculating recursive size for ${entryPath}: ${sizeError.message}`
+            `Error calculating recursive size for ${entryPath}: ${errorMessage}`
           );
           entry.recursive_size_calculation_note = 'Error during size calculation';
         }

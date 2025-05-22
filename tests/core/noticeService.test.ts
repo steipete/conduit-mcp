@@ -41,7 +41,7 @@ vi.mock('@/core/configLoader', () => ({
 
 // Mock os.homedir() for consistent default path resolution in tests
 const originalHomeDir = os.homedir;
-let mockFsStore: Record<string, string> = {};
+// Removed unused mockFsStore variable
 
 describe('noticeService', () => {
   const originalEnv = { ...process.env };

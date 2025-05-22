@@ -4,14 +4,11 @@ import {
   ConduitError,
   ErrorCode,
   // Import the mocked versions directly:
-  logger,
-  conduitConfig as mockedConduitConfigFromInternal, // Alias to avoid conflict if conduitConfig is also a var name
   securityHandler,
   fileSystemOps,
   mimeService,
   webFetcher,
   imageProcessor,
-  calculateChecksum,
   // Make sure all other necessary exports from @/internal used in this file are imported
 } from '@/internal';
 import { readToolHandler } from '@/tools/readTool';
@@ -87,9 +84,9 @@ describe('ReadTool', () => {
       atime: new Date(),
       birthtime: new Date(),
       mode: 0o644,
-    } as any); // Cast to any if mock is not a full Stats object
+    } as import('fs').Stats); // Cast to Stats type
     fileSystemOps.createEntryInfo.mockImplementation(
-      async (p: string, stats: any) =>
+      async (p: string, stats: import('fs').Stats) =>
         ({
           name: path.basename(p),
           path: p,
@@ -98,7 +95,7 @@ describe('ReadTool', () => {
           mime_type: 'text/plain',
           created_at: new Date().toISOString(),
           modified_at: new Date().toISOString(),
-        }) as any
+        }) as import('@/internal').EntryInfo
     );
 
     mimeService.getMimeType.mockResolvedValue('text/plain');
@@ -346,8 +343,9 @@ describe('ReadTool', () => {
     });
 
     it('should fetch metadata for a URL (HEAD request)', async () => {
-      const internal = require('@/internal');
-      internal.webFetcher.fetchUrlContent.mockResolvedValueOnce({
+      // const internal = require('@/internal'); // Removed require
+      webFetcher.fetchUrlContent.mockResolvedValueOnce({
+        // Changed internal.webFetcher to webFetcher
         content: Buffer.from(''),
         mimeType: 'image/png',
         httpStatus: 200,
@@ -375,20 +373,16 @@ describe('ReadTool', () => {
         expect(response.results[0].metadata?.size_bytes).toBe(12345);
         expect(response.results[0].metadata?.modified_at).toBe('1994-11-15T12:45:26.000Z');
       }
-      expect(internal.webFetcher.fetchUrlContent).toHaveBeenCalledWith(
-        mockImageUrl,
-        true,
-        undefined
-      );
+      expect(webFetcher.fetchUrlContent).toHaveBeenCalledWith(mockImageUrl, true, undefined);
     });
   });
 
   describe('handleDiffOperation', () => {
     it('should perform a diff between two local files', async () => {
-      const internal = require('@/internal');
+      // const internal = require('@/internal'); // Removed require
       const file1 = '/allowed/file1.txt';
       const file2 = '/allowed/file2.txt';
-      internal.fileSystemOps.readFileAsString
+      fileSystemOps.readFileAsString // Changed internal.fileSystemOps to fileSystemOps
         .mockResolvedValueOnce('Content of file1')
         .mockResolvedValueOnce('Content of file2');
 
@@ -407,6 +401,7 @@ describe('ReadTool', () => {
         expect(response.results.sources_compared).toEqual([file1, file2]);
       }
       expect(mockedDiff.createPatch).toHaveBeenCalledWith(
+        // Ensured mockedDiff is used directly
         'file1.txt',
         'Content of file1',
         'file2.txt',
@@ -420,7 +415,7 @@ describe('ReadTool', () => {
     it('should throw error if diff sources are not two files', async () => {
       const params: ReadTool.DiffParams = {
         operation: 'diff',
-        sources: [mockSourceFile] as any, // Invalid
+        sources: [mockSourceFile] as unknown, // Invalid
       };
       await expect(
         readToolHandler(params, mockedConduitConfig as ConduitServerConfig)
@@ -465,7 +460,7 @@ describe('ReadTool', () => {
   });
 
   it('should throw error for invalid operation', async () => {
-    const params = { operation: 'invalid_op', sources: ['s'] } as any;
+    const params = { operation: 'invalid_op', sources: ['s'] } as unknown;
     await expect(
       readToolHandler(params, mockedConduitConfig as ConduitServerConfig)
     ).rejects.toThrow(new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION));

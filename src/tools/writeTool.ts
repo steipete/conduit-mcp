@@ -333,7 +333,7 @@ export async function writeToolHandler(
       default: {
         return createErrorResponse(
           ErrorCode.UNSUPPORTED_OPERATION,
-          `Unsupported action: ${(params as any).action}`
+          `Unsupported action: ${(params as unknown as { action: string }).action}`
         );
       }
     }

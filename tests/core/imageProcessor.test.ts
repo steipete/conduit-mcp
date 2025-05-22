@@ -1,5 +1,5 @@
 import { vi, Mocked } from 'vitest';
-import { compressImageIfNecessary, CompressionResult } from '@/core/imageProcessor';
+import { compressImageIfNecessary } from '@/core/imageProcessor';
 // import { conduitConfig } from '@/core/configLoader'; // Mocked
 import sharp from 'sharp';
 import logger from '@/utils/logger';
@@ -48,7 +48,7 @@ describe('imageProcessor', () => {
       toBuffer: vi.fn(),
     };
     // Configure the mocked sharp function to return our mockSharpInstance
-    (mockedSharp as unknown as import('vitest').Mock).mockReturnValue(mockSharpInstance as any); // Use `as any` to satisfy complex Sharp type if needed for mock
+    (mockedSharp as unknown as import('vitest').Mock).mockReturnValue(mockSharpInstance as unknown); // Use `as unknown` to satisfy complex Sharp type if needed for mock
   });
 
   const createDummyImageBuffer = (size: number, content: string = 'a') =>

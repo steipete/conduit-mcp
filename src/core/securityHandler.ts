@@ -1,14 +1,7 @@
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs/promises'; // Using fs.promises for lstat, readlink
-import {
-  ConduitError,
-  ErrorCode,
-  conduitConfig,
-  logger,
-  fileSystemOps,
-} from '@/internal';
-
+import { ConduitError, ErrorCode, conduitConfig, logger, fileSystemOps } from '@/internal';
 
 /**
  * Checks if a given resolved path is within the list of allowed path prefixes.
@@ -96,13 +89,17 @@ export async function validateAndResolvePath(
       // If we are *creating* something, the realpath up to the parent should exist and be allowed.
       // This simple `realPath = currentPath` after ENOENT from `fs.realpath` is okay if `checkAllowed` uses `currentPath`.
     } else if (nodeError.code === 'ELOOP') {
-      logger.error(`[securityHandler] Too many symbolic links for ${currentPath}: ${(e as Error).message}`);
+      logger.error(
+        `[securityHandler] Too many symbolic links for ${currentPath}: ${(e as Error).message}`
+      );
       throw new ConduitError(
         ErrorCode.ERR_FS_INVALID_PATH,
         `Too many symbolic links encountered while resolving path: ${originalPath}.`
       );
     } else {
-      logger.error(`[securityHandler] Error during fs.realpath for ${currentPath}: ${(e as Error).message}`);
+      logger.error(
+        `[securityHandler] Error during fs.realpath for ${currentPath}: ${(e as Error).message}`
+      );
       throw new ConduitError(
         ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED,
         `Failed to resolve real path for: ${originalPath}. ${(e as Error).message}`

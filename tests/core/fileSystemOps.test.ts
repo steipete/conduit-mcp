@@ -1,9 +1,9 @@
 import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
-import fsPromises from 'fs/promises'; // Keep for type inference
+// Removed unused fsPromises import
 import type { Stats } from 'fs';
 import path from 'path';
 import { constants as fsConstants } from 'fs';
-import * as fsExtra from 'fs-extra';
+// Removed unused fsExtra import
 // Define default test config for the tests
 
 // Import functions to test
@@ -26,7 +26,7 @@ import {
 
 // Import dependencies to be mocked or used
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import { EntryInfo, formatToISO8601UTC, getMimeType, conduitConfig, logger } from '@/internal';
+import { formatToISO8601UTC, getMimeType, conduitConfig, logger } from '@/internal';
 
 // Mock the entire fs/promises module
 vi.mock('fs/promises', () => {
@@ -1217,7 +1217,7 @@ describe('fileSystemOps', () => {
   });
 
   describe('createEntryInfo', () => {
-    const baseDir = '/test';
+    // const baseDir = '/test'; // Unused variable
     const now = new Date();
     const formattedDate = formatToISO8601UTC(now);
 

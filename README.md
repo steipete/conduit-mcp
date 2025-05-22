@@ -6,13 +6,14 @@
 
 **The purr-fect MCP server for feline-fast file operations, web prowling, and data hunting! 🐾**
 
-*A sleek Model Context Protocol server that helps your AI assistant navigate the digital jungle with cat-like agility.*
+_A sleek Model Context Protocol server that helps your AI assistant navigate the digital jungle with cat-like agility._
 
 ## 🐈 What Makes This Cat Special?
 
 `conduit-mcp` is like having a highly trained data-hunting cat that can:
+
 - 🏠 **Patrol your file system** (within allowed territories, of course!)
-- 🌐 **Hunt across the web** for tasty content morsels  
+- 🌐 **Hunt across the web** for tasty content morsels
 - 📄 **Clean up messy HTML** into pristine Markdown
 - 🖼️ **Compress images** without losing their shine
 - 📁 **Organize files** with military precision
@@ -24,6 +25,7 @@ Unlike those lazy house cats, this server works 24/7 and never knocks things off
 ## 🎯 Quick Start (Get Your Cat Running!)
 
 ### Method 1: The Easy Way (Recommended)
+
 Just tell your MCP client about your new digital pet:
 
 ```json
@@ -42,6 +44,7 @@ Just tell your MCP client about your new digital pet:
 ```
 
 ### Method 2: The Developer Way (For Cat Breeders)
+
 ```bash
 git clone <repository_url>
 cd conduit-mcp
@@ -58,7 +61,7 @@ Your digital cat needs to know where it's allowed to roam! Configure the `CONDUI
 CONDUIT_ALLOWED_PATHS="~/Documents:~/Projects"
 
 # Default playground (if you don't specify)
-# Your cat defaults to: "~:/tmp" 
+# Your cat defaults to: "~:/tmp"
 # (Don't worry, it'll meow about this the first time!)
 ```
 
@@ -71,6 +74,7 @@ CONDUIT_ALLOWED_PATHS="~/Documents:~/Projects"
 Your cat can investigate files and URLs with four different specialties:
 
 #### Content Reading (`operation: "content"`)
+
 ```json
 {
   "tool": "read",
@@ -81,21 +85,24 @@ Your cat can investigate files and URLs with four different specialties:
 ```
 
 **Format Options:**
+
 - `"text"` - Read as plain text (default for text files)
 - `"base64"` - Binary-safe encoding (default for images/binaries)
 - `"markdown"` - Web pages get the full spa treatment! 🧖‍♀️
 - `"checksum"` - Generate cryptographic fingerprints
 
 **Special Powers:**
+
 - 🌐 **Web Page Cleaning**: Turns messy HTML into beautiful Markdown
 - 🖼️ **Smart Image Compression**: Automatically compresses large images
 - 📐 **Partial Reading**: Read specific byte ranges with `offset` and `length`
 - 🔒 **Checksum Calculation**: SHA256, MD5, SHA1, or SHA512
 
 #### Metadata Inspection (`operation: "metadata"`)
+
 ```json
 {
-  "tool": "read", 
+  "tool": "read",
   "operation": "metadata",
   "sources": ["~/Documents/mystery_file.pdf"]
 }
@@ -104,10 +111,11 @@ Your cat can investigate files and URLs with four different specialties:
 Gets you the full dossier: size, type, timestamps, permissions, and more!
 
 #### File Comparison (`operation: "diff"`)
+
 ```json
 {
   "tool": "read",
-  "operation": "diff", 
+  "operation": "diff",
   "sources": ["~/file1.txt", "~/file2.txt"]
 }
 ```
@@ -119,19 +127,23 @@ Shows exactly what changed between two files - perfect for code reviews!
 Your cat can modify the file system with surgical precision:
 
 #### File Operations
+
 ```json
 {
   "tool": "write",
   "action": "put",
-  "entries": [{
-    "path": "~/Documents/new_file.txt",
-    "content": "Hello from your digital cat! 🐱",
-    "write_mode": "overwrite"
-  }]
+  "entries": [
+    {
+      "path": "~/Documents/new_file.txt",
+      "content": "Hello from your digital cat! 🐱",
+      "write_mode": "overwrite"
+    }
+  ]
 }
 ```
 
 **Available Actions:**
+
 - `"put"` - Write files (text or base64)
 - `"mkdir"` - Create directories (with `recursive` option)
 - `"copy"` - Duplicate files/folders
@@ -140,6 +152,7 @@ Your cat can modify the file system with surgical precision:
 - `"touch"` - Update timestamps or create empty files
 
 #### Archive Operations
+
 ```json
 {
   "tool": "write",
@@ -155,6 +168,7 @@ Your cat can modify the file system with surgical precision:
 ### 📋 The `list` Tool - Inventory Cat
 
 #### Directory Listing
+
 ```json
 {
   "tool": "list",
@@ -166,12 +180,14 @@ Your cat can modify the file system with surgical precision:
 ```
 
 **Special Features:**
+
 - 🌳 **Recursive Exploration**: Dive deep into folder structures
 - 📊 **Size Calculation**: Get total size of directories
 - 🔗 **Symlink Detection**: Identifies and follows symbolic links
 - ⏱️ **Smart Timeouts**: Won't get stuck calculating huge directories
 
 #### System Information
+
 ```json
 {
   "tool": "list",
@@ -187,46 +203,56 @@ Learn about your cat's capabilities and current configuration!
 The most sophisticated search tool - your cat can find ANYTHING:
 
 #### Name-Based Search
+
 ```json
 {
   "tool": "find",
   "base_path": "~/Documents",
-  "match_criteria": [{
-    "type": "name_pattern",
-    "pattern": "*.{pdf,doc,docx}"
-  }]
+  "match_criteria": [
+    {
+      "type": "name_pattern",
+      "pattern": "*.{pdf,doc,docx}"
+    }
+  ]
 }
 ```
 
 #### Content Search
+
 ```json
 {
   "tool": "find",
   "base_path": "~/Projects",
-  "match_criteria": [{
-    "type": "content_pattern", 
-    "pattern": "TODO|FIXME",
-    "is_regex": true,
-    "case_sensitive": false
-  }]
+  "match_criteria": [
+    {
+      "type": "content_pattern",
+      "pattern": "TODO|FIXME",
+      "is_regex": true,
+      "case_sensitive": false
+    }
+  ]
 }
 ```
 
 #### Metadata Filtering
+
 ```json
 {
   "tool": "find",
   "base_path": "~/Documents",
-  "match_criteria": [{
-    "type": "metadata_filter",
-    "attribute": "size_bytes", 
-    "operator": "gt",
-    "value": 1048576
-  }]
+  "match_criteria": [
+    {
+      "type": "metadata_filter",
+      "attribute": "size_bytes",
+      "operator": "gt",
+      "value": 1048576
+    }
+  ]
 }
 ```
 
 **Search Superpowers:**
+
 - 🎯 **Multi-criteria AND logic**: All criteria must match
 - 🔤 **Glob patterns**: `*.txt`, `image[0-9]?.png`, `**/logs/*.log`
 - 📝 **Content search**: Text or regex patterns in file contents
@@ -239,6 +265,7 @@ The most sophisticated search tool - your cat can find ANYTHING:
 Your digital cat responds to these environment variables:
 
 ### Core Settings
+
 ```bash
 # Territory boundaries (IMPORTANT!)
 CONDUIT_ALLOWED_PATHS="~/Documents:~/Projects:/tmp"
@@ -249,6 +276,7 @@ CONDUIT_LOG_FILE_PATH="/tmp/conduit-mcp.log"  # or "NONE" to disable
 ```
 
 ### Performance Tuning
+
 ```bash
 # Resource limits (keep your cat well-behaved)
 CONDUIT_MAX_FILE_READ_BYTES="52428800"      # 50MB max file reads
@@ -261,6 +289,7 @@ CONDUIT_IMAGE_COMPRESSION_QUALITY="75"               # Quality 1-100
 ```
 
 ### Advanced Settings
+
 ```bash
 # Search and recursion limits
 CONDUIT_MAX_RECURSIVE_DEPTH="10"           # How deep to explore
@@ -273,7 +302,9 @@ CONDUIT_DEFAULT_CHECKSUM_ALGORITHM="sha256"  # md5, sha1, sha256, sha512
 ## 🎉 Special Features That Make This Cat Purr
 
 ### 🌐 Web Content Cleaning
+
 When you ask for Markdown from a URL, your cat:
+
 1. Fetches the raw HTML
 2. Uses Mozilla Readability to extract main content
 3. Converts to clean Markdown with Turndown
@@ -281,35 +312,42 @@ When you ask for Markdown from a URL, your cat:
 
 For non-HTML content, it gracefully falls back to raw text with helpful notes.
 
-### 🖼️ Intelligent Image Compression  
+### 🖼️ Intelligent Image Compression
+
 Large images automatically get compressed using Sharp:
+
 - JPEG/WebP: Quality-based compression
 - PNG: Lossless optimization
 - Preserves original size information
 - Graceful fallback if compression fails
 
 ### 🔒 Security Features
+
 Your cat is security-conscious:
+
 - **Path validation**: Never ventures outside allowed territories
-- **Symlink resolution**: Follows links but validates final destinations  
+- **Symlink resolution**: Follows links but validates final destinations
 - **Resource limits**: Won't eat all your memory or bandwidth
 - **Input sanitization**: Properly validates all parameters
 
 ### 📋 Batch Operations
+
 Efficiency expert! Process multiple files in a single request:
+
 ```json
 {
   "tool": "write",
-  "action": "copy", 
+  "action": "copy",
   "entries": [
-    {"source_path": "~/file1.txt", "destination_path": "~/backup/"},
-    {"source_path": "~/file2.txt", "destination_path": "~/backup/"},
-    {"source_path": "~/folder1", "destination_path": "~/backup/"}
+    { "source_path": "~/file1.txt", "destination_path": "~/backup/" },
+    { "source_path": "~/file2.txt", "destination_path": "~/backup/" },
+    { "source_path": "~/folder1", "destination_path": "~/backup/" }
   ]
 }
 ```
 
 ### 🔄 First-Time Setup Notice
+
 When using default paths (`~:/tmp`), your cat will politely inform you on the first successful operation with details about the configuration. It's like a friendly meow saying "Hi! Here's where I'm allowed to play!"
 
 ## 🚨 Error Handling
@@ -319,14 +357,15 @@ Your cat is well-mannered and provides detailed error information:
 ```json
 {
   "status": "error",
-  "error_code": "ERR_FS_ACCESS_DENIED", 
+  "error_code": "ERR_FS_ACCESS_DENIED",
   "error_message": "Cannot access path outside allowed directories: /forbidden/path"
 }
 ```
 
 **Common Error Categories:**
+
 - `ERR_FS_*` - File system issues
-- `ERR_HTTP_*` - Web request problems  
+- `ERR_HTTP_*` - Web request problems
 - `ERR_INVALID_PARAMETER` - Bad input data
 - `ERR_RESOURCE_LIMIT_EXCEEDED` - Size/timeout limits hit
 - `ERR_ARCHIVE_*` - Archive operation failures
@@ -334,6 +373,7 @@ Your cat is well-mannered and provides detailed error information:
 ## 🛠️ Development & Testing
 
 ### Running Tests
+
 ```bash
 npm test                # Run all tests
 npm run test:coverage   # With coverage report
@@ -342,6 +382,7 @@ npm run test:integration # Integration tests
 ```
 
 ### Building
+
 ```bash
 npm run build          # Compile TypeScript
 npm run dev            # Development mode with auto-reload
@@ -352,6 +393,7 @@ npm run format         # Auto-format code
 ## 🤝 Contributing
 
 We love contributions! Please:
+
 1. 🍴 Fork the repository
 2. 🌿 Create a feature branch (`git checkout -b feature/amazing-cat-feature`)
 3. 🐾 Make your changes (follow the existing code style)
@@ -360,10 +402,12 @@ We love contributions! Please:
 6. 🚀 Submit a pull request
 
 ### Commit Convention
+
 We use conventional commits:
+
 ```
 feat: add new search criteria type
-fix: resolve symlink resolution bug  
+fix: resolve symlink resolution bug
 docs: update README with new examples
 test: add integration tests for archive operations
 ```
@@ -384,6 +428,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🎯 Use Cases
 
 Perfect for AI assistants that need to:
+
 - 📊 **Analyze local codebases** and documentation
 - 🌐 **Research web content** and convert to readable formats
 - 🔄 **Manage file organization** and backups
@@ -396,11 +441,11 @@ Perfect for AI assistants that need to:
 
 - 📚 **Documentation**: You're reading it! (Plus the technical spec)
 - 🐛 **Issues**: GitHub Issues for bugs and feature requests
-- 💬 **Discussions**: GitHub Discussions for questions and ideas  
+- 💬 **Discussions**: GitHub Discussions for questions and ideas
 - 📧 **Contact**: Open source project - community driven!
 
 ---
 
-**Happy hunting! 🐾** 
+**Happy hunting! 🐾**
 
-*Your digital cat is ready to pounce on any data challenge you throw at it!*
+_Your digital cat is ready to pounce on any data challenge you throw at it!_

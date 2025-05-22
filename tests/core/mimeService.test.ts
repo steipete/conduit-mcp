@@ -1,8 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getMimeType } from '@/core/mimeService';
+// Removed unused getMimeType import from getMimeType
 
-// Define DEFAULT_MIME_TYPE locally for test purposes
-const DEFAULT_MIME_TYPE = 'application/octet-stream';
+// Removed unused DEFAULT_MIME_TYPE constant
 
 // Declare the mock variable. It will be initialized in vi.mock.
 let mockFileTypeFromFile: ReturnType<typeof vi.fn>;

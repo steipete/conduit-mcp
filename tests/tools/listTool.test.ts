@@ -1,13 +1,10 @@
 import { listToolHandler } from '@/tools/listTool';
 import { ListTool } from '@/types/tools';
-import { conduitConfig } from '@/internal';
-import { EntryInfo, ConduitServerConfig, ErrorCode } from '@/internal';
+import { conduitConfig, ErrorCode } from '@/internal';
+import { ConduitServerConfig } from '@/internal';
 import { ConduitError } from '@/utils/errorHandler';
 import { vi, Mocked } from 'vitest';
-import path from 'path';
-import { MCPErrorStatus } from '@/internal';
 import * as listOps from '@/operations/listOps';
-import { Stats } from 'fs-extra';
 
 // Mocks
 vi.mock('@/internal', async (importOriginal) => {
@@ -159,7 +156,15 @@ describe('ListTool', () => {
         path: '/testdir',
         calculate_recursive_size: true,
       };
-      await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+      const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
+
+      // Add assertion to verify the function was called and response is valid
+      expect(mockedListOps.handleListEntries).toHaveBeenCalledWith(
+        '/testdir',
+        mockedConduitConfig,
+        true
+      );
+      expect(response).toBeDefined();
     });
 
     it('should throw error if path is not a directory', async () => {
@@ -222,8 +227,8 @@ describe('ListTool', () => {
       };
       const response = await listToolHandler(params, mockedConduitConfig as ConduitServerConfig);
       expect(response).toBeDefined();
-      expect((response as any).tool_name).toBe('list');
-      expect((response as any).results).toBeDefined();
+      expect((response as unknown as { tool_name: string }).tool_name).toBe('list');
+      expect((response as unknown as { results: unknown }).results).toBeDefined();
     });
 
     it('should return guidance if filesystem_stats requested without path', async () => {
@@ -260,7 +265,7 @@ describe('ListTool', () => {
   });
 
   it('should throw error for invalid operation', async () => {
-    const params = { operation: 'invalid_op' } as any;
+    const params = { operation: 'invalid_op' } as unknown;
     await expect(
       listToolHandler(params, mockedConduitConfig as ConduitServerConfig)
     ).rejects.toThrow(new ConduitError(ErrorCode.ERR_UNKNOWN_OPERATION_ACTION));

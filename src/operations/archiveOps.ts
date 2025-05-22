@@ -2,14 +2,7 @@ import * as tar from 'tar';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import AdmZip from 'adm-zip';
-import {
-  ArchiveTool,
-  ConduitServerConfig,
-  ConduitError,
-  ErrorCode,
-  MCPErrorStatus,
-  logger,
-} from '@/internal';
+import { ArchiveTool, ConduitServerConfig, ConduitError, ErrorCode, logger } from '@/internal';
 import { calculateChecksum } from '@/utils/checksum';
 
 const createErrorArchiveResultItem = (
@@ -28,7 +21,7 @@ export const createArchive = async (
   params: ArchiveTool.CreateArchiveParams,
   config: ConduitServerConfig
 ): Promise<ArchiveTool.ArchiveResultItem> => {
-  const { archive_path, source_paths, compression, metadata, options } = params;
+  const { archive_path, source_paths, compression, options } = params;
   const { workspaceRoot } = config;
 
   const absoluteArchivePath = path.resolve(workspaceRoot, archive_path);
@@ -87,7 +80,6 @@ export const createArchive = async (
         } else {
           const dirInZip = options?.prefix ? options.prefix : '';
           const fileNameInZip = path.basename(sourcePath);
-          const finalEntryPath = path.join(dirInZip, fileNameInZip);
           zip.addLocalFile(absoluteSourcePath, dirInZip, fileNameInZip);
         }
       }
@@ -103,7 +95,7 @@ export const createArchive = async (
       };
 
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, stat: fs.Stats) => {
+        tarOptions.filter = (entryPath: string, _stat: fs.Stats) => {
           return options.filter_paths!.some((filterPath: string) => {
             return entryPath.startsWith(filterPath);
           });
@@ -134,13 +126,15 @@ export const createArchive = async (
       message: `Archive created successfully at ${archive_path}.`,
     };
     return successResult;
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`Error creating archive ${archive_path}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return createErrorArchiveResultItem(
       'create',
-      `Failed to create archive: ${error.message}`,
+      `Failed to create archive: ${errorMessage}`,
       ErrorCode.ERR_ARCHIVE_CREATION_FAILED,
-      error.stack
+      errorStack
     );
   }
 };
@@ -211,7 +205,7 @@ export const extractArchive = async (
         strip: options?.strip_components ?? 0,
       };
       if (options?.filter_paths && options.filter_paths.length > 0) {
-        tarOptions.filter = (entryPath: string, stat: tar.FileStat) => {
+        tarOptions.filter = (entryPath: string, _stat: tar.FileStat) => {
           const normalizedEntryPath = entryPath.startsWith('./')
             ? entryPath.substring(2)
             : entryPath;
@@ -242,13 +236,15 @@ export const extractArchive = async (
       message: `Archive extracted successfully to ${target_path}.`,
     };
     return successResult;
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`Error extracting archive ${archive_path} to ${target_path}:`, error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return createErrorArchiveResultItem(
       'extract',
-      `Failed to extract archive: ${error.message}`,
+      `Failed to extract archive: ${errorMessage}`,
       ErrorCode.ERR_ARCHIVE_EXTRACTION_FAILED,
-      error.stack
+      errorStack
     );
   }
 };
@@ -270,20 +266,23 @@ export const archiveToolHandler = async (
         const exhaustiveCheck: never = params;
         logger.error('Unhandled archive operation:', exhaustiveCheck);
         resultItem = createErrorArchiveResultItem(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- exhaustive switch handling unknown params
           (params as any).operation || 'unknown_operation_type', // Provide a fallback string
           'Invalid or unsupported archive operation.',
           ErrorCode.UNSUPPORTED_OPERATION,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- exhaustive switch handling unknown params
           `Operation type '${(params as any).operation}' is not supported by archiveToolHandler.`
         );
         break;
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Unexpected error in archiveToolHandler:', error);
-    const operation = (params as any)?.operation || 'unknown';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const operation = (params as Record<string, unknown>)?.operation || 'unknown';
     resultItem = createErrorArchiveResultItem(
       operation as 'create' | 'extract',
-      `An unexpected error occurred: ${error.message || 'Unknown error'}`,
+      `An unexpected error occurred: ${errorMessage || 'Unknown error'}`,
       ErrorCode.INTERNAL_ERROR,
       error.stack
     );

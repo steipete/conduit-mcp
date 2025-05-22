@@ -5,7 +5,6 @@ import {
   ErrorCode,
   logger,
   MCPErrorStatus,
-  EntryInfo,
   fileSystemOps,
   conduitConfig,
 } from '@/internal';
@@ -92,7 +91,7 @@ export async function listToolHandler(
           default:
             return createErrorResponse(
               ErrorCode.INVALID_PARAMETER,
-              `Unknown info_type: ${(systemInfoParams as any).info_type}`
+              `Unknown info_type: ${(systemInfoParams as unknown as { info_type: string }).info_type}`
             );
         }
       }
@@ -100,7 +99,7 @@ export async function listToolHandler(
       default:
         return createErrorResponse(
           ErrorCode.INVALID_PARAMETER,
-          `Unknown operation: ${(params as any).operation}`
+          `Unknown operation: ${(params as unknown as { operation: string }).operation}`
         );
     }
   } catch (error) {

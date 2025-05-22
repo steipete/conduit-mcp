@@ -1,15 +1,6 @@
 /// <reference types="vitest/globals" />
 
-import {
-  vi,
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  type MockedFunction,
-  type MockedClass,
-} from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
 import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
 import * as fsExtra from 'fs-extra'; // Changed from fs/promises
 import * as tar from 'tar'; // Corrected import for tar
@@ -20,8 +11,6 @@ import * as os from 'os';
 import { createArchive, extractArchive } from '@/operations/archiveOps';
 import {
   ArchiveTool,
-  ConduitError,
-  ErrorCode,
   logger as internalLogger,
   conduitConfig,
   // fileSystemOps is not directly used by archiveOps, fs-extra is.

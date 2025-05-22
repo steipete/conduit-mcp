@@ -1,9 +1,7 @@
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
   WriteTool,
   ConduitServerConfig,
-  ConduitError,
   ErrorCode,
   calculateChecksum,
   fileSystemOps,
@@ -55,6 +53,7 @@ export async function putContent(
   try {
     if (
       entry.content === undefined &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing with string literal for type checking
       entry.input_encoding !== ('base64_gzipped_file_ref' as any)
     ) {
       return createErrorPutResultItem(
@@ -68,6 +67,7 @@ export async function putContent(
     if (
       entry.input_encoding !== 'text' &&
       entry.input_encoding !== 'base64' &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing with string literal for type checking
       entry.input_encoding !== ('base64_gzipped_file_ref' as any)
     ) {
       return createErrorPutResultItem(
@@ -77,11 +77,8 @@ export async function putContent(
       );
     }
 
-    let fileSystemOpsEncoding: 'text' | 'base64' = 'text';
-
     if (entry.input_encoding === 'text') {
       bufferToWrite = Buffer.from(entry.content as string, 'utf8');
-      fileSystemOpsEncoding = 'text';
     } else if (entry.input_encoding === 'base64') {
       if (typeof entry.content !== 'string') {
         return createErrorPutResultItem(
@@ -100,13 +97,15 @@ export async function putContent(
       }
       try {
         bufferToWrite = Buffer.from(entry.content, 'base64');
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.ERR_INVALID_BASE64,
-          `Invalid base64 content (Buffer.from error): ${e.message}`
+          `Invalid base64 content (Buffer.from error): ${errorMessage}`
         );
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparing with string literal for type checking
     } else if (entry.input_encoding === ('base64_gzipped_file_ref' as any)) {
       return createErrorPutResultItem(
         targetPath,
@@ -170,42 +169,53 @@ export async function putContent(
       checksum: checksum,
       checksum_algorithm_used: entry.checksum_algorithm || config.defaultChecksumAlgorithm,
     } as WriteTool.WriteResultSuccess;
-  } catch (error: any) {
+  } catch (error: unknown) {
     // operationLogger.error(`[ERROR PATH] Error in putContent for ${targetPath}:`, error);
-    if (error && error.isConduitError === true && typeof error.errorCode === 'string') {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'isConduitError' in error &&
+      error.isConduitError === true &&
+      'errorCode' in error &&
+      typeof error.errorCode === 'string'
+    ) {
       // operationLogger.info(`[ERROR PATH] Caught ConduitError. bytesSuccessfullyWritten: ${bytesSuccessfullyWritten}, error code: ${error.errorCode}, message: ${error.message}`);
       return createErrorPutResultItem(
         targetPath,
         error.errorCode as ErrorCode,
-        error.message,
+        error instanceof Error ? error.message : 'Unknown error',
         bytesSuccessfullyWritten
       );
     }
-    if (error.code === 'ENOENT') {
-      // operationLogger.info(`[ERROR PATH] Caught ENOENT error. Message: ${error.message}`);
-      return createErrorPutResultItem(
-        targetPath,
-        ErrorCode.ERR_FS_NOT_FOUND,
-        `File or parent directory not found for ${targetPath}: ${error.message}`
-      );
-    }
-    if (error.code === 'EACCES') {
-      // operationLogger.info(`[ERROR PATH] Caught EACCES error. Message: ${error.message}`);
-      return createErrorPutResultItem(
-        targetPath,
-        ErrorCode.ERR_FS_PERMISSION_DENIED,
-        `Permission denied for ${targetPath}: ${error.message}`
-      );
+    if (error && typeof error === 'object' && 'code' in error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (error.code === 'ENOENT') {
+        // operationLogger.info(`[ERROR PATH] Caught ENOENT error. Message: ${errorMessage}`);
+        return createErrorPutResultItem(
+          targetPath,
+          ErrorCode.ERR_FS_NOT_FOUND,
+          `File or parent directory not found for ${targetPath}: ${errorMessage}`
+        );
+      }
+      if (error.code === 'EACCES') {
+        // operationLogger.info(`[ERROR PATH] Caught EACCES error. Message: ${errorMessage}`);
+        return createErrorPutResultItem(
+          targetPath,
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Permission denied for ${targetPath}: ${errorMessage}`
+        );
+      }
     }
     // operationLogger.info(`[ERROR PATH] Fallback error. error.code: ${error.code}, message: ${error.message}`);
     operationLogger.error(
       `Unhandled error in putContent for ${targetPath}. Original error:`,
       error
     ); // Keep one generic error log
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return createErrorPutResultItem(
       targetPath,
       ErrorCode.ERR_FS_WRITE_FAILED,
-      `Failed to write to ${targetPath}: ${error.message || 'Unknown error'}`
+      `Failed to write to ${targetPath}: ${errorMessage}`
     );
   }
 }

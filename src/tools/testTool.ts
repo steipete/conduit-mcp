@@ -13,7 +13,7 @@ import { createErrorResponse } from '@/utils/errorHandler';
  */
 export async function testToolHandler(
   params: TestTool.Parameters,
-  config: ConduitServerConfig
+  _config: ConduitServerConfig
 ): Promise<TestTool.DefinedEchoResponse | MCPErrorStatus> {
   try {
     switch (params.operation) {
@@ -35,10 +35,12 @@ export async function testToolHandler(
       }
 
       default:
-        logger.error(`Unsupported test operation: ${(params as any).operation}`);
+        logger.error(
+          `Unsupported test operation: ${(params as unknown as { operation: string }).operation}`
+        );
         return createErrorResponse(
           ErrorCode.UNSUPPORTED_OPERATION,
-          `Unsupported test operation: ${(params as any).operation}`
+          `Unsupported test operation: ${(params as unknown as { operation: string }).operation}`
         );
     }
   } catch (error) {
