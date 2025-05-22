@@ -138,7 +138,7 @@ describe('diffOps', () => {
         mockedConfig as ConduitServerConfig
       );
 
-      expect(result).toMatchObject({ success: true });
+      expect(result.status).toBe('success');
       const successResult = result as ReadTool.DiffResultSuccess;
       expect(successResult.sources_compared).toEqual([source1Path, source2Path]);
       expect(successResult.diff_format_used).toBe('unified');
@@ -169,7 +169,7 @@ describe('diffOps', () => {
         mockedConfig as ConduitServerConfig
       );
 
-      expect(result).toMatchObject({ success: true });
+      expect(result.status).toBe('success');
       const successResult = result as ReadTool.DiffResultSuccess;
       // Expect the header but no actual diff hunks (e.g., no lines starting with @@)
       expect(successResult.diff_content).toContain(
@@ -219,7 +219,7 @@ describe('diffOps', () => {
 
       const result = await getDiff(params, mockedConfig as ConduitServerConfig);
 
-      expect(result).toMatchObject({ success: true });
+      expect(result.status).toBe('success');
       const successResult = result as ReadTool.DiffResultSuccess;
       expect(successResult.sources_compared).toEqual([source1Url, source2Url]);
       expect(successResult.diff_format_used).toBe('unified');
@@ -267,7 +267,7 @@ describe('diffOps', () => {
 
       const result = await getDiff(params, mockedConfig as ConduitServerConfig);
 
-      expect(result).toMatchObject({ success: true });
+      expect(result.status).toBe('success');
       const successResult = result as ReadTool.DiffResultSuccess;
       expect(successResult.sources_compared).toEqual([source1Path, source2Url]);
       expect(successResult.diff_format_used).toBe('unified');

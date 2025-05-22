@@ -441,7 +441,12 @@ describe('archiveOps', () => {
         }
       );
 
-      await expect(extractArchive(baseZipParams, mockedConfig)).rejects.toThrow('Path not found');
+      const result = await extractArchive(baseZipParams, mockedConfig);
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error_code).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+        expect(result.error_message).toContain(`Path not found: ${baseZipParams.archive_path}`);
+      }
 
       // Reset mock to default implementation
       mockedValidateAndResolvePath.mockImplementation(
@@ -465,7 +470,12 @@ describe('archiveOps', () => {
         }
       );
 
-      await expect(extractArchive(baseTarGzParams, mockedConfig)).rejects.toThrow('Path not found');
+      const result = await extractArchive(baseTarGzParams, mockedConfig);
+      expect(result.status).toBe('error');
+      if (result.status === 'error') {
+        expect(result.error_code).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+        expect(result.error_message).toContain(`Path not found: ${baseTarGzParams.archive_path}`);
+      }
 
       // Reset mock to default implementation
       mockedValidateAndResolvePath.mockImplementation(

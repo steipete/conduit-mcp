@@ -186,7 +186,8 @@ describe('webFetcher', () => {
       await expect(fetchUrlContent(mockUrl)).rejects.toThrow(
         new ConduitError(
           ErrorCode.ERR_HTTP_STATUS_ERROR,
-          'HTTP Error 404 for http://example.com/notfound: Not Found'
+          'HTTP Error 404 for http://example.com/notfound: Not Found',
+          { httpStatus: 404 }
         )
       );
     });

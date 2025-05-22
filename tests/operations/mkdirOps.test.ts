@@ -87,7 +87,7 @@ describe('mkdirOps', () => {
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
     expect(mockedFsOps.pathExists).toHaveBeenCalledWith(absoluteTestDirPath);
-    expect(mockedFsOps.ensureDirectoryExists).toHaveBeenCalledWith(absoluteTestDirPath);
+    expect(mockedFsOps.createDirectory).toHaveBeenCalledWith(absoluteTestDirPath, false);
     expect(result.status).toBe('success');
     if (result.status === 'success') {
       expect(result.path).toBe(testDirPath);
@@ -102,7 +102,7 @@ describe('mkdirOps', () => {
     const entry: MkdirEntry = { path: testDirPath, recursive: true };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
-    expect(mockedFsOps.ensureDirectoryExists).toHaveBeenCalledWith(absoluteTestDirPath);
+    expect(mockedFsOps.createDirectory).toHaveBeenCalledWith(absoluteTestDirPath, true);
     expect(result.status).toBe('success');
     if (result.status === 'success') {
       expect(result.message).toContain('Directory and any necessary parent directories created');
@@ -116,7 +116,7 @@ describe('mkdirOps', () => {
     const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
 
-    expect(mockedFsOps.ensureDirectoryExists).not.toHaveBeenCalled();
+    expect(mockedFsOps.createDirectory).not.toHaveBeenCalled();
     expect(result.status).toBe('success');
     if (result.status === 'success') {
       expect(result.message).toBe('Directory already exists.');
@@ -140,7 +140,7 @@ describe('mkdirOps', () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
     const permissionError = new Error('Permission denied') as Error & { code: string };
     permissionError.code = 'EACCES';
-    mockedFsOps.ensureDirectoryExists.mockRejectedValue(permissionError);
+    mockedFsOps.createDirectory.mockRejectedValue(permissionError);
 
     const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
@@ -155,7 +155,7 @@ describe('mkdirOps', () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
     const notDirError = new Error('Not a directory') as Error & { code: string };
     notDirError.code = 'ENOTDIR';
-    mockedFsOps.ensureDirectoryExists.mockRejectedValue(notDirError);
+    mockedFsOps.createDirectory.mockRejectedValue(notDirError);
 
     const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);
@@ -168,7 +168,7 @@ describe('mkdirOps', () => {
 
   it('should return error on other fs operation failure', async () => {
     mockedFsOps.pathExists.mockResolvedValue(false);
-    mockedFsOps.ensureDirectoryExists.mockRejectedValue(new Error('FS failure'));
+    mockedFsOps.createDirectory.mockRejectedValue(new Error('FS failure'));
 
     const entry: MkdirEntry = { path: testDirPath };
     const result = await makeDirectory(entry, mockedConfig as ConduitServerConfig);

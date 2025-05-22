@@ -696,6 +696,42 @@ describe('getContentOps', () => {
       expect(errorResult.error_code).toBe(ErrorCode.ERR_CHECKSUM_FAILED);
       expect(errorResult.error_message).toContain('Checksum calc error');
     });
+
+    it('should return error if file not found', async () => {
+      const nonExistentPath = 'nonexistent/file.txt';
+      const expectedError = new ConduitError(
+        ErrorCode.ERR_FS_NOT_FOUND,
+        `Path not found: ${nonExistentPath}`
+      );
+      mockedValidateAndResolvePath.mockRejectedValueOnce(expectedError);
+
+      const params: ReadTool.ContentParams = { ...baseParams };
+      const result = await getContent(nonExistentPath, params, mockedConfig);
+
+      expect(result.status).toBe('error');
+      const errorResult = result as MCPErrorStatus;
+      expect(errorResult.error_code).toBe(ErrorCode.ERR_FS_NOT_FOUND);
+      expect(errorResult.error_message).toContain(`Path not found: ${nonExistentPath}`);
+    });
+
+    it('should return error for oversized file', async () => {
+      mockedValidateAndResolvePath.mockResolvedValueOnce(filePath);
+      mockedFsOps.getStats.mockResolvedValueOnce({
+        isFile: () => true,
+        isDirectory: () => false,
+        size: mockedConfig.maxFileReadBytes! + 1,
+      } as fs.Stats);
+      // The SUT will throw ConduitError(ErrorCode.RESOURCE_LIMIT_EXCEEDED)
+      // This will be caught by getContent and returned as an error object.
+
+      const params: ReadTool.ContentParams = { ...baseParams, format: 'text' }; // format 'text' implies full read attempt
+      const result = await getContent(filePath, params, mockedConfig);
+
+      expect(result.status).toBe('error');
+      const errorResult = result as MCPErrorStatus;
+      expect(errorResult.error_code).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
+      expect(errorResult.error_message).toContain('exceeds max file read bytes');
+    });
   });
 
   describe('from URL source (via getContent)', () => {
@@ -1135,6 +1171,43 @@ describe('getContentOps', () => {
         );
         expect(mockedWebFetcher.cleanHtmlToMarkdown).not.toHaveBeenCalled();
       });
+    });
+
+    it('should return error if URL fetch fails (404)', async () => {
+      const url = 'http://example.com/notfound';
+      const expectedError = new ConduitError(
+        ErrorCode.ERR_HTTP_REQUEST_FAILED,
+        'Request failed with status code 404',
+        { httpStatus: 404 }
+      );
+      mockedWebFetcher.fetchUrlContent.mockRejectedValueOnce(expectedError);
+
+      const params: ReadTool.ContentParams = { ...baseParamsUrl };
+      const result = await getContent(url, params, mockedConfig);
+
+      expect(result.status).toBe('error');
+      const errorResult = result as MCPErrorStatus & { http_status_code?: number };
+      expect(errorResult.error_code).toBe(ErrorCode.ERR_HTTP_REQUEST_FAILED);
+      expect(errorResult.error_message).toContain('Request failed with status code 404');
+      expect(errorResult.http_status_code).toBe(404);
+    });
+
+    it('should return error for oversized URL content', async () => {
+      const url = 'http://example.com/largecontent';
+      const expectedError = new ConduitError(
+        ErrorCode.RESOURCE_LIMIT_EXCEEDED,
+        `Content size from ${url} exceeds limit of ${mockedConfig.maxUrlDownloadSizeBytes} bytes.`
+      );
+      // Simulate fetchUrlContent throwing this error (which getContentFromUrl would then re-throw or handle)
+      mockedWebFetcher.fetchUrlContent.mockRejectedValueOnce(expectedError);
+
+      const params: ReadTool.ContentParams = { ...baseParamsUrl };
+      const result = await getContent(url, params, mockedConfig);
+
+      expect(result.status).toBe('error');
+      const errorResult = result as MCPErrorStatus;
+      expect(errorResult.error_code).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
+      expect(errorResult.error_message).toContain('exceeds limit');
     });
 
     // More tests for getContentFromUrl will go here

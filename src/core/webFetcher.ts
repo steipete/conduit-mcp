@@ -69,7 +69,8 @@ export async function fetchUrlContent(
       if (error.response) {
         throw new ConduitError(
           ErrorCode.ERR_HTTP_STATUS_ERROR,
-          `HTTP Error ${error.response.status} for ${urlString}: ${error.response.statusText}`
+          `HTTP Error ${error.response.status} for ${urlString}: ${error.response.statusText}`,
+          { httpStatus: error.response.status }
         );
       }
       throw new ConduitError(

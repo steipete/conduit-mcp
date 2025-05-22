@@ -150,6 +150,7 @@ describe('FindTool', () => {
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
+      tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.ERR_FS_INVALID_PATH,
       error_message: 'Path validation failed',
@@ -166,6 +167,7 @@ describe('FindTool', () => {
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
+      tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.ERR_FS_PATH_IS_FILE,
       error_message: `Provided base_path is a file, not a directory: ${mockResolvedPath}`,
@@ -183,6 +185,7 @@ describe('FindTool', () => {
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
+      tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.OPERATION_FAILED,
       error_message: 'Find operation failed',
@@ -200,6 +203,7 @@ describe('FindTool', () => {
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
+      tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.OPERATION_FAILED,
       error_message: 'Find operation failed',
@@ -217,6 +221,7 @@ describe('FindTool', () => {
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
+      tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.INTERNAL_ERROR,
       error_message: 'Internal server error: Unexpected error',
@@ -234,6 +239,7 @@ describe('FindTool', () => {
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
     expect(result).toEqual({
+      tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.INTERNAL_ERROR,
       error_message: 'Internal server error: Stats error',

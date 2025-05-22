@@ -37,8 +37,9 @@ export class ConduitError extends Error {
   public readonly errorCode: ErrorCode;
   public readonly MCPPErrorStatus: MCPErrorStatus;
   public readonly isConduitError = true;
+  public readonly httpStatus?: number;
 
-  constructor(errorCode: ErrorCode, message?: string) {
+  constructor(errorCode: ErrorCode, message?: string, options?: { httpStatus?: number }) {
     let fullMessage: string;
     if (!message && errorCode === ErrorCode.ERR_INTERNAL_SERVER_ERROR) {
       fullMessage = 'An internal server error occurred.';
@@ -49,6 +50,7 @@ export class ConduitError extends Error {
     this.name = this.constructor.name;
     this.errorCode = errorCode;
     this.MCPPErrorStatus = createMCPErrorStatus(errorCode, fullMessage);
+    this.httpStatus = options?.httpStatus;
     Error.captureStackTrace(this, this.constructor);
   }
 }

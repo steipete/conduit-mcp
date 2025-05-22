@@ -17,4 +17,9 @@ describe('fileSystemOps (main file - now largely a placeholder)', () => {
 
   // It should contain no actual tests directly.
   // If this suite runs and passes with zero tests, it means all tests were successfully migrated.
+  it('should be a placeholder and contain no real tests', () => {
+    // This test intentionally does nothing and is here to prevent Vitest from failing the suite
+    // due to no tests being found after the refactor.
+    expect(true).toBe(true);
+  });
 });
