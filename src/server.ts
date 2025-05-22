@@ -79,27 +79,42 @@ function sendErrorResponse(errorCode: ErrorCode, message: string, details?: stri
       let toolResponse: unknown;
       switch (requestObj.tool_name) {
         case 'read':
-          toolResponse = await readToolHandler(requestObj.params as any, conduitConfig);
+          toolResponse = await readToolHandler(
+            requestObj.params as Parameters<typeof readToolHandler>[0],
+            conduitConfig
+          );
           break;
         case 'write':
-          toolResponse = await writeToolHandler(requestObj.params as any, conduitConfig);
+          toolResponse = await writeToolHandler(
+            requestObj.params as Parameters<typeof writeToolHandler>[0],
+            conduitConfig
+          );
           break;
         case 'list':
-          toolResponse = await listToolHandler(requestObj.params as any, conduitConfig);
+          toolResponse = await listToolHandler(
+            requestObj.params as Parameters<typeof listToolHandler>[0],
+            conduitConfig
+          );
           break;
         case 'find':
-          toolResponse = await findToolHandler(requestObj.params as any, conduitConfig);
+          toolResponse = await findToolHandler(
+            requestObj.params as Parameters<typeof findToolHandler>[0],
+            conduitConfig
+          );
           break;
         case 'archive':
         case 'ArchiveTool':
           toolResponse = await archiveToolHandler(
-            requestObj.params as any,
+            requestObj.params as Parameters<typeof archiveToolHandler>[0],
             conduitConfig,
             requestObj.tool_name
           );
           break;
         case 'test':
-          toolResponse = await testToolHandler(requestObj.params as any, conduitConfig);
+          toolResponse = await testToolHandler(
+            requestObj.params as Parameters<typeof testToolHandler>[0],
+            conduitConfig
+          );
           break;
         default:
           sendErrorResponse(ErrorCode.ERR_UNKNOWN_TOOL, `Unknown tool: ${requestObj.tool_name}`);

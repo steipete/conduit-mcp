@@ -299,7 +299,7 @@ function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined)
           // Be flexible about error message wording
           if (expectedResult.error_message.includes('Path validation failed')) {
             // Accept either "Path validation failed" or specific path errors
-            const actualMsg = actualResult.error_message.toLowerCase();
+            const actualMsg = actualResult.error_message?.toLowerCase() || '';
             const hasPathValidationFailed = actualMsg.includes('path validation failed');
             const hasPathNotFound = actualMsg.includes('path not found');
             const hasAccessDenied = actualMsg.includes('access') && actualMsg.includes('denied');

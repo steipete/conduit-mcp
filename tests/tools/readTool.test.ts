@@ -44,7 +44,7 @@ vi.mock('@/operations/diffOps', () => ({
 }));
 
 // Import mocked modules - will be initialized in beforeAll
-let conduitConfig: any;
+let conduitConfig: typeof import('@/internal').conduitConfig;
 let mockedGetContent: MockedFunction<typeof import('@/operations/getContentOps').getContent>;
 let mockedGetMetadata: MockedFunction<typeof import('@/operations/metadataOps').getMetadata>;
 let mockedGetDiff: MockedFunction<typeof import('@/operations/diffOps').getDiff>;
@@ -52,22 +52,22 @@ let mockedGetDiff: MockedFunction<typeof import('@/operations/diffOps').getDiff>
 describe('ReadTool', () => {
   const mockSourceFile = '/allowed/file.txt';
   const mockSourceUrl = 'http://example.com/page.html';
+  const mockImageUrl = 'http://example.com/image.png';
 
   beforeAll(async () => {
     // Import mocked modules
     const internal = await import('@/internal');
     conduitConfig = internal.conduitConfig;
-    
+
     const getContentOps = await import('@/operations/getContentOps');
     mockedGetContent = getContentOps.getContent as MockedFunction<typeof getContentOps.getContent>;
-    
+
     const metadataOps = await import('@/operations/metadataOps');
     mockedGetMetadata = metadataOps.getMetadata as MockedFunction<typeof metadataOps.getMetadata>;
-    
+
     const diffOps = await import('@/operations/diffOps');
     mockedGetDiff = diffOps.getDiff as MockedFunction<typeof diffOps.getDiff>;
   });
-  const mockImageUrl = 'http://example.com/image.png';
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -102,7 +102,7 @@ describe('ReadTool', () => {
         expect(response.results[0].mime_type).toBe('text/plain');
         expect(response.results[0].output_format_used).toBe('text');
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should read file content as base64', async () => {
@@ -132,7 +132,7 @@ describe('ReadTool', () => {
         expect(response.results[0].content).toBe(Buffer.from('Base64Test').toString('base64'));
         expect(response.results[0].output_format_used).toBe('base64');
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should fetch URL and convert to markdown', async () => {
@@ -164,7 +164,7 @@ describe('ReadTool', () => {
         expect(response.results[0].output_format_used).toBe('markdown');
         expect(response.results[0].markdown_conversion_status).toBe('success');
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceUrl, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceUrl, params, conduitConfig);
     });
 
     it('should fallback to text for markdown if URL content is not HTML', async () => {
@@ -204,7 +204,7 @@ describe('ReadTool', () => {
           'skipped_unsupported_content_type'
         );
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceUrl, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceUrl, params, conduitConfig);
     });
 
     it('should calculate checksum for a file', async () => {
@@ -239,7 +239,7 @@ describe('ReadTool', () => {
         expect(response.results[0].output_format_used).toBe('checksum');
         expect(response.results[0].checksum_algorithm_used).toBe('sha256');
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should handle image compression for base64 format', async () => {
@@ -274,7 +274,7 @@ describe('ReadTool', () => {
         expect(response.results[0].compression_applied).toBe(true);
         expect(response.results[0].original_size_bytes).toBe(2000);
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should use default format if not specified (text file)', async () => {
@@ -300,7 +300,7 @@ describe('ReadTool', () => {
         expect(response.results[0].output_format_used).toBe('text');
         expect(response.results[0].content).toBe('File content');
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should use default format if not specified (image file -> base64)', async () => {
@@ -326,7 +326,7 @@ describe('ReadTool', () => {
         expect(response.results[0].output_format_used).toBe('base64');
         expect(response.results[0].content).toBe(Buffer.from('jpegdata').toString('base64'));
       }
-      expect(getContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should return INVALID_PARAMETER error if sources array is empty for content op', async () => {
@@ -338,7 +338,7 @@ describe('ReadTool', () => {
 
       expect(response.tool_name).toBe('read');
       expect(response.results).toHaveLength(0);
-      expect(getContent).not.toHaveBeenCalled();
+      expect(mockedGetContent).not.toHaveBeenCalled();
     });
   });
 
@@ -375,7 +375,7 @@ describe('ReadTool', () => {
         expect(response.results[0].metadata?.name).toBe('file.txt');
         expect(response.results[0].metadata?.entry_type).toBe('file');
       }
-      expect(getMetadata).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
+      expect(mockedGetMetadata).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
     it('should fetch metadata for a URL (HEAD request)', async () => {
@@ -409,7 +409,7 @@ describe('ReadTool', () => {
         expect(response.results[0].metadata?.size_bytes).toBe(12345);
         expect(response.results[0].metadata?.modified_at).toBe('1994-11-15T12:45:26.000Z');
       }
-      expect(getMetadata).toHaveBeenCalledWith(mockImageUrl, params, conduitConfig);
+      expect(mockedGetMetadata).toHaveBeenCalledWith(mockImageUrl, params, conduitConfig);
     });
   });
 
@@ -439,7 +439,7 @@ describe('ReadTool', () => {
         expect(response.results.diff_content).toBe('--- a/file1\n+++ b/file2\n');
         expect(response.results.sources_compared).toEqual([file1, file2]);
       }
-      expect(getDiff).toHaveBeenCalledWith(params, conduitConfig);
+      expect(mockedGetDiff).toHaveBeenCalledWith(params, conduitConfig);
     });
 
     it('should handle error if diff sources are not two files', async () => {
@@ -452,7 +452,7 @@ describe('ReadTool', () => {
 
       const params: ReadTool.DiffParams = {
         operation: 'diff',
-        sources: [mockSourceFile] as unknown,
+        sources: [mockSourceFile] as never,
       };
       const response = (await readToolHandler(
         params,
@@ -513,12 +513,12 @@ describe('ReadTool', () => {
           'Diff operation requires exactly two sources'
         );
       }
-      expect(getDiff).toHaveBeenCalledWith(params, conduitConfig);
+      expect(mockedGetDiff).toHaveBeenCalledWith(params, conduitConfig);
     });
   });
 
   it('should return error for invalid operation', async () => {
-    const params = { operation: 'invalid_op', sources: ['s'] } as unknown;
+    const params = { operation: 'invalid_op', sources: ['s'] } as never;
     const response = await readToolHandler(params, conduitConfig);
 
     expect(response.status).toBe('error');

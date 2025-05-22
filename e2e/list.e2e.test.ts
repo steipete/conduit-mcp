@@ -58,7 +58,7 @@ describe('E2E List Operations', () => {
       for (const [placeholder, value] of Object.entries(substitutions)) {
         result = result.replace(new RegExp(placeholder, 'g'), value);
       }
-      return result as T;
+      return result as unknown as T;
     } else if (Array.isArray(obj)) {
       return obj.map((item) => substitutePlaceholders(item, substitutions)) as T;
     } else if (obj && typeof obj === 'object') {
@@ -89,7 +89,7 @@ describe('E2E List Operations', () => {
             if (file.content_type === 'directory') {
               fs.mkdirSync(fullPath, { recursive: true });
             } else {
-              fs.writeFileSync(fullPath, file.content || '', file.encoding || 'utf8');
+              fs.writeFileSync(fullPath, file.content || '', { encoding: file.encoding || 'utf8' });
             }
           }
         }
@@ -110,7 +110,7 @@ describe('E2E List Operations', () => {
         const processedEnvVars = substitutePlaceholders(scenario.env_vars || {}, substitutions);
 
         // Execute the test
-        const result = await runConduitMCPScript(processedRequestPayload, processedEnvVars);
+        const result = await runConduitMCPScript(processedRequestPayload as object, processedEnvVars as Record<string, string>);
 
         // Assert exit code
         expect(result.exitCode).toBe(scenario.expected_exit_code);
@@ -122,13 +122,13 @@ describe('E2E List Operations', () => {
           expect(Array.isArray(result.response)).toBe(true);
           expect(result.response).toHaveLength(2);
 
-          const notice = result.response[0];
+          const notice = (result.response as any[])[0];
           expect(notice.type).toBe('info_notice');
           if (scenario.notice_code) {
             expect(notice.notice_code).toBe(scenario.notice_code);
           }
 
-          actualToolResponse = result.response[1];
+          actualToolResponse = (result.response as any[])[1];
         } else {
           actualToolResponse = result.response;
         }
@@ -140,9 +140,9 @@ describe('E2E List Operations', () => {
               switch (assertion.name) {
                 case 'check_list_entries_basic': {
                   // Check if results is an array (direct results format) or has entries property
-                  const entries = Array.isArray(actualToolResponse.results)
-                    ? actualToolResponse.results
-                    : actualToolResponse.results.entries;
+                  const entries = Array.isArray((actualToolResponse as any).results)
+                    ? (actualToolResponse as any).results
+                    : (actualToolResponse as any).results.entries;
 
                   expect(Array.isArray(entries)).toBe(true);
 
@@ -176,7 +176,7 @@ describe('E2E List Operations', () => {
                 }
 
                 case 'validate_server_capabilities': {
-                  const results = actualToolResponse.results;
+                  const results = (actualToolResponse as any).results;
 
                   // Check server_version
                   expect(typeof results.server_version).toBe('string');
@@ -237,7 +237,7 @@ describe('E2E List Operations', () => {
                 }
 
                 case 'validate_filesystem_stats': {
-                  const results = actualToolResponse.results;
+                  const results = (actualToolResponse as any).results;
 
                   if (results.path_queried) {
                     expect(results.path_queried).toBe(testWorkspaceDir);
@@ -273,23 +273,23 @@ describe('E2E List Operations', () => {
             // Handle specific cases that need flexible matching
             if (scenario.name === 'list_entries_empty_dir_success') {
               // For empty directory, check the structure matches but allow for different response formats
-              expect(actualToolResponse.tool_name).toBe('list');
-              if (Array.isArray(actualToolResponse.results)) {
-                expect(actualToolResponse.results).toEqual([]);
+              expect((actualToolResponse as any).tool_name).toBe('list');
+              if (Array.isArray((actualToolResponse as any).results)) {
+                expect((actualToolResponse as any).results).toEqual([]);
               } else {
-                expect(actualToolResponse.results.entries).toEqual([]);
+                expect((actualToolResponse as any).results.entries).toEqual([]);
               }
             } else if (
-              actualToolResponse.status === 'error' &&
-              processedExpectedStdout.status === 'error'
+              (actualToolResponse as any).status === 'error' &&
+              (processedExpectedStdout as any).status === 'error'
             ) {
               // For error scenarios, check error_code and partial error_message match
-              expect(actualToolResponse.status).toBe(processedExpectedStdout.status);
-              expect(actualToolResponse.error_code).toBe(processedExpectedStdout.error_code);
+              expect((actualToolResponse as any).status).toBe((processedExpectedStdout as any).status);
+              expect((actualToolResponse as any).error_code).toBe((processedExpectedStdout as any).error_code);
 
               // Handle different error message formats
-              const expectedMsg = processedExpectedStdout.error_message;
-              const actualMsg = actualToolResponse.error_message;
+              const expectedMsg = (processedExpectedStdout as any).error_message;
+              const actualMsg = (actualToolResponse as any).error_message;
 
               if (expectedMsg.includes('Access to path') && actualMsg.includes('Access to path')) {
                 // For access denied errors, just check the path is mentioned

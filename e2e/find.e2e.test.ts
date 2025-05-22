@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { runConduitMCPScript } from './utils/e2eTestRunner';
 import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
+import { loadTestScenarios, TestScenario, ToolResult } from './utils/scenarioLoader';
 import path from 'path';
 import fs from 'fs';
 
@@ -28,7 +28,7 @@ describe('E2E Find Operations', () => {
     for (const item of setup) {
       // Handle symlinks differently as they don't use the 'path' field
       if (item.type === 'createSymlink') {
-        if (item.target && item.link) {
+        if ('target' in item && 'link' in item && item.target && item.link) {
           const targetPath = path.resolve(tempDir, item.target);
           const linkPath = path.join(tempDir, item.link);
           const linkDir = path.dirname(linkPath);
@@ -62,7 +62,8 @@ describe('E2E Find Operations', () => {
 
       switch (item.type) {
         case 'createFile': {
-          let content = item.content || '';
+          const content = 'content' in item && item.content ? item.content : '';
+          const encoding = 'encoding' in item && item.encoding ? item.encoding : 'utf8';
 
           // Handle special filename patterns
           if (item.path.includes('{{LONG_FILENAME}}')) {
@@ -72,15 +73,15 @@ describe('E2E Find Operations', () => {
             if (!fs.existsSync(actualDirPath)) {
               fs.mkdirSync(actualDirPath, { recursive: true });
             }
-            fs.writeFileSync(actualPath, content, item.encoding || 'utf8');
+            fs.writeFileSync(actualPath, content, { encoding });
           } else {
-            fs.writeFileSync(fullPath, content, item.encoding || 'utf8');
+            fs.writeFileSync(fullPath, content, { encoding });
           }
 
           // Set custom timestamps if specified
-          if (item.mtime || item.ctime) {
-            const mtime = item.mtime ? new Date(item.mtime) : undefined;
-            const ctime = item.ctime ? new Date(item.ctime) : undefined;
+          if (('mtime' in item && item.mtime) || ('ctime' in item && item.ctime)) {
+            const mtime = 'mtime' in item && item.mtime ? new Date(item.mtime) : undefined;
+            const ctime = 'ctime' in item && item.ctime ? new Date(item.ctime) : undefined;
 
             if (mtime || ctime) {
               // Use mtime for both access and modify time if available
@@ -106,12 +107,17 @@ describe('E2E Find Operations', () => {
         case 'createBinaryFile': {
           let binaryData: Buffer;
 
-          if (item.binary_content) {
+          if ('binary_content' in item && item.binary_content) {
             binaryData = Buffer.from(item.binary_content);
-          } else if (item.content && item.encoding === 'base64') {
+          } else if (
+            'content' in item &&
+            item.content &&
+            'encoding' in item &&
+            item.encoding === 'base64'
+          ) {
             binaryData = Buffer.from(item.content, 'base64');
           } else {
-            binaryData = Buffer.from(item.content || '', 'utf8');
+            binaryData = Buffer.from('content' in item && item.content ? item.content : '', 'utf8');
           }
 
           fs.writeFileSync(fullPath, binaryData);
@@ -165,8 +171,8 @@ describe('E2E Find Operations', () => {
     expect(actual).toBeDefined();
     expect(Array.isArray(actual)).toBe(true);
 
-    const actualArray = actual as Array<any>;
-    const expectedArray = expected as Array<any>;
+    const actualArray = actual as Array<Record<string, unknown>>;
+    const expectedArray = expected as Array<Record<string, unknown>>;
 
     for (const expectedItem of expectedArray) {
       const matchingItems = actualArray.filter((item) => {
@@ -183,22 +189,19 @@ describe('E2E Find Operations', () => {
         }
 
         // Check name contains
-        if (expectedItem.name_contains && !item.name.includes(expectedItem.name_contains)) {
+        if (expectedItem.name_contains && !(item as any).name?.includes(expectedItem.name_contains)) {
           matches = false;
         }
 
         // Check path contains
-        if (expectedItem.path_contains && !item.path.includes(expectedItem.path_contains)) {
+        if (expectedItem.path_contains && !(item as any).path?.includes(expectedItem.path_contains)) {
           matches = false;
         }
 
         return matches;
       });
 
-      expect(matchingItems.length).toBeGreaterThan(
-        0,
-        `Expected to find item matching: ${JSON.stringify(expectedItem)}, but found: ${JSON.stringify(actualArray.map((i) => ({ name: i.name, type: i.type, path: i.path })))}`
-      );
+      expect(matchingItems.length).toBeGreaterThan(0);
     }
 
     // For scenarios, we allow additional results as long as all expected ones are found
@@ -239,19 +242,19 @@ describe('E2E Find Operations', () => {
         expect(result.response).toHaveLength(2);
 
         // First element should be the info notice
-        const infoNotice = result.response[0];
+        const infoNotice = result.response[0] as any;
         expect(infoNotice.type).toBe('info_notice');
         expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
         expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
 
         // Second element should be the actual tool response object
-        const actualToolResponse = result.response[1];
+        const actualToolResponse = result.response[1] as any;
         expect(actualToolResponse.status).toBe('error');
         expect(actualToolResponse.error_message).toContain('Path not found');
       } else {
         // Direct error response
-        expect(result.response.status).toBe('error');
-        expect(result.response.error_message).toContain('Path not found');
+        expect((result.response as any).status).toBe('error');
+        expect((result.response as any).error_message).toContain('Path not found');
       }
     });
 
@@ -281,7 +284,7 @@ describe('E2E Find Operations', () => {
       expect(result.response).toBeDefined();
 
       // Should be the direct tool response object (no notice)
-      const response = result.response as any;
+      const response = result.response as ToolResult;
       expect(response.status).toBe('error');
       expect(response.error_message).toContain('Path not found');
     });
@@ -326,18 +329,18 @@ describe('E2E Find Operations', () => {
         if (scenario.should_show_notice) {
           if (Array.isArray(result.response)) {
             expect(result.response).toHaveLength(2);
-            const notice = result.response[0] as any;
+            const notice = result.response[0] as ToolResult;
             expect(notice.type).toBe('info_notice');
             if (scenario.notice_code) {
               expect(notice.notice_code).toBe(scenario.notice_code);
             }
             // Use the actual tool response for further verification
-            const toolResponse = result.response[1] as any;
+            const toolResponse = result.response[1] as ToolResult;
             expect(toolResponse.tool_name).toBe(scenario.expected_stdout?.tool_name);
           }
         } else {
           // Verify the main response
-          const response = result.response as any;
+          const response = result.response as ToolResult;
           if (scenario.expected_stdout?.tool_name) {
             expect(response.tool_name).toBe(scenario.expected_stdout.tool_name);
           }
@@ -350,23 +353,23 @@ describe('E2E Find Operations', () => {
               // are the same file, so we expect at least 1 file containing "test"
               expect(response.results).toBeDefined();
               expect(Array.isArray(response.results)).toBe(true);
-              expect(response.results.length).toBeGreaterThanOrEqual(1);
-              const hasTestFile = response.results.some(
-                (r: { type: string; name: string }) =>
-                  r.type === 'file' && r.name.toLowerCase().includes('test')
+              expect(response.results!.length).toBeGreaterThanOrEqual(1);
+              const hasTestFile = response.results!.some(
+                (r: any) =>
+                  r.type === 'file' && r.name?.toLowerCase().includes('test')
               );
               expect(hasTestFile).toBe(true);
             } else {
-              verifyResults(response.results, scenario.expected_stdout.results);
+              verifyResults(response.results!, scenario.expected_stdout.results);
             }
           }
 
           // Handle error expectations
           if (response.status === 'error') {
             expect(scenario.expected_stdout?.status).toBe('error');
-            if ((scenario.expected_stdout as any)?.error_message) {
-              expect(response.error_message).toContain(
-                (scenario.expected_stdout as any).error_message
+            if ((scenario.expected_stdout as Record<string, unknown>)?.error_message) {
+              expect((response as Record<string, unknown>).error_message).toContain(
+                (scenario.expected_stdout as Record<string, unknown>).error_message
               );
             }
           }
@@ -429,10 +432,10 @@ describe('E2E Find Operations', () => {
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
 
-      expect(result.response.tool_name).toBe('find');
-      expect(Array.isArray(result.response.results)).toBe(true);
+      expect((result.response as any).tool_name).toBe('find');
+      expect(Array.isArray((result.response as any).results)).toBe(true);
 
-      const foundFiles = result.response.results;
+      const foundFiles = (result.response as any).results;
       const foundNames = foundFiles.map((f: { path: string }) => path.basename(f.path));
 
       // Should find all .txt files including hidden ones
@@ -484,8 +487,8 @@ describe('E2E Find Operations', () => {
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
 
-      expect(result.response.status).toBe('error');
-      expect(result.response.error_message).toContain('Path not found');
+      expect((result.response as any).status).toBe('error');
+      expect((result.response as any).error_message).toContain('Path not found');
     });
   });
 });

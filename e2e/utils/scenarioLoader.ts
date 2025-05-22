@@ -6,9 +6,22 @@ export interface ToolResult {
   tool_name: string;
   results?: Array<{
     status: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+// Type for assertions
+export interface Assertion {
+  type: string;
+  name?: string;
+  path?: string;
+  expected_content?: string;
+  should_exist?: boolean;
+  archive_path?: string;
+  expected_entries?: string[];
+  setup_path?: string;
+  [key: string]: unknown;
 }
 
 export interface TestScenario {
@@ -74,16 +87,7 @@ export interface TestScenario {
     path: string;
     content?: string;
   }>;
-  assertions?: Array<{
-    type: string;
-    name?: string;
-    path?: string;
-    expected_content?: string;
-    should_exist?: boolean;
-    archive_path?: string;
-    expected_entries?: string[];
-    setup_path?: string;
-  }>;
+  assertions?: Assertion[];
 }
 
 export interface ScenarioFile {

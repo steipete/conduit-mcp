@@ -28,13 +28,13 @@ describe('E2E Test Tool Operations', () => {
       expect(result.response).toHaveLength(2);
 
       // First element should be the info notice
-      const infoNotice = result.response[0];
+      const infoNotice = (result.response as any[])[0];
       expect(infoNotice.type).toBe('info_notice');
       expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
       expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
 
       // Second element should be the actual tool response object
-      const actualToolResponse = result.response[1];
+      const actualToolResponse = (result.response as any[])[1];
       expect(actualToolResponse.tool_name).toBe('test');
       expect(actualToolResponse.results).toBeDefined();
       expect(actualToolResponse.results.status).toBe('success');
@@ -61,10 +61,10 @@ describe('E2E Test Tool Operations', () => {
       expect(result.response).toBeDefined();
 
       // Should be the direct tool response object (no notice)
-      expect(result.response.tool_name).toBe('test');
-      expect(result.response.results).toBeDefined();
-      expect(result.response.results.status).toBe('success');
-      expect(result.response.results.echoed_params).toBe('No notice test');
+      expect((result.response as any).tool_name).toBe('test');
+      expect((result.response as any).results).toBeDefined();
+      expect((result.response as any).results.status).toBe('success');
+      expect((result.response as any).results.echoed_params).toBe('No notice test');
     });
   });
 
