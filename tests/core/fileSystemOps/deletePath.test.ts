@@ -32,7 +32,6 @@ import { deletePath } from '@/core/fileSystemOps';
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
 import { logger } from '@/internal'; // To verify logger calls
 
-
 describe('deletePath', () => {
   const filePath = '/path/to/file.txt';
   const dirPath = '/path/to/dir';
@@ -88,10 +87,7 @@ describe('deletePath', () => {
 
   it('should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false', async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
-    mockFs.readdir.mockResolvedValue([
-      'file1.txt',
-      'file2.txt',
-    ]);
+    mockFs.readdir.mockResolvedValue(['file1.txt', 'file2.txt']);
 
     await expect(deletePath(dirPath, false)).rejects.toThrow(
       expect.objectContaining({
@@ -119,7 +115,7 @@ describe('deletePath', () => {
     expect(mockFs.rm).not.toHaveBeenCalled();
     expect(mockFs.rmdir).not.toHaveBeenCalled();
   });
-  
+
   it('should consider deletion successful if readdir throws ENOENT (directory disappeared)', async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
     const enoentError = new Error('Directory disappeared');
@@ -202,4 +198,4 @@ describe('deletePath', () => {
       );
     }
   });
-}); 
+});

@@ -45,11 +45,11 @@ describe('pathExists', () => {
   });
 
   it('should return false if fs.access throws an error', async () => {
-    mockFs.access.mockImplementation(async () => { 
-      const error = new Error('ENOENT'); 
+    mockFs.access.mockImplementation(async () => {
+      const error = new Error('ENOENT');
       // @ts-expect-error code is readonly
-      error.code = 'ENOENT'; 
-      throw error; 
+      error.code = 'ENOENT';
+      throw error;
     });
     const result = await pathExists('any/path');
     expect(result).toBe(false);

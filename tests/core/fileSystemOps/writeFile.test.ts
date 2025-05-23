@@ -45,7 +45,7 @@ describe('writeFile', () => {
     // Default mock for fs.writeFile and fs.appendFile to succeed
     mockFs.writeFile.mockImplementation(async () => undefined);
     mockFs.appendFile.mockImplementation(async () => undefined);
-    
+
     // Also reset logger mocks if they are used by writeFile SUT and need to be checked per test
     // For now, assuming writeFile SUT doesn't directly log in ways that need per-test verification of logger calls.
     // If it did, logger functions (e.g., logger.info, logger.error) would also need .mockClear() or .mockReset().
@@ -102,31 +102,33 @@ describe('writeFile', () => {
 
   it('should throw ERR_FS_WRITE_FAILED if fs.writeFile fails', async () => {
     const error = new Error('Disk full');
-    mockFs.writeFile.mockImplementation(async () => { throw error; });
-    await expect(writeFile(filePath, textContent, 'text', 'overwrite')).rejects.toThrow(ConduitError);
+    mockFs.writeFile.mockImplementation(async () => {
+      throw error;
+    });
+    await expect(writeFile(filePath, textContent, 'text', 'overwrite')).rejects.toThrow(
+      ConduitError
+    );
     try {
       await writeFile(filePath, textContent, 'text', 'overwrite');
     } catch (e) {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_WRITE_FAILED);
-      expect(err.message).toContain(
-        `Failed to write file: ${filePath}. Error: Disk full`
-      );
+      expect(err.message).toContain(`Failed to write file: ${filePath}. Error: Disk full`);
     }
   });
 
   it('should throw ERR_FS_WRITE_FAILED if fs.appendFile fails', async () => {
     const error = new Error('Permission issue');
-    mockFs.appendFile.mockImplementation(async () => { throw error; });
+    mockFs.appendFile.mockImplementation(async () => {
+      throw error;
+    });
     await expect(writeFile(filePath, textContent, 'text', 'append')).rejects.toThrow(ConduitError);
     try {
       await writeFile(filePath, textContent, 'text', 'append');
     } catch (e) {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_WRITE_FAILED);
-      expect(err.message).toContain(
-        `Failed to write file: ${filePath}. Error: Permission issue`
-      );
+      expect(err.message).toContain(`Failed to write file: ${filePath}. Error: Permission issue`);
     }
   });
-}); 
+});

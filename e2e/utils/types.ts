@@ -14,7 +14,27 @@ export type BufferEncoding =
   | 'binary'
   | 'hex';
 
-// Tool response types
+// MCP JSON-RPC response types
+export interface MCPResponse {
+  jsonrpc: '2.0';
+  id: number | string;
+  result?: unknown;
+  error?: {
+    code: number;
+    message: string;
+    data?: unknown;
+  };
+}
+
+export interface MCPToolCallResult {
+  content: Array<{
+    type: 'text';
+    text: string;
+  }>;
+  isError?: boolean;
+}
+
+// Tool response types (legacy format for compatibility)
 export interface BaseToolResponse {
   tool_name: string;
   status?: 'success' | 'error';
@@ -217,7 +237,11 @@ export function isInfoNotice(obj: unknown): obj is InfoNotice {
 }
 
 export function isToolResponse(obj: unknown): obj is ToolResponse {
-  return typeof obj === 'object' && obj !== null && 'tool_name' in obj;
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    ('tool_name' in obj || ('status' in obj && (obj as { status: unknown }).status === 'error'))
+  );
 }
 
 export function isNoticeResponse(response: unknown): response is [InfoNotice, ToolResponse] {
@@ -252,4 +276,82 @@ export function assertWriteToolResponse(response: unknown): asserts response is 
   if (!isToolResponse(response) || response.tool_name !== 'write') {
     throw new Error('Response is not a WriteToolResponse');
   }
+}
+
+// MCP Response helper functions
+export function isMCPResponse(obj: unknown): obj is MCPResponse {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'jsonrpc' in obj &&
+    (obj as { jsonrpc: unknown }).jsonrpc === '2.0'
+  );
+}
+
+export function isMCPToolCallResult(obj: unknown): obj is MCPToolCallResult {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'content' in obj &&
+    Array.isArray((obj as { content: unknown }).content)
+  );
+}
+
+export function extractMCPResponseData(response: MCPResponse): unknown {
+  if (response.error) {
+    throw new Error(`MCP Error ${response.error.code}: ${response.error.message}`);
+  }
+  return response.result;
+}
+
+export function extractToolResponseFromMCP(mcpResponse: MCPResponse): ToolResponse {
+  const result = extractMCPResponseData(mcpResponse);
+
+  if (isMCPToolCallResult(result)) {
+    // Parse the text content from MCP result
+    const textContent = result.content
+      .filter((item) => item.type === 'text')
+      .map((item) => item.text)
+      .join('\n');
+
+    try {
+      const parsed = JSON.parse(textContent);
+      if (isToolResponse(parsed)) {
+        return parsed;
+      }
+
+      // If it's a notice response, extract the tool response
+      if (isNoticeResponse(parsed)) {
+        return parsed[1];
+      }
+
+      throw new Error('Parsed content is not a valid tool response');
+    } catch (error) {
+      throw new Error(`Failed to parse tool response from MCP content: ${error}`);
+    }
+  }
+
+  throw new Error('MCP result is not a tool call result');
+}
+
+export function extractNoticeFromMCP(mcpResponse: MCPResponse): [InfoNotice, ToolResponse] | null {
+  const result = extractMCPResponseData(mcpResponse);
+
+  if (isMCPToolCallResult(result)) {
+    const textContent = result.content
+      .filter((item) => item.type === 'text')
+      .map((item) => item.text)
+      .join('\n');
+
+    try {
+      const parsed = JSON.parse(textContent);
+      if (isNoticeResponse(parsed)) {
+        return parsed;
+      }
+    } catch (error) {
+      // Ignore parse errors for this helper
+    }
+  }
+
+  return null;
 }

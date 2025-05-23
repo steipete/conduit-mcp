@@ -1,5 +1,15 @@
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
+import {
+  MCPResponse,
+  isMCPResponse,
+  extractToolResponseFromMCP,
+  extractNoticeFromMCP,
+  ToolResponse,
+  InfoNotice,
+  isMCPToolCallResult,
+  extractMCPResponseData,
+} from './types';
 
 export interface E2ETestResult {
   response: unknown;
@@ -105,10 +115,74 @@ export async function runConduitMCPScript(
         // Try to parse the stdout as JSON
         if (stdout.trim()) {
           try {
-            // The server should output a single JSON line
-            const lines = stdout.trim().split('\n');
-            const lastLine = lines[lines.length - 1];
-            parsedResponse = JSON.parse(lastLine);
+            // Parse JSON-RPC responses
+            const lines = stdout
+              .trim()
+              .split('\n')
+              .filter((line) => line.trim());
+
+            // Filter only JSON lines (ignore log messages)
+            const jsonLines = lines.filter((line) => {
+              try {
+                JSON.parse(line);
+                return true;
+              } catch {
+                return false;
+              }
+            });
+
+            const responses = jsonLines.map((line) => JSON.parse(line));
+
+            // Find the tool call response (skip initialize response)
+            const toolCallResponse = responses.find(
+              (resp) => isMCPResponse(resp) && resp.id !== 'initialize' && resp.result !== undefined
+            );
+
+            if (toolCallResponse && isMCPResponse(toolCallResponse)) {
+              try {
+                const result = extractMCPResponseData(toolCallResponse);
+
+                if (isMCPToolCallResult(result)) {
+                  // Parse the JSON text content
+                  const textContent = result.content
+                    .filter((item) => item.type === 'text')
+                    .map((item) => item.text)
+                    .join('\n');
+
+                  const parsedContent = JSON.parse(textContent);
+
+                  // Check if this is a notice response (array with notice + tool response)
+                  if (Array.isArray(parsedContent) && parsedContent.length === 2) {
+                    const [notice, toolResponse] = parsedContent;
+                    if (notice?.type === 'info_notice' && toolResponse?.tool_name) {
+                      // Return as notice response format expected by tests
+                      parsedResponse = [notice, toolResponse];
+                    } else {
+                      // If it's not the expected format, return the array as-is
+                      parsedResponse = parsedContent;
+                    }
+                  } else if (parsedContent?.tool_name) {
+                    // Direct tool response
+                    parsedResponse = parsedContent;
+                  } else {
+                    // Fallback
+                    parsedResponse = parsedContent;
+                  }
+                } else {
+                  // Not a tool call result, return the raw result
+                  parsedResponse = result;
+                }
+              } catch (parseError) {
+                errorMessage = `Failed to parse MCP tool response: ${parseError}. Raw result: ${JSON.stringify(extractMCPResponseData(toolCallResponse))}`;
+              }
+            } else {
+              // Fallback to original behavior for non-MCP responses
+              if (responses.length === 1) {
+                parsedResponse = responses[0];
+              } else {
+                parsedResponse = responses;
+              }
+            }
           } catch (parseError) {
             errorMessage = `Failed to parse server response: ${parseError}. Raw stdout: ${stdout}`;
           }
@@ -121,9 +195,26 @@ export async function runConduitMCPScript(
         });
       });
 
-      // Send the request payload to stdin
-      const requestJson = JSON.stringify(requestPayload) + '\n';
-      serverProcess.stdin?.write(requestJson);
+      // Convert old format request to MCP format if needed
+      const mcpRequest = convertToMCPRequest(requestPayload);
+
+      // For MCP protocol, we need to send multiple requests:
+      // 1. Initialize
+      // 2. Tools/call (for our actual test)
+      const requests = [
+        createMCPRequest('initialize', {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          clientInfo: { name: 'test-client', version: '1.0.0' },
+        }),
+        mcpRequest,
+      ];
+
+      // Send all requests
+      for (const request of requests) {
+        const requestJson = JSON.stringify(request) + '\n';
+        serverProcess.stdin?.write(requestJson);
+      }
       serverProcess.stdin?.end();
     } catch (error) {
       finishTest({
@@ -135,11 +226,45 @@ export async function runConduitMCPScript(
   });
 }
 
+function convertToMCPRequest(oldRequest: any): object {
+  // Check if it's already an MCP request
+  if (oldRequest.jsonrpc && oldRequest.method) {
+    return oldRequest;
+  }
+
+  // Convert old format to MCP format
+  if (oldRequest.tool_name && oldRequest.params) {
+    return createMCPRequest('tools/call', {
+      name: oldRequest.tool_name,
+      arguments: oldRequest.params,
+    });
+  }
+
+  // Fallback - assume it's already properly formatted
+  return oldRequest;
+}
+
 export function createMCPRequest(method: string, params: unknown): object {
+  const id = method === 'initialize' ? 'initialize' : Math.floor(Math.random() * 1000000);
   return {
     jsonrpc: '2.0',
-    id: 1,
+    id,
     method,
     params,
   };
+}
+
+// Helper function to run MCP tool call directly
+export async function runMCPToolCall(
+  toolName: string,
+  toolArgs: unknown,
+  envVars: Record<string, string> = {},
+  options: E2ETestOptions = {}
+): Promise<E2ETestResult> {
+  const mcpRequest = createMCPRequest('tools/call', {
+    name: toolName,
+    arguments: toolArgs,
+  });
+
+  return runConduitMCPScript(mcpRequest, envVars, options);
 }

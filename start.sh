@@ -10,8 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
 
 # Define paths for compiled and source entry points
-DIST_SERVER_JS="$PROJECT_ROOT/dist/server.js" # Anticipated compiled output location
-SRC_SERVER_TS="$PROJECT_ROOT/src/server.ts"   # Main TypeScript source file
+DIST_SERVER_JS="$PROJECT_ROOT/dist/src/mcp-server.js" # Anticipated compiled output location
+SRC_SERVER_TS="$PROJECT_ROOT/src/mcp-server.ts"   # Main TypeScript source file
 
 # Note: The CONDUIT_ALLOWED_PATHS default and its validation is handled by the server application itself.
 # This script no longer needs to check for it, allowing the server to manage the default

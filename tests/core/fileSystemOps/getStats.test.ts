@@ -34,16 +34,23 @@ import type { Stats } from 'fs';
 // mockFs is already imported and used in vi.mock, tests will use it directly.
 
 describe('getStats', () => {
-  const mockStatObjectDefinition = { 
-    isFile: () => true, 
-    isDirectory: () => false, 
-    isSymbolicLink: () => false, 
-    size: 123, 
-    mode: 0o644, 
-    mtime: new Date('2023-01-01T12:00:00.000Z'), 
+  const mockStatObjectDefinition = {
+    isFile: () => true,
+    isDirectory: () => false,
+    isSymbolicLink: () => false,
+    size: 123,
+    mode: 0o644,
+    mtime: new Date('2023-01-01T12:00:00.000Z'),
     birthtime: new Date('2023-01-01T11:00:00.000Z'),
     // Adding all Stats properties for completeness, even if not strictly used by SUT
-    dev: 1, ino: 1, nlink: 1, uid: 1, gid: 1, rdev: 1, blksize: 4096, blocks: 1,
+    dev: 1,
+    ino: 1,
+    nlink: 1,
+    uid: 1,
+    gid: 1,
+    rdev: 1,
+    blksize: 4096,
+    blocks: 1,
     atimeMs: new Date('2023-01-01T12:00:00.000Z').getTime(),
     mtimeMs: new Date('2023-01-01T12:00:00.000Z').getTime(),
     ctimeMs: new Date('2023-01-01T12:00:00.000Z').getTime(),
@@ -104,7 +111,10 @@ describe('getStats', () => {
   });
 
   it('should re-throw ConduitError if fs.stat throws a ConduitError', async () => {
-    const specificConduitError = new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, 'Custom stat error');
+    const specificConduitError = new ConduitError(
+      ErrorCode.ERR_FS_ACCESS_DENIED,
+      'Custom stat error'
+    );
     mockFs.stat.mockImplementation(async () => {
       throw specificConduitError;
     });

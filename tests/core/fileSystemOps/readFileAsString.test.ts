@@ -37,33 +37,34 @@ describe('readFileAsString', () => {
   const defaultFileContent = 'Hello, Conduit!';
   const defaultFileBuffer = Buffer.from(defaultFileContent, 'utf8');
 
-  const createMockStats = (size: number, isDirectory = false): Stats => ({
-    size,
-    isFile: () => !isDirectory,
-    isDirectory: () => isDirectory,
-    isSymbolicLink: () => false,
-    mode: 0o644,
-    mtime: new Date(),
-    birthtime: new Date(),
-    isBlockDevice: () => false, // Added missing properties
-    isCharacterDevice: () => false,
-    isFIFO: () => false,
-    isSocket: () => false,
-    dev: 0,
-    ino: 0,
-    nlink: 0,
-    uid: 0,
-    gid: 0,
-    rdev: 0,
-    blksize: 0,
-    blocks: 0,
-    atimeMs: 0,
-    mtimeMs: 0,
-    ctimeMs: 0,
-    birthtimeMs: 0,
-    atime: new Date(),
-    ctime: new Date(),
-  }) as Stats;
+  const createMockStats = (size: number, isDirectory = false): Stats =>
+    ({
+      size,
+      isFile: () => !isDirectory,
+      isDirectory: () => isDirectory,
+      isSymbolicLink: () => false,
+      mode: 0o644,
+      mtime: new Date(),
+      birthtime: new Date(),
+      isBlockDevice: () => false, // Added missing properties
+      isCharacterDevice: () => false,
+      isFIFO: () => false,
+      isSocket: () => false,
+      dev: 0,
+      ino: 0,
+      nlink: 0,
+      uid: 0,
+      gid: 0,
+      rdev: 0,
+      blksize: 0,
+      blocks: 0,
+      atimeMs: 0,
+      mtimeMs: 0,
+      ctimeMs: 0,
+      birthtimeMs: 0,
+      atime: new Date(),
+      ctime: new Date(),
+    }) as Stats;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -82,7 +83,7 @@ describe('readFileAsString', () => {
       }
       // For readFileAsBuffer, or if no encoding, this would be defaultFileBuffer
       // but readFileAsString specifically asks for utf8.
-      return defaultFileContent; 
+      return defaultFileContent;
     });
   });
 
@@ -96,7 +97,7 @@ describe('readFileAsString', () => {
   it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than configured maxFileReadBytes', async () => {
     const oversizedStat = createMockStats(conduitConfig.maxFileReadBytes + 1);
     mockFs.stat.mockImplementation(async () => oversizedStat);
-    
+
     // SUT will now use its default maxLength, which should come from the mocked conduitConfig
     await expect(readFileAsString(filePath)).rejects.toThrow(ConduitError);
     try {
@@ -184,4 +185,4 @@ describe('readFileAsString', () => {
 
     await expect(readFileAsString(filePath)).rejects.toThrow(specificError);
   });
-}); 
+});

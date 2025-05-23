@@ -606,8 +606,10 @@ export async function createEntryInfo(
         symlinkReadTarget = linkTarget.toString();
         try {
           effectiveStats = await fs.stat(fullPath);
-        } catch (targetStatError: unknown) {
-          logger.debug(`Symlink target ${symlinkReadTarget} for ${fullPath} could not be statted. Using link stats for dates/mode.`);
+        } catch {
+          logger.debug(
+            `Symlink target ${symlinkReadTarget} for ${fullPath} could not be statted. Using link stats for dates/mode.`
+          );
           effectiveStats = lstats;
         }
       } catch (readlinkError: unknown) {

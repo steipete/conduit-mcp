@@ -62,16 +62,30 @@ describe('movePath', () => {
     const destParentPath = path.dirname(destPath);
 
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return undefined; 
-      if (p.toString() === destPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === destParentPath) return undefined; 
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath) return undefined;
+      if (p.toString() === destPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      if (p.toString() === destParentPath) return undefined;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      if (p.toString() === destParentPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourcePath, destPath);
@@ -89,13 +103,20 @@ describe('movePath', () => {
       if (p.toString() === sourcePath) return undefined;
       if (p.toString() === destPath) return undefined; // Dest file exists
       if (p.toString() === destParentPath) return undefined;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destPath) return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Dest is file
-      if (p.toString() === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destPath)
+        return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Dest is file
+      if (p.toString() === destParentPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourcePath, destPath);
@@ -112,14 +133,28 @@ describe('movePath', () => {
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourcePath) return undefined;
       if (p.toString() === destDirPath) return undefined; // Dest dir exists
-      if (p.toString() === finalDestPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; } // Final path no exist
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === finalDestPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      } // Final path no exist
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destDirPath) return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is dir
-      if (p.toString() === finalDestPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destDirPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is dir
+      if (p.toString() === finalDestPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourcePath, destDirPath);
@@ -137,13 +172,20 @@ describe('movePath', () => {
       if (p.toString() === sourcePath) return undefined;
       if (p.toString() === destDirPath) return undefined;
       if (p.toString() === finalDestPath) return undefined; // Final path exists (file)
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destDirPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      if (p.toString() === finalDestPath) return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Final path is file
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destDirPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      if (p.toString() === finalDestPath)
+        return { isDirectory: () => false, isFile: () => true, size: 20 } as Stats; // Final path is file
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourcePath, destDirPath);
@@ -156,32 +198,55 @@ describe('movePath', () => {
     const sourcePath = 'source_for_mkdir_move.txt';
     const destFilePath = 'new_parent_dir_move/sub_dir_move/dest_file.txt';
     const parentOfFinalDest = path.dirname(destFilePath);
-    
+
     let parentDirCreated = false;
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourcePath) return undefined;
-      if (p.toString() === destFilePath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === parentOfFinalDest) { 
-        if (!parentDirCreated) {const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-        else { return undefined; } // Exists after creation
+      if (p.toString() === destFilePath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
       }
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === parentOfFinalDest) {
+        if (!parentDirCreated) {
+          const e = new Error('ENOENT');
+          (e as any).code = 'ENOENT';
+          throw e;
+        } else {
+          return undefined;
+        } // Exists after creation
+      }
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destFilePath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === parentOfFinalDest) {
-        if (!parentDirCreated) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-        else { return { isDirectory: () => true, isFile: () => false } as Stats; } // Is a dir after creation
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destFilePath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
       }
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === parentOfFinalDest) {
+        if (!parentDirCreated) {
+          const e = new Error('ENOENT');
+          (e as any).code = 'ENOENT';
+          throw e;
+        } else {
+          return { isDirectory: () => true, isFile: () => false } as Stats;
+        } // Is a dir after creation
+      }
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.mkdir.mockImplementation(async (p: import('fs').PathLike, options?: any) => {
       if (p.toString() === parentOfFinalDest && options?.recursive) {
         parentDirCreated = true;
         return undefined;
       }
-      throw new Error ('Unexpected mkdir call');
+      throw new Error('Unexpected mkdir call');
     });
 
     await movePath(sourcePath, destFilePath);
@@ -197,15 +262,29 @@ describe('movePath', () => {
 
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourcePath) return undefined;
-      if (p.toString() === destPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
+      if (p.toString() === destPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
       if (p.toString() === destParentPath) return undefined;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      if (p.toString() === destPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      if (p.toString() === destPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      if (p.toString() === destParentPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourcePath, destPath);
@@ -217,15 +296,23 @@ describe('movePath', () => {
   it('should throw ConduitError if source path does not exist for move (rename fails with ENOENT)', async () => {
     const sourcePath = 'non_existent_source_move.txt';
     const destPath = 'dest_for_non_existent_source.txt';
-    
+
     // Simulate source not existing by having access & stat throw for it
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) { const e = new Error('ENOENT source'); (e as any).code='ENOENT'; throw e; }
+      if (p.toString() === sourcePath) {
+        const e = new Error('ENOENT source');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
       // For dest and its parent, they might or might not exist, doesn't change outcome if source is gone
-      return undefined; 
+      return undefined;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) { const e = new Error('ENOENT source'); (e as any).code='ENOENT'; throw e; }
+      if (p.toString() === sourcePath) {
+        const e = new Error('ENOENT source');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
       return { isDirectory: () => false, isFile: () => true } as Stats; // Default for others
     });
 
@@ -251,15 +338,29 @@ describe('movePath', () => {
 
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourcePath) return undefined;
-      if (p.toString() === destPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
+      if (p.toString() === destPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
       if (p.toString() === destParentPath) return undefined;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      if (p.toString() === destParentPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     const renameError = new Error('FS rename permission denied');
     // @ts-expect-error code is readonly
@@ -286,14 +387,28 @@ describe('movePath', () => {
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourcePath) return undefined;
       if (p.toString() === destDirPath) return undefined; // Dest dir exists
-      if (p.toString() === finalDestPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; } // Final path no exist
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === finalDestPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      } // Final path no exist
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourcePath) return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
-      if (p.toString() === destDirPath) return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is dir
-      if (p.toString() === finalDestPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourcePath)
+        return { isDirectory: () => false, isFile: () => true, size: 10 } as Stats;
+      if (p.toString() === destDirPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats; // Dest is dir
+      if (p.toString() === finalDestPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourcePath, destDirPath);
@@ -309,15 +424,29 @@ describe('movePath', () => {
 
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourceDirPath) return undefined;
-      if (p.toString() === destDirPathNonExistent) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
+      if (p.toString() === destDirPathNonExistent) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
       if (p.toString() === destParentPath) return undefined; // Parent exists
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourceDirPath) return { isDirectory: () => true, isFile: () => false } as Stats; // Source is dir
-      if (p.toString() === destDirPathNonExistent) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      if (p.toString() === destParentPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourceDirPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats; // Source is dir
+      if (p.toString() === destDirPathNonExistent) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      if (p.toString() === destParentPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourceDirPath, destDirPathNonExistent);
@@ -333,8 +462,10 @@ describe('movePath', () => {
     mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === sourceDirPath) return undefined;
       if (p.toString() === destFilePath) return undefined; // Target file exists
-      if (p.toString() === destParentPath) return undefined; 
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === destParentPath) return undefined;
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
       const pathStr = p.toString();
@@ -344,7 +475,9 @@ describe('movePath', () => {
       if (pathStr === destFilePath) {
         return { isDirectory: () => false, isFile: () => true } as Stats;
       }
-      const e = new Error(`ENOENT test-specific stat mock for ${pathStr}`); (e as any).code='ENOENT'; throw e;
+      const e = new Error(`ENOENT test-specific stat mock for ${pathStr}`);
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await expect(movePath(sourceDirPath, destFilePath)).rejects.toThrow(ConduitError);
@@ -353,12 +486,14 @@ describe('movePath', () => {
     } catch (e) {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_MOVE_TARGET_IS_FILE_SOURCE_IS_DIR);
-      expect(err.message).toContain(`Cannot move directory ${sourceDirPath} to path ${destFilePath} because target is a file.`);
+      expect(err.message).toContain(
+        `Cannot move directory ${sourceDirPath} to path ${destFilePath} because target is a file.`
+      );
       expect(mockFs.rename).not.toHaveBeenCalled();
       expect(mockFs.unlink).not.toHaveBeenCalled(); // Should not attempt to delete the target file in this case
     }
   });
-  
+
   it('should move source directory into target directory if target is an existing directory', async () => {
     const sourceDirPath = '/source/another_dir_to_move';
     const destDirPathExisting = '/dest/existing_target_directory';
@@ -368,19 +503,32 @@ describe('movePath', () => {
       if (p.toString() === sourceDirPath) return undefined;
       if (p.toString() === destDirPathExisting) return undefined; // Target dir exists
       // The path where source dir would land *inside* target dir should not exist before move
-      if (p.toString() === finalDestPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === finalDestPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourceDirPath) return { isDirectory: () => true, isFile: () => false } as Stats;
-      if (p.toString() === destDirPathExisting) return { isDirectory: () => true, isFile: () => false } as Stats; // Target is dir
-      if (p.toString() === finalDestPath) { const e = new Error('ENOENT'); (e as any).code='ENOENT'; throw e; }
-      const e = new Error('ENOENT default'); (e as any).code='ENOENT'; throw e;
+      if (p.toString() === sourceDirPath)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      if (p.toString() === destDirPathExisting)
+        return { isDirectory: () => true, isFile: () => false } as Stats; // Target is dir
+      if (p.toString() === finalDestPath) {
+        const e = new Error('ENOENT');
+        (e as any).code = 'ENOENT';
+        throw e;
+      }
+      const e = new Error('ENOENT default');
+      (e as any).code = 'ENOENT';
+      throw e;
     });
 
     await movePath(sourceDirPath, destDirPathExisting);
     expect(mockFs.unlink).not.toHaveBeenCalled();
     expect(mockFs.rename).toHaveBeenCalledWith(sourceDirPath, finalDestPath);
   });
-
-}); 
+});

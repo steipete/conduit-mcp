@@ -37,33 +37,34 @@ describe('readFileAsBuffer', () => {
   const filePath = 'test.bin';
   const defaultFileBuffer = Buffer.from([0x01, 0x02, 0x03, 0x04]);
 
-  const createMockStats = (size: number, isDirectory = false): Stats => ({
-    size,
-    isFile: () => !isDirectory,
-    isDirectory: () => isDirectory,
-    isSymbolicLink: () => false,
-    mode: 0o644,
-    mtime: new Date(),
-    birthtime: new Date(),
-    isBlockDevice: () => false,
-    isCharacterDevice: () => false,
-    isFIFO: () => false,
-    isSocket: () => false,
-    dev: 0,
-    ino: 0,
-    nlink: 0,
-    uid: 0,
-    gid: 0,
-    rdev: 0,
-    blksize: 0,
-    blocks: 0,
-    atimeMs: 0,
-    mtimeMs: 0,
-    ctimeMs: 0,
-    birthtimeMs: 0,
-    atime: new Date(),
-    ctime: new Date(),
-  }) as Stats;
+  const createMockStats = (size: number, isDirectory = false): Stats =>
+    ({
+      size,
+      isFile: () => !isDirectory,
+      isDirectory: () => isDirectory,
+      isSymbolicLink: () => false,
+      mode: 0o644,
+      mtime: new Date(),
+      birthtime: new Date(),
+      isBlockDevice: () => false,
+      isCharacterDevice: () => false,
+      isFIFO: () => false,
+      isSocket: () => false,
+      dev: 0,
+      ino: 0,
+      nlink: 0,
+      uid: 0,
+      gid: 0,
+      rdev: 0,
+      blksize: 0,
+      blocks: 0,
+      atimeMs: 0,
+      mtimeMs: 0,
+      ctimeMs: 0,
+      birthtimeMs: 0,
+      atime: new Date(),
+      ctime: new Date(),
+    }) as Stats;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,7 +82,7 @@ describe('readFileAsBuffer', () => {
   it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than configured maxFileReadBytes', async () => {
     const oversizedStat = createMockStats(conduitConfig.maxFileReadBytes + 1);
     mockFs.stat.mockImplementation(async () => oversizedStat);
-    
+
     // SUT will now use its default maxLength from the mocked conduitConfig
     await expect(readFileAsBuffer(filePath)).rejects.toThrow(ConduitError);
     try {
@@ -162,11 +163,14 @@ describe('readFileAsBuffer', () => {
   });
 
   it('should re-throw ConduitError if getStats throws it', async () => {
-    const specificError = new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, 'Stat failed for buffer read');
+    const specificError = new ConduitError(
+      ErrorCode.ERR_FS_ACCESS_DENIED,
+      'Stat failed for buffer read'
+    );
     mockFs.stat.mockImplementation(async () => {
       throw specificError;
     });
 
     await expect(readFileAsBuffer(filePath)).rejects.toThrow(specificError);
   });
-}); 
+});

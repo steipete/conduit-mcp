@@ -33,7 +33,6 @@ import { copyPath } from '@/core/fileSystemOps';
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
 import { conduitConfig, logger } from '@/internal'; // For test logic (conduitConfig) and logger verification
 
-
 describe('copyPath', () => {
   const sourceFile = '/src/file.txt';
   const sourceDir = '/src/dir';
@@ -57,13 +56,14 @@ describe('copyPath', () => {
 
   it('should copy a file to a new file path', async () => {
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourceFile) return { isDirectory: () => false, isFile: () => true } as Stats;
+      if (p.toString() === sourceFile)
+        return { isDirectory: () => false, isFile: () => true } as Stats;
       if (p.toString() === destFile) {
-        const error = new Error('ENOENT'); 
+        const error = new Error('ENOENT');
         // @ts-expect-error code is readonly
-        error.code = 'ENOENT'; 
+        error.code = 'ENOENT';
         throw error;
-      } 
+      }
       return { isDirectory: () => false, isFile: () => false } as Stats; // default for others
     });
 
@@ -78,8 +78,10 @@ describe('copyPath', () => {
 
   it('should copy a file into an existing directory', async () => {
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourceFile) return { isDirectory: () => false, isFile: () => true } as Stats;
-      if (p.toString() === destDir) return { isDirectory: () => true, isFile: () => false } as Stats;
+      if (p.toString() === sourceFile)
+        return { isDirectory: () => false, isFile: () => true } as Stats;
+      if (p.toString() === destDir)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
       return { isDirectory: () => false, isFile: () => false } as Stats;
     });
     const expectedDestPath = path.join(destDir, path.basename(sourceFile));
@@ -95,13 +97,14 @@ describe('copyPath', () => {
 
   it('should copy a directory to a new directory path', async () => {
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-       if (p.toString() === sourceDir) return { isDirectory: () => true, isFile: () => false } as Stats;
-       // For copying a directory, the destination path itself (destDir) might not be stat'd if it doesn't exist,
-       // fs.cp handles this. If it does exist and is a file, fs.cp would error (not tested here, assume new path).
-       const error = new Error('ENOENT'); 
-       // @ts-expect-error code is readonly
-       error.code = 'ENOENT'; 
-       throw error;
+      if (p.toString() === sourceDir)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      // For copying a directory, the destination path itself (destDir) might not be stat'd if it doesn't exist,
+      // fs.cp handles this. If it does exist and is a file, fs.cp would error (not tested here, assume new path).
+      const error = new Error('ENOENT');
+      // @ts-expect-error code is readonly
+      error.code = 'ENOENT';
+      throw error;
     });
 
     await copyPath(sourceDir, destDir);
@@ -113,13 +116,13 @@ describe('copyPath', () => {
     const nonExistentSource = '/test/non_existent_source.txt';
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
       if (p.toString() === nonExistentSource) {
-        const error = new Error('ENOENT'); 
+        const error = new Error('ENOENT');
         // @ts-expect-error code is readonly
-        error.code = 'ENOENT'; 
+        error.code = 'ENOENT';
         throw error;
       }
       // Mock for destFile existing or not, doesn't matter as source fails first
-      return { isDirectory: () => false, isFile: () => true } as Stats; 
+      return { isDirectory: () => false, isFile: () => true } as Stats;
     });
 
     await expect(copyPath(nonExistentSource, destFile)).rejects.toThrow(ConduitError);
@@ -136,7 +139,7 @@ describe('copyPath', () => {
     mockFs.stat.mockResolvedValue({ isDirectory: () => false, isFile: () => true } as Stats); // Source stat succeeds
     const cpError = new Error('Copy failed due to disk space');
     mockFs.cp.mockRejectedValue(cpError);
-    
+
     await expect(copyPath(sourceFile, destFile)).rejects.toThrow(ConduitError);
     try {
       await copyPath(sourceFile, destFile);
@@ -152,11 +155,13 @@ describe('copyPath', () => {
   it('should copy a file to a file, overwriting destination', async () => {
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
       const pathStr = p.toString();
-      if (pathStr === sourceFile) return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
-      if (pathStr === destFile) return { isDirectory: () => false, isFile: () => true, size: 200 } as Stats; // Dest exists
-      const error = new Error('ENOENT'); 
+      if (pathStr === sourceFile)
+        return { isDirectory: () => false, isFile: () => true, size: 100 } as Stats;
+      if (pathStr === destFile)
+        return { isDirectory: () => false, isFile: () => true, size: 200 } as Stats; // Dest exists
+      const error = new Error('ENOENT');
       // @ts-expect-error code is readonly
-      error.code = 'ENOENT'; 
+      error.code = 'ENOENT';
       throw error;
     });
     await copyPath(sourceFile, destFile);
@@ -169,11 +174,13 @@ describe('copyPath', () => {
   it('should copy a directory into an existing directory (destination is a dir)', async () => {
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
       const pathStr = p.toString();
-      if (pathStr === sourceDir) return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
-      if (pathStr === destDir) return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
-      const error = new Error('ENOENT'); 
+      if (pathStr === sourceDir)
+        return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
+      if (pathStr === destDir)
+        return { isDirectory: () => true, isFile: () => false, size: 0 } as Stats;
+      const error = new Error('ENOENT');
       // @ts-expect-error code is readonly
-      error.code = 'ENOENT'; 
+      error.code = 'ENOENT';
       throw error;
     });
     // fs.cp handles copying sourceDir *into* destDir when destDir exists and is a directory.
@@ -188,11 +195,13 @@ describe('copyPath', () => {
   // Test case for when destination is a file and source is a directory
   it('should throw ERR_FS_COPY_FAILED when source is directory and destination is an existing file', async () => {
     mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
-      if (p.toString() === sourceDir) return { isDirectory: () => true, isFile: () => false } as Stats;
-      if (p.toString() === destFile) return { isDirectory: () => false, isFile: () => true } as Stats; // Dest is a file
-      const error = new Error('ENOENT'); 
+      if (p.toString() === sourceDir)
+        return { isDirectory: () => true, isFile: () => false } as Stats;
+      if (p.toString() === destFile)
+        return { isDirectory: () => false, isFile: () => true } as Stats; // Dest is a file
+      const error = new Error('ENOENT');
       // @ts-expect-error code is readonly
-      error.code = 'ENOENT'; 
+      error.code = 'ENOENT';
       throw error;
     });
 
@@ -211,4 +220,4 @@ describe('copyPath', () => {
       expect(err.message).toContain(`Failed to copy: ${sourceDir} to ${destFile}.`);
     }
   });
-}); 
+});

@@ -34,11 +34,11 @@ Just tell your MCP client about your new digital pet:
 ```json
 {
   "mcpServers": {
-    "conduit_mcp": {
+    "conduit": {
       "command": "npx",
       "args": ["-y", "@steipete/conduit-mcp@beta"],
       "env": {
-        "CONDUIT_ALLOWED_PATHS": "~/Documents:~/Projects",
+        "CONDUIT_ALLOWED_PATHS": "~/Documents:~/Projects:/tmp",
         "LOG_LEVEL": "INFO"
       }
     }

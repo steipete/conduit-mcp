@@ -14,9 +14,9 @@ vi.mock('fs/promises', () => ({
 vi.mock('@/internal', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/internal')>();
   // REMOVE re-assignments here as they are now imported and already vi.fn()
-  // mockGetMimeType = vi.fn(); 
+  // mockGetMimeType = vi.fn();
   // mockFormatToISO8601UTC = vi.fn((date: Date) => date.toISOString());
-  
+
   return {
     ...original,
     conduitConfig: mockConduitConfig,
@@ -145,7 +145,8 @@ describe('createEntryInfo', () => {
   it('should create EntryInfo for a symlink to a file correctly', async () => {
     const symlinkPath = '/test/link-to-file.txt';
     const targetPath = '/target/file.txt';
-    const symlinkLstats = { // Stats from lstat (the link itself)
+    const symlinkLstats = {
+      // Stats from lstat (the link itself)
       isFile: () => false, // lstat says symlink is not a file
       isDirectory: () => false, // lstat says symlink is not a directory
       isSymbolicLink: () => true,
@@ -156,7 +157,8 @@ describe('createEntryInfo', () => {
       mode: 0o120777, // Symlink mode
     } as Stats;
 
-    const targetFileStats = { // Stats from stat (the target file)
+    const targetFileStats = {
+      // Stats from stat (the target file)
       isFile: () => true,
       isDirectory: () => false,
       isSymbolicLink: () => false, // Target is not a symlink
@@ -187,7 +189,7 @@ describe('createEntryInfo', () => {
       path: symlinkPath,
       type: 'symlink',
       size_bytes: undefined, // Undefined because it's a symlink
-      mime_type: undefined,  // Undefined because it's a symlink
+      mime_type: undefined, // Undefined because it's a symlink
       created_at: formattedDate, // Based on effectiveStats (targetFileStats for dates)
       modified_at: formattedDate,
       last_accessed_at: formattedDate,
@@ -212,11 +214,12 @@ describe('createEntryInfo', () => {
 
     mockFs.lstat.mockResolvedValue(symlinkLstats);
     mockFs.readlink.mockResolvedValue(nonExistentTarget);
-    const enoentError = new Error('ENOENT: Target not found'); (enoentError as any).code = 'ENOENT';
+    const enoentError = new Error('ENOENT: Target not found');
+    (enoentError as any).code = 'ENOENT';
     mockFs.stat.mockRejectedValue(enoentError); // fs.stat on broken symlink fails
 
     // When fs.stat fails for a symlink target, SUT uses lstat results for dates/mode.
-    const entryInfo = await createEntryInfo(brokenLinkPath, symlinkLstats); 
+    const entryInfo = await createEntryInfo(brokenLinkPath, symlinkLstats);
 
     expect(mockFs.lstat).toHaveBeenCalledWith(brokenLinkPath);
     expect(mockFs.readlink).toHaveBeenCalledWith(brokenLinkPath, { encoding: 'utf8' });
@@ -270,14 +273,14 @@ describe('createEntryInfo', () => {
       birthtime: now,
       mtime: now,
       atime: now,
-      mode: 0o100644, 
+      mode: 0o100644,
     } as Stats;
 
     mockFs.lstat.mockResolvedValue(zeroByteStats);
     mockGetMimeType.mockResolvedValueOnce('application/x-empty'); // Specific mime for empty
 
     const entryInfo = await createEntryInfo(filePath, zeroByteStats);
-    
+
     expect(mockGetMimeType).toHaveBeenCalledWith(filePath);
     expect(entryInfo).toEqual({
       name: 'empty.txt',
@@ -295,7 +298,8 @@ describe('createEntryInfo', () => {
 
   it('should throw OPERATION_FAILED if lstat fails (not ENOENT)', async () => {
     const filePath = '/test/permission_denied_lstat.txt';
-    const permError = new Error('EACCES: Permission denied'); (permError as any).code = 'EACCES';
+    const permError = new Error('EACCES: Permission denied');
+    (permError as any).code = 'EACCES';
     mockFs.lstat.mockRejectedValue(permError);
     // SUT's createEntryInfo passes its own statsParam to itself, which is not used if lstat fails early.
     // So we can pass a dummy stats object here for the statsParam argument of createEntryInfo.
@@ -307,18 +311,27 @@ describe('createEntryInfo', () => {
     } catch (e) {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.OPERATION_FAILED);
-      expect(err.message).toContain(`Could not get entry info for ${filePath}. Error: ${permError.message}`);
+      expect(err.message).toContain(
+        `Could not get entry info for ${filePath}. Error: ${permError.message}`
+      );
     }
   });
 
   it('should throw OPERATION_FAILED if readlink fails for a symlink (not ENOENT)', async () => {
     const symlinkPath = '/test/permission_denied_readlink.link';
     const symlinkLstats = {
-      isFile: () => false, isDirectory: () => false, isSymbolicLink: () => true,
-      size: 10, birthtime: now, mtime: now, atime: now, mode: 0o120777,
+      isFile: () => false,
+      isDirectory: () => false,
+      isSymbolicLink: () => true,
+      size: 10,
+      birthtime: now,
+      mtime: now,
+      atime: now,
+      mode: 0o120777,
     } as Stats;
     mockFs.lstat.mockResolvedValue(symlinkLstats);
-    const permError = new Error('EACCES: Readlink permission denied'); (permError as any).code = 'EACCES';
+    const permError = new Error('EACCES: Readlink permission denied');
+    (permError as any).code = 'EACCES';
     mockFs.readlink.mockRejectedValue(permError);
     // fs.stat for the symlink target would not be called if readlink fails this way.
 
@@ -329,8 +342,9 @@ describe('createEntryInfo', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.OPERATION_FAILED);
       // The error message should now match the specific throw from the readlink catch block
-      expect(err.message).toBe(`Failed to read symlink target for ${symlinkPath}. Error: ${permError.message}`);
+      expect(err.message).toBe(
+        `Failed to read symlink target for ${symlinkPath}. Error: ${permError.message}`
+      );
     }
   });
-
-}); 
+});

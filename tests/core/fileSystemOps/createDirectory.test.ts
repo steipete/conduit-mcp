@@ -44,13 +44,15 @@ describe('createDirectory', () => {
     // but might be by internal pathExists or if path exists.
     mockFs.access.mockImplementation(async (pathToCheck) => {
       // Simulate ENOENT (path does not exist)
-      const error = new Error(`ENOENT: no such file or directory, access '${pathToCheck as string}'`);
+      const error = new Error(
+        `ENOENT: no such file or directory, access '${pathToCheck as string}'`
+      );
       // @ts-expect-error code is readonly
       error.code = 'ENOENT';
       throw error;
     });
     mockFs.mkdir.mockImplementation(async () => undefined); // Default success
-    mockFs.stat.mockImplementation(async (pathToStat) => { 
+    mockFs.stat.mockImplementation(async (pathToStat) => {
       // Default stat mock: if needed, specific tests will override
       // This could simulate a file or directory if a test needs pathExists to return true then checks type
       const error = new Error(`ENOENT: no such file or directory, stat '${pathToStat as string}'`);
@@ -77,10 +79,13 @@ describe('createDirectory', () => {
   it('should be idempotent and log debug if directory already exists', async () => {
     // Mock pathExists to return true and getStats to show it's a directory
     mockFs.access.mockImplementation(async () => undefined); // pathExists will return true
-    mockFs.stat.mockImplementation(async () => ({
-      isDirectory: () => true,
-      isFile: () => false,
-    } as Stats));
+    mockFs.stat.mockImplementation(
+      async () =>
+        ({
+          isDirectory: () => true,
+          isFile: () => false,
+        }) as Stats
+    );
 
     await expect(createDirectory(dirPath)).resolves.toBeUndefined();
     expect(logger.debug).toHaveBeenCalledWith(
@@ -92,10 +97,13 @@ describe('createDirectory', () => {
   it('should throw ERR_FS_PATH_IS_FILE when path exists but is a file', async () => {
     // Mock pathExists to return true and getStats to show it's a file
     mockFs.access.mockImplementation(async () => undefined); // pathExists will return true
-    mockFs.stat.mockImplementation(async () => ({
-      isDirectory: () => false,
-      isFile: () => true,
-    } as Stats));
+    mockFs.stat.mockImplementation(
+      async () =>
+        ({
+          isDirectory: () => false,
+          isFile: () => true,
+        }) as Stats
+    );
 
     await expect(createDirectory(dirPath)).rejects.toThrow(ConduitError);
     try {
@@ -114,7 +122,9 @@ describe('createDirectory', () => {
     const mkdirError = new Error('Permission denied');
     // @ts-expect-error code is readonly
     mkdirError.code = 'EACCES';
-    mockFs.mkdir.mockImplementation(async () => { throw mkdirError; });
+    mockFs.mkdir.mockImplementation(async () => {
+      throw mkdirError;
+    });
 
     await expect(createDirectory(dirPath)).rejects.toThrow(ConduitError);
     try {
@@ -127,4 +137,4 @@ describe('createDirectory', () => {
       );
     }
   });
-}); 
+});

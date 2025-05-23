@@ -36,7 +36,6 @@ import { logger } from '@/internal'; // For logger verification
 // ConduitError and ErrorCode are not directly asserted in these tests, but might be useful for future extensions
 // import { ConduitError, ErrorCode } from '@/utils/errorHandler';
 
-
 describe('calculateRecursiveDirectorySize', () => {
   const baseDir = '/base';
   let startTime: number;
@@ -214,7 +213,9 @@ describe('calculateRecursiveDirectorySize', () => {
     );
     expect(result.size).toBe(0); // Size from sub_causes_timeout not added as it timed out
     expect(result.note).toBe('Calculation timed out due to server limit');
-    expect(mockFs.readdir).toHaveBeenCalledWith(path.join(baseDir, 'sub_causes_timeout'), { withFileTypes: true });
+    expect(mockFs.readdir).toHaveBeenCalledWith(path.join(baseDir, 'sub_causes_timeout'), {
+      withFileTypes: true,
+    });
     expect(mockFs.stat).not.toHaveBeenCalled(); // No files within sub_causes_timeout are stat'd
   });
 
@@ -230,7 +231,9 @@ describe('calculateRecursiveDirectorySize', () => {
     expect(result.size).toBe(0);
     expect(result.note).toBe('Error during size calculation');
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining(`Error reading directory ${baseDir} for recursive size calculation: Error: Read dir permission denied`)
+      expect.stringContaining(
+        `Error reading directory ${baseDir} for recursive size calculation: Error: Read dir permission denied`
+      )
     );
   });
 
@@ -261,10 +264,12 @@ describe('calculateRecursiveDirectorySize', () => {
     expect(result.size).toBe(100); // 70 + 30, file_stat_error.txt is skipped
     expect(result.note).toBeUndefined(); // No overall error note, just a warning
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining(`Could not stat file ${path.join(baseDir, 'file_stat_error.txt')} during recursive size calculation: Error: Stat failed for this file`)
+      expect.stringContaining(
+        `Could not stat file ${path.join(baseDir, 'file_stat_error.txt')} during recursive size calculation: Error: Stat failed for this file`
+      )
     );
     expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file_ok.txt'));
     expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file_stat_error.txt'));
     expect(mockFs.stat).toHaveBeenCalledWith(path.join(baseDir, 'file_after_error.txt'));
   });
-}); 
+});

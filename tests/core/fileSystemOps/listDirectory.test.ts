@@ -77,9 +77,7 @@ describe('listDirectory', () => {
     } catch (e) {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_PATH_IS_FILE);
-      expect(err.message).toContain(
-        `Path is a file, not a directory: ${fileAsDirPath}`
-      );
+      expect(err.message).toContain(`Path is a file, not a directory: ${fileAsDirPath}`);
     }
   });
 
@@ -89,7 +87,7 @@ describe('listDirectory', () => {
       code: 'EACCES',
     }) as NodeJS.ErrnoException;
     mockFs.readdir.mockRejectedValue(error);
-    
+
     await expect(listDirectory(anotherDirPath)).rejects.toThrow(ConduitError);
     try {
       await listDirectory(anotherDirPath);
@@ -101,4 +99,4 @@ describe('listDirectory', () => {
       );
     }
   });
-}); 
+});

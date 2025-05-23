@@ -91,7 +91,14 @@ describe('E2E Test Tool Operations', () => {
             expect(actualToolResponse).toEqual(scenario.expected_stdout);
           }
         } else {
-          expect(result.response).toEqual(scenario.expected_stdout);
+          // For scenarios that expect no notice, but might still receive one due to
+          // CONDUIT_ALLOWED_PATHS not being set, extract just the tool response
+          if (isNoticeResponse(result.response)) {
+            const [, actualToolResponse] = result.response;
+            expect(actualToolResponse).toEqual(scenario.expected_stdout);
+          } else {
+            expect(result.response).toEqual(scenario.expected_stdout);
+          }
         }
       });
     });

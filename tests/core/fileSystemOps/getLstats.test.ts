@@ -34,16 +34,23 @@ import type { Stats } from 'fs';
 // mockFs is already imported and used in vi.mock, tests will use it directly.
 
 describe('getLstats', () => {
-  const mockLstatObjectDefinition = { 
-    isFile: () => false, 
-    isDirectory: () => false, 
+  const mockLstatObjectDefinition = {
+    isFile: () => false,
+    isDirectory: () => false,
     isSymbolicLink: () => true, // Key difference for lstat
-    size: 456, 
+    size: 456,
     mode: 0o777, // Different mode for symlink example
-    mtime: new Date('2023-02-02T10:00:00.000Z'), 
+    mtime: new Date('2023-02-02T10:00:00.000Z'),
     birthtime: new Date('2023-02-02T09:00:00.000Z'),
     // Adding all Stats properties for completeness
-    dev: 1, ino: 1, nlink: 1, uid: 1, gid: 1, rdev: 1, blksize: 4096, blocks: 1,
+    dev: 1,
+    ino: 1,
+    nlink: 1,
+    uid: 1,
+    gid: 1,
+    rdev: 1,
+    blksize: 4096,
+    blocks: 1,
     atimeMs: new Date('2023-02-02T10:00:00.000Z').getTime(),
     mtimeMs: new Date('2023-02-02T10:00:00.000Z').getTime(),
     ctimeMs: new Date('2023-02-02T10:00:00.000Z').getTime(),
@@ -104,7 +111,10 @@ describe('getLstats', () => {
   });
 
   it('should re-throw ConduitError if fs.lstat throws a ConduitError', async () => {
-    const specificConduitError = new ConduitError(ErrorCode.ERR_FS_ACCESS_DENIED, 'Custom lstat error');
+    const specificConduitError = new ConduitError(
+      ErrorCode.ERR_FS_ACCESS_DENIED,
+      'Custom lstat error'
+    );
     mockFs.lstat.mockImplementation(async () => {
       throw specificConduitError;
     });
