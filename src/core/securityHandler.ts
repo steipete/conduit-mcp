@@ -70,8 +70,28 @@ export async function validateAndResolvePath(
 
   // 3. Handle creation vs. existing path validation
   if (forCreation) {
-    // For creation operations, validate the parent directory
+    // For creation operations, first check if the target path itself is allowed
+    // This handles cases like extracting to ~/Desktop where the target is an allowed directory
+    if (checkAllowed && isPathAllowed(targetAbsolutePath, conduitConfig.resolvedAllowedPaths)) {
+      return targetAbsolutePath;
+    }
+
+    // If target itself isn't directly allowed, validate the parent directory
     const parentDir = path.dirname(targetAbsolutePath);
+
+    // Skip parent validation if parent is the same as target (root directory case)
+    if (parentDir === targetAbsolutePath) {
+      if (checkAllowed && !isPathAllowed(targetAbsolutePath, conduitConfig.resolvedAllowedPaths)) {
+        logger.warn(
+          `[securityHandler] Root directory access denied for creation: ${originalPath}`
+        );
+        throw new ConduitError(
+          ErrorCode.ERR_FS_PERMISSION_DENIED,
+          `Access to root directory is denied: ${originalPath}`
+        );
+      }
+      return targetAbsolutePath;
+    }
 
     // Parent directory must exist and be resolved via realpath
     let realParentPath: string;

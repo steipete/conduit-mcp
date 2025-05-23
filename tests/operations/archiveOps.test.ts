@@ -517,5 +517,128 @@ describe('archiveOps', () => {
       const errorResult = result as ArchiveTool.ArchiveResultError;
       expect(errorResult.error_code).toBe(ErrorCode.ERR_ARCHIVE_EXTRACTION_FAILED);
     });
+
+    it('should return error if extraction fails due to permission denied', async () => {
+      const result = await extractArchive(baseZipParams, mockedConfig);
+      expect(result.status).toBe('error');
+      expect(result.error_code).toBe(ErrorCode.ERR_FS_PERMISSION_DENIED);
+    });
+  });
+
+  // Test for the archive extraction fix - ensure extraction to allowed directories works
+  describe('archive extraction to allowed directories', () => {
+    it('should allow extraction to a directory that is directly in allowed paths (Desktop scenario)', async () => {
+      const testArchivePath = '/test/workspace/test.zip';
+      const testDestinationPath = '/allowed/Desktop'; // Simulating ~/Desktop extraction
+      
+      // Add the destination to allowed paths to simulate the real scenario
+      mockConfig.allowedPaths = [...mockConfig.allowedPaths, testDestinationPath];
+      mockConfig.resolvedAllowedPaths = [...mockConfig.resolvedAllowedPaths, testDestinationPath];
+
+      // Mock archive file exists
+      mockedFsExtra.pathExists.mockImplementation(async (p) => {
+        if (String(p) === testArchivePath) return true;
+        if (String(p) === testDestinationPath) return false; // Destination doesn't exist yet
+        return false;
+      });
+
+      // Mock archive extraction (using ZIP)
+      mockExtractAllTo.mockImplementation(() => {});
+
+      const params: ArchiveTool.ExtractArchiveParams = {
+        archive_path: testArchivePath,
+        destination_path: testDestinationPath,
+        archive_type: 'zip',
+        options: { overwrite: true },
+      };
+
+      const result = await extractArchive(params, mockConfig);
+
+      expect(result.status).toBe('success');
+      expect(result.operation).toBe('extract');
+      expect(result.archive_path).toBe(testArchivePath);
+      expect(result.destination_path).toBe(testDestinationPath);
+
+      // Verify that validateAndResolvePath was called for the destination
+      expect(mockedValidateAndResolvePath).toHaveBeenCalledWith(
+        testDestinationPath,
+        { forCreation: true, checkAllowed: true }
+      );
+
+      // Verify extraction was called
+      expect(mockExtractAllTo).toHaveBeenCalledWith(testDestinationPath, true);
+
+      // Restore allowed paths
+      mockConfig.allowedPaths = mockConfig.allowedPaths.filter(p => p !== testDestinationPath);
+      mockConfig.resolvedAllowedPaths = mockConfig.resolvedAllowedPaths.filter(p => p !== testDestinationPath);
+    });
+
+    it('should allow extraction with tilde expansion to allowed directory', async () => {
+      const testArchivePath = '/test/workspace/test.tar.gz';
+      const testDestinationPath = '~/Documents'; // Tilde path that should expand to allowed directory
+      const expandedDestinationPath = '/allowed/home/Documents';
+      
+      // Add the expanded destination to allowed paths
+      mockConfig.allowedPaths = [...mockConfig.allowedPaths, expandedDestinationPath];
+      mockConfig.resolvedAllowedPaths = [...mockConfig.resolvedAllowedPaths, expandedDestinationPath];
+
+      // Mock tilde expansion in validateAndResolvePath
+      mockedValidateAndResolvePath.mockImplementation(async (inputPath: string, options?: unknown) => {
+        if (inputPath === testDestinationPath) {
+          return expandedDestinationPath; // Simulate tilde expansion
+        }
+        if (path.isAbsolute(inputPath)) {
+          return inputPath;
+        }
+        return path.resolve(mockConfig.workspaceRoot, inputPath);
+      });
+
+      // Mock archive file exists
+      mockedFsExtra.pathExists.mockImplementation(async (p) => {
+        if (String(p) === testArchivePath) return true;
+        if (String(p) === expandedDestinationPath) return false;
+        return false;
+      });
+
+      // Mock tar extraction
+      mockedTarExtract.mockResolvedValueOnce(undefined);
+
+      const params: ArchiveTool.ExtractArchiveParams = {
+        archive_path: testArchivePath,
+        destination_path: testDestinationPath,
+        archive_type: 'tar.gz',
+        options: { overwrite: true },
+      };
+
+      const result = await extractArchive(params, mockConfig);
+
+      expect(result.status).toBe('success');
+      expect(result.operation).toBe('extract');
+      expect(result.destination_path).toBe(testDestinationPath); // Original path in response
+
+      // Verify that validateAndResolvePath was called with the tilde path
+      expect(mockedValidateAndResolvePath).toHaveBeenCalledWith(
+        testDestinationPath,
+        { forCreation: true, checkAllowed: true }
+      );
+
+      // Verify extraction was called with the expanded path
+      expect(mockedTarExtract).toHaveBeenCalledWith({
+        file: testArchivePath,
+        cwd: expandedDestinationPath,
+      });
+
+      // Restore allowed paths and mocks
+      mockConfig.allowedPaths = mockConfig.allowedPaths.filter(p => p !== expandedDestinationPath);
+      mockConfig.resolvedAllowedPaths = mockConfig.resolvedAllowedPaths.filter(p => p !== expandedDestinationPath);
+      mockedValidateAndResolvePath.mockImplementation(
+        async (inputPath: string, _options?: unknown) => {
+          if (path.isAbsolute(inputPath)) {
+            return inputPath;
+          }
+          return path.resolve(mockConfig.workspaceRoot, inputPath);
+        }
+      );
+    });
   });
 });

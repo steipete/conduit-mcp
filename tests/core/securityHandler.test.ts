@@ -358,28 +358,34 @@ describe('securityHandler', () => {
     // Tests for the new forCreation option
     describe('forCreation option', () => {
       it('should validate parent directory for creation and return target path', async () => {
-        const userPath = '/allowed/path1/newfile.txt';
-        // Mock parent directory exists
+        // This test validates the scenario where the target file itself is NOT in allowed paths,
+        // but the parent directory IS allowed after realpath resolution
+        const userPath = '/unallowed/path/newfile.txt'; // Not directly in allowed paths
+        // Don't add this path to allowed paths initially
+        
+        // Mock parent directory exists and resolves to an allowed path
         mockFs.realpath.mockImplementation(async (p: PathLike) => {
           const pStr = p.toString();
-          if (pStr === '/allowed/path1') return '/allowed/path1'; // Parent exists
+          if (pStr === '/unallowed/path') return '/allowed/path1'; // Parent resolves to allowed path
           throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); // File doesn't exist
         });
 
         const resolved = await validateAndResolvePath(userPath, { forCreation: true });
         expect(resolved).toBe(path.resolve(userPath));
-        expect(mockFs.realpath).toHaveBeenCalledWith('/allowed/path1');
+        expect(mockFs.realpath).toHaveBeenCalledWith('/unallowed/path');
       });
 
       it('should throw ERR_FS_DIR_NOT_FOUND if parent directory does not exist', async () => {
-        const userPath = '/allowed/path1/subdir/newfile.txt';
+        const userPath = '/nonexistent/parent/newfile.txt'; // Use a path not in allowed paths
+        // Don't add to allowed paths so parent validation is triggered
+        
         // Mock parent directory doesn't exist
         mockFs.realpath.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
         await expect(validateAndResolvePath(userPath, { forCreation: true })).rejects.toThrow(
           new ConduitError(
             ErrorCode.ERR_FS_DIR_NOT_FOUND,
-            `Parent directory not found for creation: ${userPath} (parent: /allowed/path1/subdir)`
+            `Parent directory not found for creation: ${userPath} (parent: /nonexistent/parent)`
           )
         );
       });
@@ -435,6 +441,70 @@ describe('securityHandler', () => {
 
         const resolved = await validateAndResolvePath(userPath, { forCreation: true });
         expect(resolved).toBe(path.resolve(userPath));
+      });
+
+      // Archive extraction scenario - extracting to an allowed directory should work
+      it('should allow creation when target path itself is in allowed paths (archive extraction scenario)', async () => {
+        const userPath = '/allowed/path1'; // Extracting directly to an allowed directory
+        // The target path itself is allowed, so it should succeed without checking parent
+
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve(userPath));
+        // Should not call realpath for parent directory since target itself is allowed
+        expect(mockFs.realpath).not.toHaveBeenCalled();
+      });
+
+      it('should allow creation when target path with tilde is in allowed paths (Desktop extraction scenario)', async () => {
+        const userPath = '~/Desktop';
+        const homeDir = '/mock/home';
+        const desktopPath = path.join(homeDir, 'Desktop');
+        
+        mockOs.homedir.mockReturnValue(homeDir);
+        mockConduitConfig.allowedPaths = [desktopPath];
+        mockConduitConfig.resolvedAllowedPaths = [desktopPath];
+
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve(desktopPath));
+        // Should not call realpath for parent directory since target itself is allowed
+        expect(mockFs.realpath).not.toHaveBeenCalled();
+
+        // Restore original allowedPaths
+        mockConduitConfig.allowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+        mockConduitConfig.resolvedAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+      });
+
+      it('should allow creation when target path with trailing slash is in allowed paths', async () => {
+        const userPath = '/allowed/path1/'; // Directory with trailing slash
+        
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve(userPath));
+        // Should not call realpath for parent directory since target itself is allowed
+        expect(mockFs.realpath).not.toHaveBeenCalled();
+      });
+
+      it('should handle root directory creation validation correctly', async () => {
+        const userPath = '/';
+        mockConduitConfig.allowedPaths = ['/'];
+        mockConduitConfig.resolvedAllowedPaths = ['/'];
+
+        const resolved = await validateAndResolvePath(userPath, { forCreation: true });
+        expect(resolved).toBe(path.resolve(userPath));
+
+        // Restore original allowedPaths
+        mockConduitConfig.allowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+        mockConduitConfig.resolvedAllowedPaths = ['/allowed/path1', '/allowed/path2/sub'];
+      });
+
+      it('should deny root directory creation when not allowed', async () => {
+        const userPath = '/';
+        // Root is not in allowed paths by default
+
+        await expect(validateAndResolvePath(userPath, { forCreation: true })).rejects.toThrow(
+          new ConduitError(
+            ErrorCode.ERR_FS_PERMISSION_DENIED,
+            `Access to root directory is denied: ${userPath}`
+          )
+        );
       });
     });
   });
