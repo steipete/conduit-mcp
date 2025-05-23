@@ -1,5 +1,7 @@
 ## Technical Specification: `conduit-mcp` Server
 
+https://aistudio.google.com/prompts/1PuRBRvAqjAcE0qnrrxRPz1lJNqgTOUOV
+
 **Version:** 1.0.0
 **Project Name:** `conduit-mcp`
 **Primary Goal:** To provide a versatile and efficient Model Context Protocol (MCP) server for interacting with local filesystems, fetching and processing web content (including images and cleaned webpages), and performing various data manipulation tasks, communicating all necessary information, including initial setup details, via the MCP tool responses.
