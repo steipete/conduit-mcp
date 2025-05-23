@@ -1,8 +1,6 @@
-import { vi, type MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import { mockFs, mockConduitConfig, mockGetMimeType, mockFormatToISO8601UTC } from './helpers';
 import type { Stats } from 'fs';
-import path from 'path';
-import { constants as fsConstants } from 'fs';
 
 // Mock fs/promises AT THE TOP of the test file
 vi.mock('fs/promises', () => ({

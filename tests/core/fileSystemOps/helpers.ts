@@ -1,5 +1,4 @@
 import { vi, type MockedFunction } from 'vitest';
-import type { Stats } from 'fs';
 
 // Helper to create Dirent-like objects for tests
 export const createDirent = (

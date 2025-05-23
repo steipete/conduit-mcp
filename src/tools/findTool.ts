@@ -18,26 +18,34 @@ export async function findToolHandler(
   try {
     logger.info('Find tool operation called');
 
-    // Validate and resolve the base path
-    const resolvedBasePath = await validateAndResolvePath(params.base_path, {
+    // Validate input parameters
+    if (!params.path || typeof params.path !== 'string' || params.path.trim() === '') {
+      return {
+        tool_name: 'find',
+        ...createMCPErrorStatus(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.'),
+      };
+    }
+
+    // Validate and resolve the path
+    const resolvedPath = await validateAndResolvePath(params.path, {
       isExistenceRequired: true,
       checkAllowed: true,
     });
 
     // Check if the resolved path is a directory
-    const baseStats = await fileSystemOps.getStats(resolvedBasePath);
-    if (!baseStats.isDirectory()) {
+    const pathStats = await fileSystemOps.getStats(resolvedPath);
+    if (!pathStats.isDirectory()) {
       return {
         tool_name: 'find',
         ...createMCPErrorStatus(
           ErrorCode.ERR_FS_PATH_IS_FILE,
-          `Provided base_path is a file, not a directory: ${resolvedBasePath}`
+          `Provided path is a file, not a directory: ${resolvedPath}`
         ),
       };
     }
 
     // Create updated params with resolved path
-    const updatedParams = { ...params, base_path: resolvedBasePath };
+    const updatedParams = { ...params, path: resolvedPath };
     const result = await findEntries(updatedParams, config);
 
     if (result instanceof ConduitError) {

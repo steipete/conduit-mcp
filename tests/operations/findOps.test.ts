@@ -107,8 +107,8 @@ describe('findOps', () => {
       vi.mocked(fileSystemOps.createEntryInfo).mockImplementation(async () => mockEntries[0]);
 
       const params = {
-        base_path: '/test/dir',
-        match_criteria: [],
+        operation: 'search' as const,
+        path: '/test/dir',
         recursive: false,
       };
 
@@ -121,8 +121,8 @@ describe('findOps', () => {
       vi.mocked(fileSystemOps.pathExists).mockResolvedValue(false);
 
       const params = {
-        base_path: '/nonexistent/path',
-        match_criteria: [],
+        operation: 'search' as const,
+        path: '/nonexistent/path',
         recursive: false,
       };
 
@@ -131,12 +131,12 @@ describe('findOps', () => {
   });
 
   describe('findEntries error handling', () => {
-    it('should return ConduitError when base path does not exist', async () => {
+    it('should return ConduitError when path does not exist', async () => {
       vi.mocked(fileSystemOps.pathExists).mockResolvedValue(false);
 
       const params = {
-        base_path: '/nonexistent/path',
-        match_criteria: [],
+        operation: 'search' as const,
+        path: '/nonexistent/path',
         recursive: false,
       };
 
@@ -190,13 +190,9 @@ describe('findOps', () => {
         });
 
       const params = {
-        base_path: '/test',
-        match_criteria: [
-          {
-            type: 'name_pattern' as const,
-            pattern: '*.txt',
-          },
-        ],
+        operation: 'search' as const,
+        path: '/test',
+        name_pattern: '*.txt',
         recursive: false,
       };
 

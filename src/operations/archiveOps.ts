@@ -1,15 +1,14 @@
 import * as fsExtra from 'fs-extra';
 import * as path from 'path';
-import * as tar from 'tar';
+import tar from 'tar';
 import AdmZip from 'adm-zip';
 import {
-  logger,
   ArchiveTool,
-  ConduitServerConfig,
   ConduitError,
+  ConduitServerConfig,
   ErrorCode,
+  logger,
   PathValidationStrategy,
-  validateAndResolvePath // Keep for backward compatibility where needed
 } from '@/internal';
 import { calculateChecksum } from '@/utils/checksum';
 
@@ -36,18 +35,12 @@ export const createArchive = async (
   let relativeSourcePathsForTar: string[] = [];
 
   try {
-    // Validate archive path
-    absoluteArchivePath = await validateAndResolvePath(archive_path, {
-      forCreation: true,
-      checkAllowed: true,
-    });
+    // Validate archive path for creation (parent must exist and be allowed)
+    absoluteArchivePath = await PathValidationStrategy.validateForCreation(archive_path);
 
-    // Validate each source path
+    // Validate each source path for reading (must exist and be allowed)
     for (const sourcePath of source_paths) {
-      const resolvedSourcePath = await validateAndResolvePath(sourcePath, {
-        isExistenceRequired: true,
-        checkAllowed: true,
-      });
+      const resolvedSourcePath = await PathValidationStrategy.validateForReading(sourcePath);
       resolvedSourcePaths.push(resolvedSourcePath);
 
       // Create relative path for tar operations - use basename to preserve directory structure
@@ -172,34 +165,21 @@ export const createArchive = async (
 };
 
 export const extractArchive = async (
-  params:
-    | ArchiveTool.ExtractArchiveParams
-    | (Omit<ArchiveTool.ExtractArchiveParams, 'target_path'> & { destination_path: string }),
+  params: ArchiveTool.ExtractArchiveParams,
   _config: ConduitServerConfig
 ): Promise<ArchiveTool.ArchiveResultItem> => {
-  const { archive_path, options } = params;
-  // Support both target_path and destination_path for compatibility
-  const target_path =
-    'target_path' in params
-      ? params.target_path
-      : (params as ArchiveTool.ExtractArchiveParams & { destination_path?: string })
-          .destination_path;
+  const { archive_path, target_path = '.', options } = params;
 
   let absoluteArchivePath: string;
   let absoluteTargetPath: string;
 
   try {
-    // Validate archive path
-    absoluteArchivePath = await validateAndResolvePath(archive_path, {
-      isExistenceRequired: true,
-      checkAllowed: true,
-    });
+    // Validate archive path for reading (must exist and be allowed)
+    absoluteArchivePath = await PathValidationStrategy.validateForReading(archive_path);
 
-    // Validate destination path
-    absoluteTargetPath = await validateAndResolvePath(target_path || '.', {
-      forCreation: true,
-      checkAllowed: true,
-    });
+    // Validate target path for writing (may not exist, but target or ancestor must be allowed)
+    // This handles the Desktop extraction scenario where target itself is in allowed paths
+    absoluteTargetPath = await PathValidationStrategy.validateForWriting(target_path);
   } catch (error: unknown) {
     if (error instanceof ConduitError) {
       return createErrorArchiveResultItem('extract', error.message, error.errorCode, error.stack);

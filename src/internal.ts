@@ -66,11 +66,11 @@ export type { CompressionResult } from './core/imageProcessor';
 export * as noticeService from './core/noticeService';
 
 // From src/core/pathValidator.ts - new unified path validation system
-export { 
-  PathValidationStrategy, 
-  PathResolver, 
-  PathPermissionChecker, 
-  PathExistenceChecker 
+export {
+  PathValidationStrategy,
+  PathResolver,
+  PathPermissionChecker,
+  PathExistenceChecker,
 } from './core/pathValidator';
 
 // ======= Operations Re-exports =======

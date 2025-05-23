@@ -1,4 +1,4 @@
-import * as path from 'path';
+import path from 'path';
 import {
   ConduitServerConfig,
   EntryInfo,
@@ -10,6 +10,125 @@ import {
   logger,
 } from '@/internal';
 import micromatch from 'micromatch';
+
+// Legacy types for internal use (to avoid refactoring all the logic right now)
+interface NamePatternCriterion {
+  type: 'name_pattern';
+  pattern: string;
+  case_sensitive?: boolean;
+}
+
+interface ContentPatternCriterion {
+  type: 'content_pattern';
+  pattern: string;
+  is_regex?: boolean;
+  case_sensitive?: boolean;
+  file_types_to_search?: string[];
+}
+
+interface MetadataFilterCriterion {
+  type: 'metadata_filter';
+  attribute: string;
+  operator: string;
+  value: string | number | Date;
+  case_sensitive?: boolean;
+}
+
+type MatchCriterion = NamePatternCriterion | ContentPatternCriterion | MetadataFilterCriterion;
+
+// Convert new flat parameters to legacy match criteria format
+function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
+  const criteria: MatchCriterion[] = [];
+
+  // Name pattern
+  if (params.name_pattern) {
+    criteria.push({
+      type: 'name_pattern',
+      pattern: params.name_pattern,
+      case_sensitive: params.case_sensitive,
+    });
+  }
+
+  // Content pattern
+  if (params.content_pattern) {
+    criteria.push({
+      type: 'content_pattern',
+      pattern: params.content_pattern,
+      is_regex: params.content_is_regex,
+      case_sensitive: params.content_case_sensitive,
+      file_types_to_search: params.file_extensions,
+    });
+  }
+
+  // Size filters
+  if (params.size_min !== undefined) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'size_bytes',
+      operator: 'gte',
+      value: params.size_min,
+    });
+  }
+
+  if (params.size_max !== undefined) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'size_bytes',
+      operator: 'lte',
+      value: params.size_max,
+    });
+  }
+
+  // Date filters
+  if (params.modified_after) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'modified_at',
+      operator: 'after',
+      value: params.modified_after,
+    });
+  }
+
+  if (params.modified_before) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'modified_at',
+      operator: 'before',
+      value: params.modified_before,
+    });
+  }
+
+  if (params.created_after) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'created_at',
+      operator: 'after',
+      value: params.created_after,
+    });
+  }
+
+  if (params.created_before) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'created_at',
+      operator: 'before',
+      value: params.created_before,
+    });
+  }
+
+  // MIME type filter
+  if (params.mime_type) {
+    criteria.push({
+      type: 'metadata_filter',
+      attribute: 'mime_type',
+      operator: 'equals',
+      value: params.mime_type,
+      case_sensitive: false,
+    });
+  }
+
+  return criteria;
+}
 
 async function isTextBasedFileForContentSearch(
   filePath: string,
@@ -125,7 +244,7 @@ async function isTextBasedFileForContentSearch(
 
 async function matchesContentPattern(
   filePath: string,
-  criterion: FindTool.ContentPatternCriterion,
+  criterion: ContentPatternCriterion,
   config: ConduitServerConfig
 ): Promise<boolean> {
   const operationLogger = logger.child({ component: 'findOps' });
@@ -167,10 +286,7 @@ async function matchesContentPattern(
   }
 }
 
-function matchesMetadataFilter(
-  entryInfo: EntryInfo,
-  criterion: FindTool.MetadataFilterCriterion
-): boolean {
+function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCriterion): boolean {
   const operationLogger = logger.child({ component: 'findOps' });
   const attributeName = criterion.attribute === 'entry_type' ? 'type' : criterion.attribute;
 
@@ -300,13 +416,20 @@ function matchesMetadataFilter(
   }
 }
 
-function matchesNamePattern(entryName: string, pattern: string): boolean {
-  return micromatch.isMatch(entryName, pattern, { dot: true }); // {dot: true} to match hidden files by default like shell glob
+function matchesNamePattern(
+  entryName: string,
+  pattern: string,
+  caseSensitive: boolean = true
+): boolean {
+  return micromatch.isMatch(entryName, pattern, {
+    dot: true, // {dot: true} to match hidden files by default like shell glob
+    nocase: !caseSensitive, // micromatch uses nocase: true for case-insensitive matching
+  });
 }
 
 async function checkAllCriteria(
   entryInfo: EntryInfo,
-  criteria: FindTool.MatchCriterion[],
+  criteria: MatchCriterion[],
   config: ConduitServerConfig
 ): Promise<boolean> {
   const operationLogger = logger.child({ component: 'findOps' });
@@ -314,7 +437,7 @@ async function checkAllCriteria(
     let match = false;
     switch (criterion.type) {
       case 'name_pattern':
-        match = matchesNamePattern(entryInfo.name, criterion.pattern);
+        match = matchesNamePattern(entryInfo.name, criterion.pattern, criterion.case_sensitive);
         break;
       case 'content_pattern':
         if (entryInfo.type === 'file') {
@@ -344,7 +467,8 @@ export async function findEntriesRecursive(
   params: FindTool.Parameters,
   config: ConduitServerConfig,
   currentDepth: number,
-  processedPaths: Set<string>
+  processedPaths: Set<string>,
+  matchCriteria: MatchCriterion[]
 ): Promise<EntryInfo[]> {
   const operationLogger = logger.child({ component: 'findOps' });
   const foundEntries: EntryInfo[] = [];
@@ -381,16 +505,13 @@ export async function findEntriesRecursive(
       const entryInfo = await fileSystemOps.createEntryInfo(entryAbsolutePath, stats, entryName);
 
       let matchesCurrentEntry = true;
-      if (params.entry_type_filter && params.entry_type_filter !== 'any') {
-        if (entryInfo.type !== params.entry_type_filter) {
+      if (params.entry_type && params.entry_type !== 'any') {
+        if (entryInfo.type !== params.entry_type) {
           matchesCurrentEntry = false;
         }
       }
 
-      if (
-        matchesCurrentEntry &&
-        (await checkAllCriteria(entryInfo, params.match_criteria, config))
-      ) {
+      if (matchesCurrentEntry && (await checkAllCriteria(entryInfo, matchCriteria, config))) {
         foundEntries.push(entryInfo);
       }
 
@@ -401,7 +522,8 @@ export async function findEntriesRecursive(
             params,
             config,
             currentDepth + 1,
-            processedPaths
+            processedPaths,
+            matchCriteria
           ))
         );
       }
@@ -431,17 +553,22 @@ export async function findEntries(
   config: ConduitServerConfig
 ): Promise<EntryInfo[] | ConduitError> {
   const operationLogger = logger.child({ component: 'findOps' });
-  operationLogger.info(
-    `Processing findEntries in base_path: ${params.base_path} with criteria: ${JSON.stringify(params.match_criteria)}`
+
+  // Convert new flat parameters to legacy criteria format
+  const matchCriteria = convertToMatchCriteria(params);
+
+  operationLogger.debug(
+    `Processing findEntries in path: ${params.path} with criteria: ${JSON.stringify(matchCriteria)}`
   );
 
-  // params.base_path should already be validated and resolved by the tool handler
-  const absoluteBasePath = params.base_path;
+  // params.path should already be validated and resolved by the tool handler
+  const absoluteBasePath = params.path;
 
   if (!(await fileSystemOps.pathExists(absoluteBasePath))) {
+    operationLogger.error(`Base path for find not found: ${params.path}`);
     return new ConduitError(
       ErrorCode.ERR_FS_NOT_FOUND,
-      `Base path for find not found: ${params.base_path}`
+      `Base path for find not found: ${params.path}`
     );
   }
   const baseStats = await fileSystemOps.getStats(absoluteBasePath);
@@ -455,21 +582,27 @@ export async function findEntries(
           path.basename(absoluteBasePath)
         );
         if (
-          params.entry_type_filter &&
-          params.entry_type_filter !== 'any' &&
-          entryInfo.type !== params.entry_type_filter
+          params.entry_type &&
+          params.entry_type !== 'any' &&
+          entryInfo.type !== params.entry_type
         ) {
           return [];
         }
-        if (await checkAllCriteria(entryInfo, params.match_criteria, config)) {
-          return [entryInfo];
+        if (await checkAllCriteria(entryInfo, matchCriteria, config)) {
+          let results = [entryInfo];
+          // Apply max_results if specified
+          if (params.max_results && params.max_results > 0) {
+            results = results.slice(0, params.max_results);
+          }
+          return results;
         }
         return [];
       } catch (e: unknown) {
         const errorMessage = e instanceof Error ? e.message : String(e);
+        operationLogger.error(`Failed to process path file ${params.path}: ${errorMessage}`);
         return new ConduitError(
           ErrorCode.OPERATION_FAILED,
-          `Failed to process base_path file ${params.base_path}: ${errorMessage}`
+          `Failed to process path file ${params.path}: ${errorMessage}`
         );
       }
     } else {
@@ -491,12 +624,12 @@ export async function findEntries(
         try {
           const stats = await fileSystemOps.getLstats(entryPath);
           const entryInfoBase = await fileSystemOps.createEntryInfo(entryPath, stats, name);
-          if (params.entry_type_filter && params.entry_type_filter !== 'any') {
-            if (entryInfoBase.type !== params.entry_type_filter) {
+          if (params.entry_type && params.entry_type !== 'any') {
+            if (entryInfoBase.type !== params.entry_type) {
               continue;
             }
           }
-          if (await checkAllCriteria(entryInfoBase, params.match_criteria, config)) {
+          if (await checkAllCriteria(entryInfoBase, matchCriteria, config)) {
             results.push(entryInfoBase);
           }
         } catch (statError: unknown) {
@@ -506,20 +639,33 @@ export async function findEntries(
           );
         }
       }
-      return results;
+
+      // Apply max_results if specified
+      let finalResults = results;
+      if (params.max_results && params.max_results > 0) {
+        finalResults = results.slice(0, params.max_results);
+      }
+      return finalResults;
     } else {
       const allFound = await findEntriesRecursive(
         absoluteBasePath,
         params,
         config,
         0,
-        processedPaths
+        processedPaths,
+        matchCriteria
       );
-      return Array.from(new Map(allFound.map((e) => [e.path, e])).values());
+
+      // Apply max_results if specified
+      let finalResults = Array.from(new Map(allFound.map((e) => [e.path, e])).values());
+      if (params.max_results && params.max_results > 0) {
+        finalResults = finalResults.slice(0, params.max_results);
+      }
+      return finalResults;
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    operationLogger.error(`Failed to find entries for ${params.base_path}: ${errorMessage}`);
+    operationLogger.error(`Failed to find entries for ${params.path}: ${errorMessage}`);
     if (error instanceof ConduitError) return error;
     return new ConduitError(
       ErrorCode.ERR_INTERNAL_SERVER_ERROR,

@@ -14,14 +14,14 @@ export class PathResolver {
     if (!inputPath.startsWith('~')) {
       return inputPath;
     }
-    
+
     if (!conduitConfig.allowTildeExpansion) {
       throw new ConduitError(
         ErrorCode.INVALID_PARAMETER,
         'Tilde (~) expansion is not allowed by server configuration.'
       );
     }
-    
+
     return path.join(os.homedir(), inputPath.substring(1));
   }
 
@@ -30,11 +30,11 @@ export class PathResolver {
    */
   static toAbsolute(inputPath: string): string {
     const expandedPath = this.expandTilde(inputPath);
-    
+
     if (path.isAbsolute(expandedPath)) {
       return path.resolve(expandedPath);
     }
-    
+
     return path.resolve(conduitConfig.workspaceRoot, expandedPath);
   }
 
@@ -75,14 +75,14 @@ export class PathPermissionChecker {
     if (!allowedPaths || allowedPaths.length === 0) {
       return false;
     }
-    
+
     for (const allowedPrefix of allowedPaths) {
       if (resolvedPath.startsWith(allowedPrefix)) {
         if (allowedPrefix.length === resolvedPath.length) return true; // Exact match
         if (resolvedPath[allowedPrefix.length] === path.sep) return true; // Subpath match
       }
     }
-    
+
     return false;
   }
 
@@ -91,19 +91,19 @@ export class PathPermissionChecker {
    */
   static findAllowedAncestor(targetPath: string, allowedPaths: string[]): string | null {
     let currentPath = targetPath;
-    
+
     while (currentPath !== path.dirname(currentPath)) {
       if (this.isPathAllowed(currentPath, allowedPaths)) {
         return currentPath;
       }
       currentPath = path.dirname(currentPath);
     }
-    
+
     // Check root directory
     if (this.isPathAllowed(currentPath, allowedPaths)) {
       return currentPath;
     }
-    
+
     return null;
   }
 }
@@ -156,7 +156,9 @@ export class PathValidationStrategy {
 
     // Check permissions
     if (!PathPermissionChecker.isPathAllowed(resolvedPath, conduitConfig.resolvedAllowedPaths)) {
-      logger.warn(`[pathValidator] Access denied for reading: ${originalPath} (resolved to ${resolvedPath})`);
+      logger.warn(
+        `[pathValidator] Access denied for reading: ${originalPath} (resolved to ${resolvedPath})`
+      );
       throw new ConduitError(
         ErrorCode.ERR_FS_PERMISSION_DENIED,
         `Access to path is denied: ${originalPath}`
@@ -183,7 +185,7 @@ export class PathValidationStrategy {
 
     // First, check if the target path itself (or any ancestor) is allowed
     const allowedAncestor = PathPermissionChecker.findAllowedAncestor(
-      absolutePath, 
+      absolutePath,
       conduitConfig.resolvedAllowedPaths
     );
 
@@ -193,7 +195,9 @@ export class PathValidationStrategy {
     }
 
     // If no allowed ancestor found, deny access
-    logger.warn(`[pathValidator] No allowed ancestor found for writing: ${originalPath} (resolved to ${absolutePath})`);
+    logger.warn(
+      `[pathValidator] No allowed ancestor found for writing: ${originalPath} (resolved to ${absolutePath})`
+    );
     throw new ConduitError(
       ErrorCode.ERR_FS_PERMISSION_DENIED,
       `Access to path is denied: ${originalPath}`
@@ -219,7 +223,7 @@ export class PathValidationStrategy {
 
     // Check parent directory
     const parentDir = path.dirname(absolutePath);
-    
+
     // Handle root directory case
     if (parentDir === absolutePath) {
       logger.warn(`[pathValidator] Root directory access denied for creation: ${originalPath}`);
@@ -257,7 +261,9 @@ export class PathValidationStrategy {
 
     // Check if parent is allowed
     if (!PathPermissionChecker.isPathAllowed(realParentPath, conduitConfig.resolvedAllowedPaths)) {
-      logger.warn(`[pathValidator] Parent directory access denied for creation: ${originalPath} (parent: ${realParentPath})`);
+      logger.warn(
+        `[pathValidator] Parent directory access denied for creation: ${originalPath} (parent: ${realParentPath})`
+      );
       throw new ConduitError(
         ErrorCode.ERR_FS_PERMISSION_DENIED,
         `Parent directory access denied for creation: ${originalPath}`
@@ -270,7 +276,10 @@ export class PathValidationStrategy {
   /**
    * Validates a path without checking permissions (for internal use with checkAllowed: false)
    */
-  static async validateWithoutPermissions(originalPath: string, mustExist: boolean = false): Promise<string> {
+  static async validateWithoutPermissions(
+    originalPath: string,
+    mustExist: boolean = false
+  ): Promise<string> {
     // Input validation
     if (!originalPath || typeof originalPath !== 'string' || originalPath.trim() === '') {
       throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.');
@@ -295,18 +304,18 @@ export class PathValidationStrategy {
  */
 export async function validateAndResolvePath(
   originalPath: string,
-  options: { 
-    isExistenceRequired?: boolean; 
-    checkAllowed?: boolean; 
+  options: {
+    isExistenceRequired?: boolean;
+    checkAllowed?: boolean;
     forCreation?: boolean;
     operationType?: 'read' | 'write' | 'create';
   } = {}
 ): Promise<string> {
-  const { 
-    isExistenceRequired = false, 
-    checkAllowed = true, 
+  const {
+    isExistenceRequired = false,
+    checkAllowed = true,
     forCreation = false,
-    operationType
+    operationType,
   } = options;
 
   // Use new strategy-based approach if operationType is specified
@@ -338,4 +347,4 @@ export async function validateAndResolvePath(
 }
 
 // Export the legacy function for backward compatibility
-export { isPathAllowed } from './securityHandler'; 
+export { isPathAllowed } from './securityHandler';

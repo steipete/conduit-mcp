@@ -16,22 +16,22 @@ const operationLogger = logger.child({ component: 'batchWriteOps' });
 /**
  * Helper function to create error result items for write operations
  */
-function createErrorWriteResultItem(
-  action: WriteTool.WriteAction,
-  path?: string,
-  errorCode?: ErrorCode,
-  errorMessage?: string,
+function createErrorResultItem(
+  operation: 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch',
+  path: string | undefined,
+  errorCode: ErrorCode,
+  errorMessage: string,
   sourcePath?: string,
   destinationPath?: string
 ): WriteTool.WriteResultItem {
   return {
     status: 'error',
-    action_performed: action,
-    path: path,
+    operation_performed: operation,
+    path: path || 'unknown_path',
     source_path: sourcePath,
     destination_path: destinationPath,
-    error_code: errorCode || ErrorCode.OPERATION_FAILED,
-    error_message: errorMessage || 'Unknown error occurred',
+    error_code: errorCode,
+    error_message: errorMessage,
   };
 }
 
@@ -48,7 +48,7 @@ export async function handleBatchPut(
     return {
       tool_name: 'write',
       results: [
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'put',
           undefined,
           ErrorCode.INVALID_PARAMETER,
@@ -94,7 +94,7 @@ export async function handleBatchPut(
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.ERR_FS_INVALID_PATH;
 
-      results.push(createErrorWriteResultItem('put', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem('put', entry.path, errorCode, errorMessage));
     }
   }
 
@@ -114,7 +114,7 @@ export async function handleBatchMkdir(
     return {
       tool_name: 'write',
       results: [
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'mkdir',
           undefined,
           ErrorCode.INVALID_PARAMETER,
@@ -180,7 +180,7 @@ export async function handleBatchMkdir(
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.ERR_FS_INVALID_PATH;
 
-      results.push(createErrorWriteResultItem('mkdir', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem('mkdir', entry.path, errorCode, errorMessage));
     }
   }
 
@@ -200,7 +200,7 @@ export async function handleBatchCopy(
     return {
       tool_name: 'write',
       results: [
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'copy',
           undefined,
           ErrorCode.INVALID_PARAMETER,
@@ -236,7 +236,7 @@ export async function handleBatchCopy(
       if (destinationExists && !overwrite) {
         // Issue #1: When overwrite is false and destination exists, return error
         results.push(
-          createErrorWriteResultItem(
+          createErrorResultItem(
             'copy',
             undefined,
             ErrorCode.ERR_FS_DESTINATION_EXISTS,
@@ -258,7 +258,7 @@ export async function handleBatchCopy(
           !entry.destination_path.endsWith('/')
         ) {
           results.push(
-            createErrorWriteResultItem(
+            createErrorResultItem(
               'copy',
               undefined,
               ErrorCode.ERR_FS_COPY_TARGET_IS_DIR,
@@ -313,10 +313,10 @@ export async function handleBatchCopy(
 
       results.push({
         status: 'success',
-        action_performed: 'copy',
+        operation_performed: 'copy',
         source_path: entry.source_path,
         destination_path: actualDestinationPath,
-        message: 'Path copied successfully.',
+        message: 'File/directory copied successfully.',
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(
@@ -328,7 +328,7 @@ export async function handleBatchCopy(
         error instanceof ConduitError ? error.errorCode : ErrorCode.OPERATION_FAILED;
 
       results.push(
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'copy',
           undefined,
           errorCode,
@@ -356,7 +356,7 @@ export async function handleBatchMove(
     return {
       tool_name: 'write',
       results: [
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'move',
           undefined,
           ErrorCode.INVALID_PARAMETER,
@@ -392,7 +392,7 @@ export async function handleBatchMove(
       if (destinationExists && !overwrite) {
         // Issue #1: When overwrite is false and destination exists, return error
         results.push(
-          createErrorWriteResultItem(
+          createErrorResultItem(
             'move',
             undefined,
             ErrorCode.ERR_FS_DESTINATION_EXISTS,
@@ -410,7 +410,7 @@ export async function handleBatchMove(
         // Issue #2: When moving a directory onto an existing file path
         if (sourceStats.isDirectory() && destStats.isFile()) {
           results.push(
-            createErrorWriteResultItem(
+            createErrorResultItem(
               'move',
               undefined,
               ErrorCode.ERR_FS_MOVE_FAILED,
@@ -429,7 +429,7 @@ export async function handleBatchMove(
           !entry.destination_path.endsWith('/')
         ) {
           results.push(
-            createErrorWriteResultItem(
+            createErrorResultItem(
               'move',
               undefined,
               ErrorCode.ERR_FS_MOVE_TARGET_IS_DIR,
@@ -460,10 +460,10 @@ export async function handleBatchMove(
 
       results.push({
         status: 'success',
-        action_performed: 'move',
+        operation_performed: 'move',
         source_path: entry.source_path,
         destination_path: actualDestinationPath,
-        message: 'Path moved successfully.',
+        message: 'File/directory moved successfully.',
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(
@@ -475,7 +475,7 @@ export async function handleBatchMove(
         error instanceof ConduitError ? error.errorCode : ErrorCode.OPERATION_FAILED;
 
       results.push(
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'move',
           undefined,
           errorCode,
@@ -503,7 +503,7 @@ export async function handleBatchDelete(
     return {
       tool_name: 'write',
       results: [
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'delete',
           undefined,
           ErrorCode.INVALID_PARAMETER,
@@ -529,11 +529,9 @@ export async function handleBatchDelete(
 
       results.push({
         status: 'success',
-        action_performed: 'delete',
+        operation_performed: 'delete',
         path: entry.path,
-        message: recursive
-          ? 'Path and contents deleted successfully.'
-          : 'Path deleted successfully.',
+        message: `${recursive ? 'Directory' : 'File'} deleted successfully.`,
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(`Delete operation failed for entry: ${entry.path}`, error);
@@ -547,7 +545,7 @@ export async function handleBatchDelete(
         errorMessage = `Access to path ${entry.path} for deletion is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: ${allowedPathsStr}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration.`;
       }
 
-      results.push(createErrorWriteResultItem('delete', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem('delete', entry.path, errorCode, errorMessage));
     }
   }
 
@@ -567,7 +565,7 @@ export async function handleBatchTouch(
     return {
       tool_name: 'write',
       results: [
-        createErrorWriteResultItem(
+        createErrorResultItem(
           'touch',
           undefined,
           ErrorCode.INVALID_PARAMETER,
@@ -587,14 +585,17 @@ export async function handleBatchTouch(
         checkAllowed: true,
       });
 
+      // Check if file existed before touch operation
+      const fileExistedBefore = await fileSystemOps.pathExists(resolvedPath);
+
       // Perform touch operation
       await fileSystemOps.touchFile(resolvedPath);
 
       results.push({
         status: 'success',
-        action_performed: 'touch',
+        operation_performed: 'touch',
         path: entry.path,
-        message: 'Touch operation completed successfully.',
+        message: `File ${fileExistedBefore ? 'timestamps updated' : 'created'} successfully.`,
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(`Touch operation failed for entry: ${entry.path}`, error);
@@ -608,7 +609,7 @@ export async function handleBatchTouch(
         errorMessage = `Access to path ${entry.path} for creation is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: ${allowedPathsStr}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration.`;
       }
 
-      results.push(createErrorWriteResultItem('touch', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem('touch', entry.path, errorCode, errorMessage));
     }
   }
 

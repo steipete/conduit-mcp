@@ -15,7 +15,7 @@ function createErrorMkdirResultItem(
 ): WriteTool.WriteResultItem {
   return {
     status: 'error',
-    action_performed: 'mkdir',
+    operation_performed: 'mkdir',
     path: path || 'unknown_path',
     error_code: errorCode,
     error_message: errorMessage,
@@ -50,7 +50,7 @@ export async function makeDirectory(
         operationLogger.debug(`Directory ${absoluteTargetPath} already exists.`);
         return {
           status: 'success',
-          action_performed: 'mkdir',
+          operation_performed: 'mkdir',
           path: entry.path,
           message: 'Directory already exists.',
         } as WriteTool.WriteResultSuccess;
@@ -70,7 +70,7 @@ export async function makeDirectory(
 
     return {
       status: 'success',
-      action_performed: 'mkdir',
+      operation_performed: 'mkdir',
       path: entry.path,
       message: recursive
         ? 'Directory and any necessary parent directories created.'

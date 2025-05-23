@@ -53,7 +53,7 @@ describe('batchWriteOps', () => {
   describe('handleBatchPut', () => {
     it('should handle successful put operations', async () => {
       const params: WriteTool.PutParams = {
-        action: 'put',
+        operation: 'put',
         entries: [
           {
             path: '/workspace/file1.txt',
@@ -75,13 +75,13 @@ describe('batchWriteOps', () => {
       mockedPutContent
         .mockResolvedValueOnce({
           status: 'success',
-          action_performed: 'put',
+          operation_performed: 'put',
           path: '/workspace/file1.txt',
           bytes_written: 11,
         } as WriteTool.WriteResultSuccess)
         .mockResolvedValueOnce({
           status: 'success',
-          action_performed: 'put',
+          operation_performed: 'put',
           path: '/workspace/file2.txt',
           bytes_written: 11,
         } as WriteTool.WriteResultSuccess);
@@ -106,7 +106,7 @@ describe('batchWriteOps', () => {
 
     it('should handle path validation errors', async () => {
       const params: WriteTool.PutParams = {
-        action: 'put',
+        operation: 'put',
         entries: [
           {
             path: '/invalid/path.txt',
@@ -128,7 +128,7 @@ describe('batchWriteOps', () => {
 
     it('should handle empty entries array', async () => {
       const params: WriteTool.PutParams = {
-        action: 'put',
+        operation: 'put',
         entries: [],
       };
 
@@ -146,7 +146,7 @@ describe('batchWriteOps', () => {
   describe('handleBatchMkdir', () => {
     it('should handle successful mkdir operations', async () => {
       const params: WriteTool.MkdirParams = {
-        action: 'mkdir',
+        operation: 'mkdir',
         entries: [{ path: '/workspace/dir1' }, { path: '/workspace/dir2', recursive: true }],
       };
 
@@ -157,13 +157,13 @@ describe('batchWriteOps', () => {
       mockedMakeDirectory
         .mockResolvedValueOnce({
           status: 'success',
-          action_performed: 'mkdir',
+          operation_performed: 'mkdir',
           path: '/workspace/dir1',
           message: 'Directory created.',
         } as WriteTool.WriteResultSuccess)
         .mockResolvedValueOnce({
           status: 'success',
-          action_performed: 'mkdir',
+          operation_performed: 'mkdir',
           path: '/workspace/dir2',
           message: 'Directory and any necessary parent directories created.',
         } as WriteTool.WriteResultSuccess);
@@ -186,7 +186,7 @@ describe('batchWriteOps', () => {
   describe('handleBatchCopy', () => {
     it('should handle successful copy operations', async () => {
       const params: WriteTool.CopyParams = {
-        action: 'copy',
+        operation: 'copy',
         entries: [
           {
             source_path: '/workspace/source.txt',
@@ -206,7 +206,7 @@ describe('batchWriteOps', () => {
       expect(result.tool_name).toBe('write');
       expect(result.results).toHaveLength(1);
       expect(result.results[0].status).toBe('success');
-      expect(result.results[0].action_performed).toBe('copy');
+      expect(result.results[0].operation_performed).toBe('copy');
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
       expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/source.txt', {
@@ -223,7 +223,7 @@ describe('batchWriteOps', () => {
   describe('handleBatchMove', () => {
     it('should handle successful move operations', async () => {
       const params: WriteTool.MoveParams = {
-        action: 'move',
+        operation: 'move',
         entries: [
           {
             source_path: '/workspace/source.txt',
@@ -243,7 +243,7 @@ describe('batchWriteOps', () => {
       expect(result.tool_name).toBe('write');
       expect(result.results).toHaveLength(1);
       expect(result.results[0].status).toBe('success');
-      expect(result.results[0].action_performed).toBe('move');
+      expect(result.results[0].operation_performed).toBe('move');
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
       expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/source.txt', {
@@ -260,7 +260,7 @@ describe('batchWriteOps', () => {
   describe('handleBatchDelete', () => {
     it('should handle successful delete operations', async () => {
       const params: WriteTool.DeleteParams = {
-        action: 'delete',
+        operation: 'delete',
         entries: [{ path: '/workspace/file.txt' }, { path: '/workspace/dir', recursive: true }],
       };
 
@@ -294,7 +294,7 @@ describe('batchWriteOps', () => {
   describe('handleBatchTouch', () => {
     it('should handle successful touch operations', async () => {
       const params: WriteTool.TouchParams = {
-        action: 'touch',
+        operation: 'touch',
         entries: [{ path: '/workspace/newfile.txt' }],
       };
 
@@ -306,7 +306,7 @@ describe('batchWriteOps', () => {
       expect(result.tool_name).toBe('write');
       expect(result.results).toHaveLength(1);
       expect(result.results[0].status).toBe('success');
-      expect(result.results[0].action_performed).toBe('touch');
+      expect(result.results[0].operation_performed).toBe('touch');
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledWith('/workspace/newfile.txt', {
         forCreation: true,

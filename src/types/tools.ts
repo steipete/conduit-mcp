@@ -138,7 +138,7 @@ export namespace ReadTool {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for WriteTool types
 export namespace WriteTool {
-  export type WriteAction =
+  export type WriteOperation =
     | 'put'
     | 'mkdir'
     | 'copy'
@@ -188,41 +188,46 @@ export namespace WriteTool {
     recursive?: boolean;
   }
 
-  // Base parameters for actions that use the 'entries' array
+  // Base parameters for operations that use the 'entries' array
   export interface BaseBatchParams {
-    action: 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch';
+    operation: 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch';
     entries: Array<PutEntry | MkdirEntry | CopyEntry | MoveEntry | DeleteEntry | TouchEntry>;
   }
 
-  // Specific parameter types for each action
+  // Specific parameter types for each operation
   export interface PutParams extends BaseBatchParams {
-    action: 'put';
+    operation: 'put';
     entries: PutEntry[];
   }
+
   export interface MkdirParams extends BaseBatchParams {
-    action: 'mkdir';
+    operation: 'mkdir';
     entries: MkdirEntry[];
   }
+
   export interface CopyParams extends BaseBatchParams {
-    action: 'copy';
+    operation: 'copy';
     entries: CopyEntry[];
   }
+
   export interface MoveParams extends BaseBatchParams {
-    action: 'move';
+    operation: 'move';
     entries: MoveEntry[];
   }
+
   export interface DeleteParams extends BaseBatchParams {
-    action: 'delete';
+    operation: 'delete';
     entries: DeleteEntry[];
   }
+
   export interface TouchParams extends BaseBatchParams {
-    action: 'touch';
+    operation: 'touch';
     entries: TouchEntry[];
   }
 
-  // Parameters for single operations (archive/unarchive)
+  // Archive/unarchive operations (single operations, not batched)
   export interface ArchiveParams {
-    action: 'archive';
+    operation: 'archive';
     source_paths: string[];
     archive_path: string;
     format?: ArchiveFormat | string; // Allow string for broader compatibility
@@ -230,8 +235,9 @@ export namespace WriteTool {
     options?: Record<string, unknown>;
     metadata?: Record<string, unknown>;
   }
+
   export interface UnarchiveParams {
-    action: 'unarchive';
+    operation: 'unarchive';
     archive_path: string;
     destination_path: string;
     format?: ArchiveFormat | string;
@@ -250,7 +256,7 @@ export namespace WriteTool {
 
   // --- Result Types ---
   interface BaseResult {
-    action_performed: WriteAction;
+    operation_performed: WriteOperation;
     path?: string; // Primary path for put, mkdir, delete, touch, archive/unarchive target
     source_path?: string; // For copy, move
     destination_path?: string; // For copy, move, unarchive dest
@@ -355,54 +361,37 @@ export namespace ListTool {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for FindTool types
 export namespace FindTool {
-  export interface NamePatternCriterion {
-    type: 'name_pattern';
-    pattern: string; // Glob pattern
-  }
-
-  export interface ContentPatternCriterion {
-    type: 'content_pattern';
-    pattern: string; // Text or regex
-    is_regex?: boolean;
-    case_sensitive?: boolean;
-    file_types_to_search?: string[]; // e.g., [".txt", ".log"]
-  }
-
-  export type MetadataAttribute =
-    | 'name'
-    | 'size_bytes'
-    | 'created_at'
-    | 'modified_at'
-    | 'entry_type'
-    | 'mime_type';
-  export type StringOperator =
-    | 'equals'
-    | 'not_equals'
-    | 'contains'
-    | 'starts_with'
-    | 'ends_with'
-    | 'matches_regex';
-  export type NumericOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte';
-  export type DateOperator = 'before' | 'after' | 'on_date';
-
-  export interface MetadataFilterCriterion {
-    type: 'metadata_filter';
-    attribute: MetadataAttribute | string;
-    operator: StringOperator | NumericOperator | DateOperator | string;
-    value: string | number | Date; // string, number, or ISO date string
-    case_sensitive?: boolean; // For string operators
-  }
-
-  export type MatchCriterion =
-    | NamePatternCriterion
-    | ContentPatternCriterion
-    | MetadataFilterCriterion;
-
   export interface Parameters {
-    base_path: string;
+    operation: 'search';
+    path: string;
     recursive?: boolean;
-    match_criteria: MatchCriterion[];
-    entry_type_filter?: 'file' | 'directory' | 'any';
+
+    // Name pattern matching
+    name_pattern?: string;
+    case_sensitive?: boolean;
+
+    // Content searching
+    content_pattern?: string;
+    content_is_regex?: boolean;
+    content_case_sensitive?: boolean;
+    file_extensions?: string[];
+
+    // Size filters
+    size_min?: number;
+    size_max?: number;
+
+    // Date filters
+    modified_after?: string;
+    modified_before?: string;
+    created_after?: string;
+    created_before?: string;
+
+    // Type filters
+    entry_type?: 'file' | 'directory' | 'any';
+    mime_type?: string;
+
+    // Result options
+    max_results?: number;
   }
 
   // Response is an array of EntryInfo objects, similar to list.entries

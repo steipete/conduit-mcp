@@ -13,7 +13,7 @@ import {
 interface PutContentOpErrorResult extends MCPErrorStatus {
   // Extends MCPErrorStatus
   // Fields that would come from WriteTool's internal BaseResult structure for a 'put' operation
-  action_performed: 'put'; // Hardcoded to 'put' for this operation's errors
+  operation_performed: 'put'; // Hardcoded to 'put' for this operation's errors
   path: string;
   bytes_written?: number; // Optional: only present if write succeeded before error
 }
@@ -28,7 +28,7 @@ function createErrorPutResultItem(
     status: 'error', // From MCPErrorStatus
     error_code: errorCode, // From MCPErrorStatus
     error_message: errorMessage, // From MCPErrorStatus
-    action_performed: 'put', // From our definition matching BaseResult structure
+    operation_performed: 'put', // From our definition matching BaseResult structure
     path: targetPath, // From our definition matching BaseResult structure
   };
   if (bytesWritten !== undefined) {
@@ -156,9 +156,9 @@ export async function putContent(
     );
 
     return {
-      path: targetPath,
       status: 'success',
-      action_performed: 'put',
+      operation_performed: 'put',
+      path: targetPath,
       bytes_written: bytesSuccessfullyWritten,
       checksum: checksum,
       checksum_algorithm_used: entry.checksum_algorithm || config.defaultChecksumAlgorithm,

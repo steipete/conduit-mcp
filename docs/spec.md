@@ -65,8 +65,8 @@ https://aistudio.google.com/prompts/1PuRBRvAqjAcE0qnrrxRPz1lJNqgTOUOV
   - Local files: The `file-type` npm package (which inspects file magic numbers) **must** be used to determine MIME types.
   - URL responses: The `Content-Type` header from the HTTP response **must** be respected as the primary source of MIME type information.
 - **Idempotency:**
-  - `write.action: "mkdir"`: If the directory specified (and all parent directories if `recursive: true`) already exists, the operation will succeed without error. No special message is included in the MCP response. An internal `DEBUG` level log (if internal logging to a file is active) can note "mkdir operation for path '[path]' succeeded: directory already existed."
-  - `write.action: "touch"`: If the file already exists, its access (atime) and modification (mtime) timestamps are updated to the current server time using OS-level functions (e.g. Node.js `fs.utimes`). If it doesn't exist, it is created as an empty file (which will also have current atime/mtime). This operation will always report success if the path is writable.
+  - `write.operation: "mkdir"`: If the directory specified (and all parent directories if `recursive: true`) already exists, the operation will succeed without error. No special message is included in the MCP response. An internal `DEBUG` level log (if internal logging to a file is active) can note "mkdir operation for path '[path]' succeeded: directory already existed."
+  - `write.operation: "touch"`: If the file already exists, its access (atime) and modification (mtime) timestamps are updated to the current server time using OS-level functions (e.g. Node.js `fs.utimes`). If it doesn't exist, it is created as an empty file (which will also have current atime/mtime). This operation will always report success if the path is writable.
 - **Logging (Internal Server Logging Only):**
   - The server **must not** write any operational logs to `stdout` or `stderr` to maintain MCP compliance.
   - It **must** be implemented with an internal, configurable logging mechanism (e.g., using `pino`).
@@ -222,7 +222,7 @@ The server **must** parse these environment variables at startup. String values 
 - **`CONDUIT_LOG_FILE_PATH`**: `string` (Optional. **Default**: `[SYSTEM_TEMP_DIR]/conduit-mcp.log`).
   - Specifies the absolute path to a file where the server's internal logs will be written. The directory containing the log file must be writable by the server process.
   - If not set, logs are written to a file named `conduit-mcp.log` in the system's temporary directory (e.g., as determined by `os.tmpdir()`).
-  - If set to the special case-insensitive value `"NONE"`, internal logging is completely disabled (no-op logger).
+  - If set to the special case-insensitive value `"NONE"`, internal logging **must** be completely disabled (no-op logger).
 - **`CONDUIT_ALLOWED_PATHS`**: `string` (**Default: `~:/tmp`**). Colon-separated list of absolute local directory paths that the server is permitted to access. If this variable is not set or is an empty string, the server **must** use this default. The server **must** resolve `~` in each path segment (e.g. `~` or `~/some/path`) to the user's home directory, and `/tmp` to the system's standard temporary directory. Each resolved path must exist and be a directory to be considered valid.
 - **`CONDUIT_HTTP_TIMEOUT_MS`**: `string` (Integer, Default: `"30000"`). Timeout in milliseconds for all external HTTP/S requests.
 - **`CONDUIT_MAX_PAYLOAD_SIZE_BYTES`**: `string` (Integer, Default: `"10485760"` - 10MB). Maximum size of the entire incoming MCP request string on `stdin`. Checked before JSON parsing.
@@ -312,38 +312,38 @@ _(The AI building the server is responsible for generating extensive description
 
 - **Description:** (AI to generate based on full capabilities listed below)
 - **Parameters:**
-  - `action`: `string` (Required). Valid values: `"put" | "mkdir" | "copy" | "move" | "delete" | "touch" | "archive" | "unarchive"`.
-  - `entries?`: `object[]` (Required for actions: `"put"`, `"mkdir"`, `"copy"`, `"move"`, `"delete"`, `"touch"`. This array **must not** be empty for these actions. If it is missing or empty, the server **must** return an `ERR_INVALID_PARAMETER` error with a message like "`entries` array is required and cannot be empty for action '[action_name]'."). Each object within the `entries` array defines a single operation with its specific parameters:
-    - **Parameters for each entry in `action: "put"`:**
+  - `operation`: `string` (Required). Valid values: `"put" | "mkdir" | "copy" | "move" | "delete" | "touch" | "archive" | "unarchive"`.
+  - `entries?`: `object[]` (Required for operations: `"put"`, `"mkdir"`, `"copy"`, `"move"`, `"delete"`, `"touch"`. This array **must not** be empty for these operations. If it is missing or empty, the server **must** return an `ERR_INVALID_PARAMETER` error with a message like "`entries` array is required and cannot be empty for operation '[operation_name]'."). Each object within the `entries` array defines a single operation with its specific parameters:
+    - **Parameters for each entry in `operation: "put"`:**
       - `path`: `string` (Required). The local filesystem path where the file will be written.
       - `content`: `string` (Required). The content to write to the file.
       - `input_encoding?`: `string` (Optional, default: `"text"`). Valid values: `"text"` (content is a UTF-8 string) or `"base64"` (content is a base64 encoded string, which will be decoded to binary before writing).
       - `write_mode?`: `string` (Optional, default: `"overwrite"`). Valid values: `"overwrite"` (creates a new file or truncates and overwrites an existing one) or `"append"` (adds content to the end of an existing file; creates the file as new if it does not exist).
-    - **Parameters for each entry in `action: "mkdir"`:**
+    - **Parameters for each entry in `operation: "mkdir"`:**
       - `path`: `string` (Required). The local filesystem path of the directory to create.
       - `recursive?`: `boolean` (Optional, default: `false`). If `true`, parent directories will be created if they do not exist (similar to `mkdir -p`). This operation is idempotent; if the directory (and parents if `recursive:true`) already exists, it succeeds silently.
-    - **Parameters for each entry in `action: "copy"`:**
+    - **Parameters for each entry in `operation: "copy"`:**
       - `source_path`: `string` (Required). The path to the source file or directory.
       - `destination_path`: `string` (Required). The path to the destination.
         - If `destination_path` is an existing directory, `source_path` (whether file or directory) is copied _inside_ `destination_path` (e.g., `cp source_file dest_dir/` results in `dest_dir/source_file`).
         - If `source_path` is a directory, its contents are copied recursively.
         - If `destination_path` names an existing file, it is overwritten.
-    - **Parameters for each entry in `action: "move"`:**
+    - **Parameters for each entry in `operation: "move"`:**
       - `source_path`: `string` (Required).
       - `destination_path`: `string` (Required).
         - If `destination_path` is an existing directory, `source_path` is moved _inside_ `destination_path`.
         - Otherwise, `source_path` is renamed or moved to `destination_path`. Overwrites an existing file at `destination_path`.
-    - **Parameters for each entry in `action: "delete"`:**
+    - **Parameters for each entry in `operation: "delete"`:**
       - `path`: `string` (Required). Path to the file or directory to delete.
       - `recursive?`: `boolean` (Optional, default: `false`). **Must be `true`** to delete a directory that is not empty. This parameter is ignored if `path` points to a file.
-    - **Parameters for each entry in `action: "touch"`:**
+    - **Parameters for each entry in `operation: "touch"`:**
       - `path`: `string` (Required). Creates an empty file if it doesn't exist. If it does exist, its access (atime) and modification (mtime) timestamps are updated to the current server time. Idempotent.
-  - **Parameters specific to `action: "archive"` (This is a single operation, not batched via `entries` field):**
+  - **Parameters specific to `operation: "archive"` (This is a single operation, not batched via `entries` field):**
     - `source_paths`: `string[]` (Required). An array of one or more local file or directory paths to be included in the archive. If any path in this array does not exist or is inaccessible, it is skipped, and a note about these skipped paths **must** be included in the `skipped_sources` field of the success response.
     - `archive_path`: `string` (Required). The full local filesystem path where the resulting archive file will be created. If the file already exists, it will be overwritten.
     - `format?`: `string` (Optional, default: `"zip"`). Valid values: `"zip" | "tar.gz" | "tgz"` (`"tgz"` is an alias for `"tar.gz"`). Server must use appropriate libraries (`adm-zip` for zip, `tar` for tar.gz).
     - `recursive_source_listing?`: `boolean` (Optional, default: `true`). If `true` and a path in `source_paths` is a directory, its contents are added recursively to the archive, preserving the internal directory structure relative to that source directory within the archive.
-  - **Parameters specific to `action: "unarchive"` (This is a single operation, not batched via `entries` field):**
+  - **Parameters specific to `operation: "unarchive"` (This is a single operation, not batched via `entries` field):**
     - `archive_path`: `string` (Required). The local filesystem path to the archive file to be decompressed.
     - `destination_path`: `string` (Required). The local directory path where the contents of the archive will be extracted. This directory will be created if it doesn't already exist (including parent directories if necessary).
     - `format?`: `string` (Optional). Valid values: `"zip" | "tar.gz" | "tgz"`. If omitted, the server **must** attempt to auto-detect the format by:
@@ -351,21 +351,21 @@ _(The AI building the server is responsible for generating extensive description
       2.  If the extension is ambiguous or unrecognized for these types, it should then attempt to identify the format by inspecting the file's magic numbers for supported types (`zip`, `tar.gz`).
           If auto-detection fails to identify a supported format, an `ERR_UNSUPPORTED_ARCHIVE_FORMAT` or `ERR_COULD_NOT_DETECT_ARCHIVE_FORMAT` error is returned.
 - **Returns:**
-  - For batched actions (`put`, `mkdir`, `copy`, `move`, `delete`, `touch`): An **array** of result objects, one for each item in the input `entries` array, in the same order.
+  - For batched operations (`put`, `mkdir`, `copy`, `move`, `delete`, `touch`): An **array** of result objects, one for each item in the input `entries` array, in the same order.
   - For single operations (`archive`, `unarchive`): A **single** result object.
   - _(The first successful response of a server session may prepend the one-time informational notice object if default paths were used. Clients should handle this possibility.)_
   - **Common fields for each result object:**
     - `status`: `string` (`"success" | "error"`).
     - If `status: "error"`, then `error_code: string` and `error_message: string` are also present.
-    - `action_performed`: `string` (The specific action that was attempted from the request, e.g., `"put"`, `"mkdir"`, `"archive"`).
+    - `operation_performed`: `string` (The specific operation that was attempted from the request, e.g., `"put"`, `"mkdir"`, `"archive"`).
     - `path?`: `string` (The primary path involved in the operation. For `put`, `mkdir`, `delete`, `touch`: the target path. For `archive`: the `archive_path`. For `unarchive`: the `archive_path`).
-    - `source_path?`: `string` (For `copy`, `move` actions, the source path for that specific entry from the `entries` array).
-    - `destination_path?`: `string` (For `copy`, `move` actions, the destination path for that specific entry. For `unarchive`, the `destination_path` where files were extracted).
+    - `source_path?`: `string` (For `copy`, `move` operations, the source path for that specific entry from the `entries` array).
+    - `destination_path?`: `string` (For `copy`, `move` operations, the destination path for that specific entry. For `unarchive`, the `destination_path` where files were extracted).
   - **Additional fields on `status: "success"`:**
-    - `bytes_written?`: `integer` (For `action: "put"`).
+    - `bytes_written?`: `integer` (For `operation: "put"`).
     - `message?`: `string` (Optional, for additional human-readable context, e.g., "Directory created.", "File timestamps updated.", "Archive created successfully.").
-    - `skipped_sources?`: `string[]` (For `action: "archive"`, an array of resolved absolute source paths that were skipped because they didn't exist or were inaccessible. Omitted if no sources were skipped).
-    - `extracted_files_count?`: `integer` (For `action: "unarchive"`, the total number of files and directories successfully extracted to the `destination_path`. Omitted if not applicable or extraction failed).
+    - `skipped_sources?`: `string[]` (For `operation: "archive"`, an array of resolved absolute source paths that were skipped because they didn't exist or were inaccessible. Omitted if no sources were skipped).
+    - `extracted_files_count?`: `integer` (For `operation: "unarchive"`, the total number of files and directories successfully extracted to the `destination_path`. Omitted if not applicable or extraction failed).
 
 #### 5.3. Tool: `list`
 
@@ -427,40 +427,26 @@ _(The AI building the server is responsible for generating extensive description
 
 #### 5.4. Tool: `find`
 
-- **Description:** (AI to generate based on full capabilities listed below)
+- **Description:** Search for files and directories based on various criteria including name patterns, content patterns, metadata filters, and more. All search criteria are specified as flat parameters for simplicity and Claude-friendliness.
 - **Parameters:**
-  - `base_path`: `string` (Required). The local directory path from which the search will originate.
-  - `recursive?`: `boolean` (Optional, default: `true`). If `true`, the search will extend into subdirectories, respecting `CONDUIT_MAX_RECURSIVE_DEPTH`. If `false`, only entries directly within `base_path` are considered.
-  - `match_criteria`: `object[]` (Required). An array of criterion objects. An entry is included in the results only if it **matches ALL criteria** defined in this array (implicit AND logic between criterion objects).
-    - Each criterion object **must** have a `type` field, and other fields depending on the `type`:
-      - **`type: "name_pattern"`**
-        - `pattern`: `string` (Required). A glob pattern (e.g., `*.txt`, `image[0-9]?.png`, `**/specific_dir/*.log`) to match against entry names (filenames or directory names). Standard glob syntax should be supported (e.g., by a library like `micromatch`).
-      - **`type: "content_pattern"`**
-        - `pattern`: `string` (Required). The text or regular expression pattern to search for within the content of files.
-        - `is_regex?`: `boolean` (Optional, default: `false`). If `true`, the `pattern` string is treated as a JavaScript-compatible regular expression string (e.g., `"^error\\s\\d+$"`). If `false`, `pattern` is treated as a literal string to be found.
-        - `case_sensitive?`: `boolean` (Optional, default: `false`). If `is_regex: false`, this controls case sensitivity of the literal string search. If `is_regex: true`, this flag is typically ignored as case sensitivity is controlled by regex flags (e.g., `/pattern/i` for case-insensitive).
-        - `file_types_to_search?`: `string[]` (Optional). An array of file extensions (e.g., `[".txt", ".log", ".md"]`) to restrict content searching to these types of files. If omitted, the server will attempt to search content only in files that are presumed to be text-based. This presumption is made by:
-          1.  Checking the file extension against an internal list of common text file extensions (e.g., `.txt`, `.md`, `.json`, `.xml`, `.html`, `.js`, `.py`, `.sh`, `.csv`, `.ini`, `.yaml`).
-          2.  Using `file-type` to get the MIME type. If it's a known text-friendly type (e.g., `text/*`, `application/json`), it's included.
-              Files identified as binary by these methods (e.g. `image/*`, `application/zip`) **must be skipped** for content searching, regardless of `file_types_to_search`, to prevent issues. No error is generated for skipped binary files.
-      - **`type: "metadata_filter"`**
-        - `attribute`: `string` (Required). The metadata attribute to filter on. Valid values:
-          - `"name"` (string: filename or directory name)
-          - `"size_bytes"` (integer: file size)
-          - `"created_at_iso"` (string: ISO 8601 timestamp for creation time)
-          - `"modified_at_iso"` (string: ISO 8601 timestamp for last modification time)
-          - `"entry_type"` (string: value must be exactly `"file"` or `"directory"`)
-          - `"mime_type"` (string: MIME type, typically for files only)
-        - `operator`: `string` (Required). The comparison operator.
-          - For string attributes (`name`, `entry_type`, `mime_type`): `"equals" | "not_equals" | "contains" | "starts_with" | "ends_with" | "matches_regex"`.
-          - For numeric attributes (`size_bytes`): `"eq"` (equals), `"neq"` (not equals), `"gt"` (greater than), `"gte"` (greater than or equal to), `"lt"` (less than), `"lte"` (less than or equal to).
-          - For date attributes (`created_at_iso`, `modified_at_iso`): `"before"` (strictly before), `"after"` (strictly after), `"on_date"` (date part matches).
-        - `value`: `any` (Required). The value to compare against. Its type must be appropriate for the `attribute`:
-          - `string` for `name`, `entry_type`, `mime_type`. For `operator: "matches_regex"`, `value` is a regex string (e.g., `"^start.*end$"`).
-          - `integer` for `size_bytes`.
-          - `string` (ISO 8601 date for `on_date` e.g., `"2023-10-26"`; or ISO 8601 datetime string for `before`/`after` e.g., `"2023-10-26T12:00:00Z"`) for date attributes. The server must parse these robustly for comparison.
-        - `case_sensitive?`: `boolean` (Optional, default: `false`). Applies to string attribute operators (`equals`, `not_equals`, `contains`, `starts_with`, `ends_with`). Ignored if `operator` is `matches_regex` (regex flags should control case sensitivity, e.g. `/pattern/i`).
-  - `entry_type_filter?`: `string` (Optional, default: `"any"`). A shorthand filter for entry type. Valid values: `"file" | "directory" | "any"`. If specified, acts as an additional AND criterion equivalent to a `metadata_filter` for `entry_type`.
+  - `operation`: `string` (Required). Must be `"search"`. Type of find operation.
+  - `path`: `string` (Required). The local directory path from which the search will originate.
+  - `recursive?`: `boolean` (Optional, default: `true`). If `true`, the search will extend into subdirectories, respecting `CONDUIT_MAX_RECURSIVE_DEPTH`. If `false`, only entries directly within `path` are considered.
+  - `name_pattern?`: `string` (Optional). A glob pattern (e.g., `*.txt`, `image[0-9]?.png`, `**/specific_dir/*.log`) to match against entry names (filenames or directory names). Standard glob syntax should be supported (e.g., by a library like `micromatch`).
+  - `case_sensitive?`: `boolean` (Optional, default: `false`). Controls case sensitivity for the `name_pattern` matching.
+  - `content_pattern?`: `string` (Optional). The text or regular expression pattern to search for within the content of files.
+  - `content_is_regex?`: `boolean` (Optional, default: `false`). If `true`, the `content_pattern` string is treated as a JavaScript-compatible regular expression string (e.g., `"^error\\s\\d+$"`). If `false`, `content_pattern` is treated as a literal string to be found.
+  - `content_case_sensitive?`: `boolean` (Optional, default: `false`). If `content_is_regex: false`, this controls case sensitivity of the literal string search. If `content_is_regex: true`, this flag is typically ignored as case sensitivity is controlled by regex flags (e.g., `/pattern/i` for case-insensitive).
+  - `file_extensions?`: `string[]` (Optional). An array of file extensions (e.g., `[".txt", ".log", ".md"]`) to restrict content searching to these types of files. If omitted, the server will attempt to search content only in files that are presumed to be text-based.
+  - `size_min?`: `integer` (Optional). Minimum file size in bytes. Files smaller than this will be excluded from results.
+  - `size_max?`: `integer` (Optional). Maximum file size in bytes. Files larger than this will be excluded from results.
+  - `modified_after?`: `string` (Optional). ISO 8601 datetime string (e.g., `"2023-10-26T12:00:00Z"`). Only files modified after this time will be included.
+  - `modified_before?`: `string` (Optional). ISO 8601 datetime string. Only files modified before this time will be included.
+  - `created_after?`: `string` (Optional). ISO 8601 datetime string. Only files created after this time will be included.
+  - `created_before?`: `string` (Optional). ISO 8601 datetime string. Only files created before this time will be included.
+  - `entry_type?`: `string` (Optional, default: `"any"`). Filter by entry type. Valid values: `"file" | "directory" | "any"`.
+  - `mime_type?`: `string` (Optional). Filter by MIME type (e.g., `"text/plain"`, `"image/jpeg"`). Only files with this MIME type will be included.
+  - `max_results?`: `integer` (Optional). Maximum number of results to return. If specified, only the first N matching entries will be returned.
 - **Returns:** An array of `EntryInfo` objects that match all specified criteria. The structure of each `EntryInfo` object is identical to that returned by `list.operation: "entries"`, but will not contain the `children` or `recursive_size_calculation_note` fields as this is a flat list of matching results.
   - _(The first successful response of a server session may prepend the one-time informational notice object if default paths were used. Clients should handle this possibility.)_
 
@@ -570,9 +556,9 @@ This list defines unique error codes the server must use in its JSON error respo
 - **General MCP/Request Errors:**
   - `ERR_MCP_INVALID_REQUEST`: Malformed or unparsable MCP request JSON.
   - `ERR_UNKNOWN_TOOL`: The requested `toolName` is not recognized by the server.
-  - `ERR_UNKNOWN_OPERATION_ACTION`: The `operation` (for `read`/`list`) or `action` (for `write`) is not valid for the specified tool.
+  - `ERR_UNKNOWN_OPERATION_ACTION`: The `operation` (for `read`/`list`) or `operation` (for `write`) is not valid for the specified tool.
   - `ERR_INVALID_PARAMETER`: A required parameter is missing, or a parameter has an invalid value, type, or format. The `error_message` should specify which parameter and why it's invalid.
-  - `ERR_MISSING_ENTRIES_FOR_BATCH`: The `entries` array is missing or empty for a `write` tool action that requires it.
+  - `ERR_MISSING_ENTRIES_FOR_BATCH`: The `entries` array is missing or empty for a `write` tool operation that requires it.
 - **Configuration & Initialization Errors:**
   - `ERR_CONFIG_INVALID`: A `CONDUIT_*` environment variable has an unparsable or fundamentally invalid value (e.g., non-numeric for a size, invalid enum for `LOG_LEVEL`). Message should specify the variable.
   - `ERR_FS_BAD_ALLOWED_PATH`: A path provided in `CONDUIT_ALLOWED_PATHS` is invalid, unresolvable, or does not point to a directory. Server may not start or may operate with a reduced set of allowed paths if others are invalid.

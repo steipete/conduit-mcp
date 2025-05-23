@@ -348,7 +348,7 @@ export function extractNoticeFromMCP(mcpResponse: MCPResponse): [InfoNotice, Too
       if (isNoticeResponse(parsed)) {
         return parsed;
       }
-    } catch (error) {
+    } catch {
       // Ignore parse errors for this helper
     }
   }

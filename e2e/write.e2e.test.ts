@@ -31,7 +31,7 @@ describe('E2E Write Operations', () => {
       const requestPayload = {
         tool_name: 'write',
         params: {
-          action: 'put',
+          operation: 'put',
           entries: [
             {
               path: testFile,
@@ -49,24 +49,25 @@ describe('E2E Write Operations', () => {
       }
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
-      expect(Array.isArray(result.response)).toBe(true);
 
       // Should have 2 elements: info notice + actual tool response
-      expect(result.response).toHaveLength(2);
+      expect(isNoticeResponse(result.response)).toBe(true);
+      if (isNoticeResponse(result.response)) {
+        const [infoNotice, toolResponse] = result.response;
+        expect(infoNotice.type).toBe('info_notice');
+        expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
+        expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
 
-      // First element should be the info notice
-      const infoNotice = (result.response as unknown[])[0] as Record<string, unknown>;
-      expect(infoNotice.type).toBe('info_notice');
-      expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-      expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
-
-      // Second element should be the actual tool response object
-      const actualToolResponse = (result.response as unknown[])[1] as Record<string, unknown>;
-      expect(actualToolResponse.tool_name).toBe('write');
-      expect(Array.isArray(actualToolResponse.results)).toBe(true);
-      expect(actualToolResponse.results).toHaveLength(1);
-      expect((actualToolResponse.results as any[])[0].status).toBe('success');
-      expect((actualToolResponse.results as any[])[0].path).toBe(testFile);
+        // Second element should be the actual tool response object
+        const actualResponse = toolResponse as unknown as Record<string, unknown>;
+        expect(actualResponse.tool_name).toBe('write');
+        expect(Array.isArray(actualResponse.results)).toBe(true);
+        expect((actualResponse.results as any[]).length).toBe(1);
+        expect((actualResponse.results as any[])[0].status).toBe('success');
+        expect((actualResponse.results as any[])[0].path).toBe(testFile);
+      } else {
+        throw new Error('Expected notice response');
+      }
     });
 
     it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
@@ -74,7 +75,7 @@ describe('E2E Write Operations', () => {
       const requestPayload = {
         tool_name: 'write',
         params: {
-          action: 'put',
+          operation: 'put',
           entries: [
             {
               path: testFile,

@@ -14,6 +14,8 @@ vi.mock('@/internal', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/internal')>();
   return {
     ...original,
+    // conduitConfig: mockConduitConfig,
+    // logger: createMockLogger(),
     conduitConfig: mockConduitConfig,
     logger: {
       info: vi.fn(),
@@ -31,7 +33,30 @@ vi.mock('@/internal', async (importOriginal) => {
 import { describe, it, expect, beforeEach } from 'vitest';
 import { copyPath } from '@/core/fileSystemOps';
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import { conduitConfig, logger } from '@/internal'; // For test logic (conduitConfig) and logger verification
+// import { conduitConfig, logger } from '@/internal'; // For test logic (conduitConfig) and logger verification
+
+// Mock fs.promises
+vi.mock('fs', () => ({
+  promises: {
+    stat: vi.fn(),
+    lstat: vi.fn(),
+    readdir: vi.fn(),
+    copyFile: vi.fn(),
+    mkdir: vi.fn(),
+    readlink: vi.fn(),
+    symlink: vi.fn(),
+  },
+  constants: {
+    F_OK: 0,
+  },
+}));
+
+// Mock os module
+vi.mock('os', () => ({
+  default: {
+    tmpdir: vi.fn(),
+  },
+}));
 
 describe('copyPath', () => {
   const sourceFile = '/src/file.txt';

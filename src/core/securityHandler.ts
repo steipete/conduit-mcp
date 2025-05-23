@@ -82,9 +82,7 @@ export async function validateAndResolvePath(
     // Skip parent validation if parent is the same as target (root directory case)
     if (parentDir === targetAbsolutePath) {
       if (checkAllowed && !isPathAllowed(targetAbsolutePath, conduitConfig.resolvedAllowedPaths)) {
-        logger.warn(
-          `[securityHandler] Root directory access denied for creation: ${originalPath}`
-        );
+        logger.warn(`[securityHandler] Root directory access denied for creation: ${originalPath}`);
         throw new ConduitError(
           ErrorCode.ERR_FS_PERMISSION_DENIED,
           `Access to root directory is denied: ${originalPath}`

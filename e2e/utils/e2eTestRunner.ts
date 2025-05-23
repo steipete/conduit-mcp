@@ -1,15 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
-import {
-  MCPResponse,
-  isMCPResponse,
-  extractToolResponseFromMCP,
-  extractNoticeFromMCP,
-  ToolResponse,
-  InfoNotice,
-  isMCPToolCallResult,
-  extractMCPResponseData,
-} from './types';
+import { isMCPResponse, isMCPToolCallResult, extractMCPResponseData } from './types';
 
 export interface E2ETestResult {
   response: unknown;

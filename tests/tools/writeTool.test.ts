@@ -66,14 +66,14 @@ vi.mock('@/internal', async (importOriginal) => {
             )) as number;
             return {
               status: 'success',
-              action_performed: 'put',
+              operation_performed: 'put',
               path: entry.path,
               bytes_written: bytes,
             } as WriteTool.WriteResultSuccess;
           } catch (err: any) {
             return {
               status: 'error',
-              action_performed: 'put',
+              operation_performed: 'put',
               path: entry.path,
               error_code: err?.errorCode ?? ErrorCode.OPERATION_FAILED,
               error_message: err?.message ?? 'error',
@@ -94,13 +94,13 @@ vi.mock('@/internal', async (importOriginal) => {
             await fileSystemOps.createDirectory(absPath, entry.recursive ?? false);
             return {
               status: 'success',
-              action_performed: 'mkdir',
+              operation_performed: 'mkdir',
               path: entry.path,
             } as WriteTool.WriteResultSuccess;
           } catch (err: any) {
             return {
               status: 'error',
-              action_performed: 'mkdir',
+              operation_performed: 'mkdir',
               path: entry.path,
               error_code: ErrorCode.OPERATION_FAILED,
               error_message: err?.message ?? 'error',
@@ -127,14 +127,14 @@ vi.mock('@/internal', async (importOriginal) => {
             await fileSystemOps.copyPath(absSrc, absDst);
             return {
               status: 'success',
-              action_performed: 'copy',
+              operation_performed: 'copy',
               source_path: entry.source_path,
               destination_path: entry.destination_path,
             } as WriteTool.WriteResultSuccess;
           } catch (err: any) {
             return {
               status: 'error',
-              action_performed: 'copy',
+              operation_performed: 'copy',
               source_path: entry.source_path,
               destination_path: entry.destination_path,
               error_code: ErrorCode.OPERATION_FAILED,
@@ -248,7 +248,7 @@ describe('WriteTool', () => {
   describe('Batch Actions (put, mkdir, copy, move, delete, touch)', () => {
     it('should handle put action successfully', async () => {
       const params: WriteTool.PutParams = {
-        action: 'put',
+        operation: 'put',
         entries: [{ path: '/file.txt', content: 'Hello', input_encoding: 'text' }],
       };
       const response = (await writeToolHandler(
@@ -258,7 +258,7 @@ describe('WriteTool', () => {
       const result = response.results;
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
-      expect(result[0].action_performed).toBe('put');
+      expect(result[0].operation_performed).toBe('put');
       expect(result[0].path).toBe('/file.txt');
       expect((result[0] as WriteTool.WriteResultSuccess).bytes_written).toBe(100);
       expect(mockedFsOps.writeFile).toHaveBeenCalledWith(
@@ -271,7 +271,7 @@ describe('WriteTool', () => {
 
     it('should handle mkdir action successfully', async () => {
       const params: WriteTool.MkdirParams = {
-        action: 'mkdir',
+        operation: 'mkdir',
         entries: [{ path: '/newdir', recursive: true }],
       };
       const response = (await writeToolHandler(
@@ -287,7 +287,7 @@ describe('WriteTool', () => {
     // Add similar tests for copy, move, delete, touch
     it('should handle copy action successfully', async () => {
       const params: WriteTool.CopyParams = {
-        action: 'copy',
+        operation: 'copy',
         entries: [{ source_path: '/src.txt', destination_path: '/dest.txt' }],
       };
       const response = (await writeToolHandler(
@@ -297,7 +297,7 @@ describe('WriteTool', () => {
       const result = response.results;
       expect(response.tool_name).toBe('write');
       expect(result[0].status).toBe('success');
-      expect(result[0].action_performed).toBe('copy');
+      expect(result[0].operation_performed).toBe('copy');
       expect(mockedFsOps.copyPath).toHaveBeenCalledWith(
         '/mocked/workspace/src.txt',
         '/mocked/workspace/dest.txt'
@@ -311,7 +311,7 @@ describe('WriteTool', () => {
           new ConduitError(ErrorCode.ERR_FS_PERMISSION_DENIED, 'Access denied')
         );
       const params: WriteTool.PutParams = {
-        action: 'put',
+        operation: 'put',
         entries: [
           { path: '/file1.txt', content: 'OK', input_encoding: 'text' },
           { path: '/file2.txt', content: 'FAIL', input_encoding: 'text' },
@@ -332,7 +332,7 @@ describe('WriteTool', () => {
     });
 
     it('should throw ERR_MISSING_ENTRIES_FOR_BATCH if entries is empty for batch action', async () => {
-      const params = { action: 'batch', entries: [] } as any; // cast as any to avoid nonexistent type
+      const params = { operation: 'batch', entries: [] } as any; // cast as any to avoid nonexistent type
       const response = (await writeToolHandler(params, mockedConduitConfig)) as MCPErrorStatus;
       expect(response.status).toBe('error');
       expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);
@@ -342,7 +342,7 @@ describe('WriteTool', () => {
   describe('Archive Actions', () => {
     it('should handle archive action successfully', async () => {
       const params: WriteTool.ArchiveParams = {
-        action: 'archive',
+        operation: 'archive',
         source_paths: ['/dir1', '/file.txt'],
         archive_path: '/myarchive.zip',
         format: 'zip',
@@ -376,7 +376,7 @@ describe('WriteTool', () => {
         operation: 'create',
       } as ArchiveTool.ArchiveResultError);
       const params: WriteTool.ArchiveParams = {
-        action: 'archive',
+        operation: 'archive',
         source_paths: ['/dir1'],
         archive_path: '/myarchive.zip',
       };
@@ -393,7 +393,7 @@ describe('WriteTool', () => {
 
     it('should handle unarchive action successfully', async () => {
       const params: WriteTool.UnarchiveParams = {
-        action: 'unarchive',
+        operation: 'unarchive',
         archive_path: '/myarchive.zip',
         destination_path: '/extract_here',
       };
@@ -418,7 +418,7 @@ describe('WriteTool', () => {
   });
 
   it('should throw error for invalid action', async () => {
-    const params = { action: 'invalid_action' } as unknown;
+    const params = { operation: 'invalid_action' } as unknown;
     const response = (await writeToolHandler(params as any, mockedConduitConfig)) as MCPErrorStatus;
     expect(response.status).toBe('error');
     expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);

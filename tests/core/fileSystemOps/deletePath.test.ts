@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { mockFs, mockConduitConfig, createDirent } from './helpers';
+import { mockFs, mockConduitConfig } from './helpers';
 import type { Stats } from 'fs';
 
 // Mock fs/promises AT THE TOP of the test file

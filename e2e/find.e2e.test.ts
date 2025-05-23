@@ -236,14 +236,10 @@ describe('E2E Find Operations', () => {
       const requestPayload = {
         tool_name: 'find',
         params: {
-          base_path: '/nonexistent/directory',
+          operation: 'search',
+          path: '/nonexistent/directory',
           recursive: true,
-          match_criteria: [
-            {
-              type: 'name_pattern',
-              pattern: '*.txt',
-            },
-          ],
+          name_pattern: '*.txt',
         },
       };
 
@@ -277,14 +273,10 @@ describe('E2E Find Operations', () => {
       const requestPayload = {
         tool_name: 'find',
         params: {
-          base_path: '/nonexistent/directory',
+          operation: 'search',
+          path: '/nonexistent/directory',
           recursive: true,
-          match_criteria: [
-            {
-              type: 'name_pattern',
-              pattern: '*.txt',
-            },
-          ],
+          name_pattern: '*.txt',
         },
       };
 
@@ -429,14 +421,10 @@ describe('E2E Find Operations', () => {
       const requestPayload = {
         tool_name: 'find',
         params: {
-          base_path: testWorkspaceDir,
+          operation: 'search',
+          path: testWorkspaceDir,
           recursive: true,
-          match_criteria: [
-            {
-              type: 'name_pattern',
-              pattern: '*.txt',
-            },
-          ],
+          name_pattern: '*.txt',
         },
       };
 
@@ -485,14 +473,10 @@ describe('E2E Find Operations', () => {
       const requestPayload = {
         tool_name: 'find',
         params: {
-          base_path: nonExistentPath,
+          operation: 'search',
+          path: nonExistentPath,
           recursive: true,
-          match_criteria: [
-            {
-              type: 'name_pattern',
-              pattern: '*',
-            },
-          ],
+          name_pattern: '*',
         },
       };
 

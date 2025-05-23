@@ -6,14 +6,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "**/*.{ts,tsx,js,jsx}"
-            }
-          ]
+          "name_pattern": "**/*.{ts,tsx,js,jsx}"
         }
       },
       "expected_exit_code": 0,
@@ -73,21 +69,12 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "*.ts"
-            },
-            {
-              "type": "metadata_filter",
-              "attribute": "name",
-              "operator": "not_equals",
-              "value": "test.ts",
-              "case_sensitive": false
-            }
-          ]
+          "name_pattern": "*.ts",
+          "name_not_equals": "test.ts",
+          "case_sensitive": false
         }
       },
       "expected_exit_code": 0,
@@ -132,14 +119,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "*"
-            }
-          ]
+          "name_pattern": "*"
         }
       },
       "expected_exit_code": 0,
@@ -203,14 +186,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "target*.txt"
-            }
-          ]
+          "name_pattern": "target*.txt"
         }
       },
       "expected_exit_code": 0,
@@ -255,15 +234,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "測試",
-              "case_sensitive": true
-            }
-          ]
+          "content_pattern": "測試",
+          "case_sensitive": true
         }
       },
       "expected_exit_code": 0,
@@ -306,31 +281,14 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "*.log"
-            },
-            {
-              "type": "content_pattern",
-              "pattern": "ERROR",
-              "case_sensitive": true
-            },
-            {
-              "type": "metadata_filter",
-              "attribute": "size_bytes",
-              "operator": "gt",
-              "value": 50
-            },
-            {
-              "type": "metadata_filter",
-              "attribute": "size_bytes",
-              "operator": "lt",
-              "value": 200
-            }
-          ]
+          "name_pattern": "*.log",
+          "content_pattern": "ERROR",
+          "case_sensitive": true,
+          "size_min": 50,
+          "size_max": 200
         }
       },
       "expected_exit_code": 0,
@@ -375,16 +333,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "modified_at",
-              "operator": "after",
-              "value": "2024-01-01T12:00:00Z"
-            }
-          ]
+          "modified_after": "2024-01-01T12:00:00Z"
         }
       },
       "expected_exit_code": 0,
@@ -421,16 +373,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "created_at",
-              "operator": "on_date",
-              "value": "2024-01-15"
-            }
-          ]
+          "created_after": "2024-01-15T00:00:00Z",
+          "created_before": "2024-01-15T23:59:59Z"
         }
       },
       "expected_exit_code": 0,
@@ -467,15 +414,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "^\\s*$",
-              "is_regex": true
-            }
-          ]
+          "content_pattern": "^\\s*$",
+          "content_is_regex": true
         }
       },
       "expected_exit_code": 0,
@@ -520,16 +463,12 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "[ERROR]",
-              "is_regex": false,
-              "case_sensitive": true
-            }
-          ]
+          "content_pattern": "[ERROR]",
+          "content_is_regex": false,
+          "content_case_sensitive": true
         }
       },
       "expected_exit_code": 0,
@@ -569,14 +508,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "*"
-            }
-          ]
+          "name_pattern": "*"
         }
       },
       "expected_exit_code": 0,
@@ -663,17 +598,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "name",
-              "operator": "equals",
-              "value": "TestFile.txt",
-              "case_sensitive": true
-            }
-          ]
+          "name_equals": "TestFile.txt",
+          "case_sensitive": true
         }
       },
       "expected_exit_code": 0,
@@ -713,17 +642,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "name",
-              "operator": "contains",
-              "value": "test",
-              "case_sensitive": false
-            }
-          ]
+          "name_pattern": "*test*",
+          "case_sensitive": false
         }
       },
       "expected_exit_code": 0,
@@ -778,14 +701,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "a*.txt"
-            }
-          ]
+          "name_pattern": "a*.txt"
         }
       },
       "expected_exit_code": 0,
@@ -821,18 +740,12 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "entry_type_filter": "directory",
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "name",
-              "operator": "ends_with",
-              "value": "_dir",
-              "case_sensitive": false
-            }
-          ]
+          "entry_type": "directory",
+          "name_pattern": "*_dir",
+          "case_sensitive": false
         }
       },
       "expected_exit_code": 0,
@@ -880,16 +793,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "name",
-              "operator": "matches_regex",
-              "value": "^(log|debug)_\\d{4}-\\d{2}-\\d{2}\\.(txt|log)$"
-            }
-          ]
+          "name_pattern": "(log|debug)_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].(txt|log)"
         }
       },
       "expected_exit_code": 0,
@@ -944,16 +851,12 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "function",
-              "case_sensitive": false,
-              "file_types_to_search": [".js", ".ts"]
-            }
-          ]
+          "content_pattern": "function",
+          "content_case_sensitive": false,
+          "file_extensions": [".js", ".ts"]
         }
       },
       "expected_exit_code": 0,
@@ -1003,22 +906,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "size_bytes",
-              "operator": "gte",
-              "value": 100
-            },
-            {
-              "type": "metadata_filter",
-              "attribute": "size_bytes",
-              "operator": "lte",
-              "value": 500
-            }
-          ]
+          "size_min": 100,
+          "size_max": 500
         }
       },
       "expected_exit_code": 0,
@@ -1058,14 +950,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER/empty_subdir",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER/empty_subdir",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": "*"
-            }
-          ]
+          "name_pattern": "*"
         }
       },
       "expected_exit_code": 0,
@@ -1088,14 +976,10 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "name_pattern",
-              "pattern": ".*"
-            }
-          ]
+          "name_pattern": ".*"
         }
       },
       "expected_exit_code": 0,
@@ -1165,16 +1049,12 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "function\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{",
-              "is_regex": true,
-              "case_sensitive": false
-            }
-          ]
+          "content_pattern": "function\\s+(\\w+)\\s*\\([^)]*\\)\\s*\\{",
+          "content_is_regex": true,
+          "content_case_sensitive": false
         }
       },
       "expected_exit_code": 0,
@@ -1224,15 +1104,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "text",
-              "case_sensitive": false
-            }
-          ]
+          "content_pattern": "text",
+          "case_sensitive": false
         }
       },
       "expected_exit_code": 0,
@@ -1273,15 +1149,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "findme",
-              "case_sensitive": true
-            }
-          ]
+          "content_pattern": "findme",
+          "content_case_sensitive": true
         }
       },
       "expected_exit_code": 0,
@@ -1321,15 +1193,11 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "match_criteria": [
-            {
-              "type": "content_pattern",
-              "pattern": "[unclosed_bracket",
-              "is_regex": true
-            }
-          ]
+          "content_pattern": "[unclosed_bracket",
+          "content_is_regex": true
         }
       },
       "expected_exit_code": 0,
@@ -1349,22 +1217,16 @@
     },
     {
       "name": "search_with_all_entry_types",
-      "description": "Test search across files, directories, and symlinks with entry_type_filter 'any'",
+      "description": "Test search across files, directories, and symlinks with entry_type 'any'",
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "entry_type_filter": "any",
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "name",
-              "operator": "contains",
-              "value": "test",
-              "case_sensitive": false
-            }
-          ]
+          "entry_type": "any",
+          "name_pattern": "*test*",
+          "case_sensitive": false
         }
       },
       "expected_exit_code": 0,
@@ -1429,17 +1291,12 @@
       "request_payload": {
         "tool_name": "find",
         "params": {
-          "base_path": "TEMP_DIR_PLACEHOLDER",
+          "operation": "search",
+          "path": "TEMP_DIR_PLACEHOLDER",
           "recursive": true,
-          "entry_type_filter": "file",
-          "match_criteria": [
-            {
-              "type": "metadata_filter",
-              "attribute": "size_bytes",
-              "operator": "eq",
-              "value": 0
-            }
-          ]
+          "entry_type": "file",
+          "size_min": 0,
+          "size_max": 0
         }
       },
       "expected_exit_code": 0,

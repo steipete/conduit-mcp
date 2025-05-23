@@ -47,13 +47,13 @@ describe('touchFile', () => {
     mockFs.mkdir.mockReset().mockResolvedValue(undefined); // Default success for mkdir (used by createDirectory)
 
     // Default behavior for pathExists (via fs.access) - usually overridden per test
-    mockFs.access.mockImplementation(async (p: import('fs').PathLike) => {
+    mockFs.access.mockImplementation(async (_p: import('fs').PathLike) => {
       const e = new Error('ENOENT default access');
       (e as any).code = 'ENOENT';
       throw e;
     });
     // Default behavior for getStats (via fs.stat) - usually overridden per test
-    mockFs.stat.mockImplementation(async (p: import('fs').PathLike) => {
+    mockFs.stat.mockImplementation(async (_p: import('fs').PathLike) => {
       const e = new Error('ENOENT default stat');
       (e as any).code = 'ENOENT';
       throw e;

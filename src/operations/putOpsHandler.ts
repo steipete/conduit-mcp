@@ -19,7 +19,7 @@ export async function handleWritePut(
       results: [
         {
           status: 'error',
-          action_performed: 'put', // Generic action for the batch attempt
+          operation_performed: 'put', // Generic operation for the batch attempt
           // path is not applicable for a missing entries error
           error_code: ErrorCode.INVALID_PARAMETER,
           error_message: "'entries' array is missing or empty for put operation.",

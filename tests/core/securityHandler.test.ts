@@ -362,7 +362,7 @@ describe('securityHandler', () => {
         // but the parent directory IS allowed after realpath resolution
         const userPath = '/unallowed/path/newfile.txt'; // Not directly in allowed paths
         // Don't add this path to allowed paths initially
-        
+
         // Mock parent directory exists and resolves to an allowed path
         mockFs.realpath.mockImplementation(async (p: PathLike) => {
           const pStr = p.toString();
@@ -378,7 +378,7 @@ describe('securityHandler', () => {
       it('should throw ERR_FS_DIR_NOT_FOUND if parent directory does not exist', async () => {
         const userPath = '/nonexistent/parent/newfile.txt'; // Use a path not in allowed paths
         // Don't add to allowed paths so parent validation is triggered
-        
+
         // Mock parent directory doesn't exist
         mockFs.realpath.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
@@ -458,7 +458,7 @@ describe('securityHandler', () => {
         const userPath = '~/Desktop';
         const homeDir = '/mock/home';
         const desktopPath = path.join(homeDir, 'Desktop');
-        
+
         mockOs.homedir.mockReturnValue(homeDir);
         mockConduitConfig.allowedPaths = [desktopPath];
         mockConduitConfig.resolvedAllowedPaths = [desktopPath];
@@ -475,7 +475,7 @@ describe('securityHandler', () => {
 
       it('should allow creation when target path with trailing slash is in allowed paths', async () => {
         const userPath = '/allowed/path1/'; // Directory with trailing slash
-        
+
         const resolved = await validateAndResolvePath(userPath, { forCreation: true });
         expect(resolved).toBe(path.resolve(userPath));
         // Should not call realpath for parent directory since target itself is allowed

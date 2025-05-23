@@ -76,8 +76,9 @@ describe('FindTool', () => {
 
   it('should validate and resolve path, then call findEntries with resolved path', async () => {
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*.txt' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*.txt',
     };
 
     await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -88,37 +89,39 @@ describe('FindTool', () => {
     });
     expect(mockedFileSystemOps.getStats).toHaveBeenCalledWith(mockResolvedPath);
     expect(mockedFindEntries).toHaveBeenCalledWith(
-      { ...params, base_path: mockResolvedPath },
+      { ...params, path: mockResolvedPath },
       mockedConduitConfig as ConduitServerConfig
     );
   });
 
   it('should respect recursive:false parameter', async () => {
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*.txt' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*.txt',
       recursive: false,
     };
 
     await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
 
     expect(mockedFindEntries).toHaveBeenCalledWith(
-      { ...params, base_path: mockResolvedPath },
+      { ...params, path: mockResolvedPath },
       mockedConduitConfig as ConduitServerConfig
     );
   });
 
-  it('should pass entry_type_filter correctly', async () => {
+  it('should pass entry_type correctly', async () => {
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
-      entry_type_filter: 'file',
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
+      entry_type: 'file',
     };
 
     await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
 
     expect(mockedFindEntries).toHaveBeenCalledWith(
-      { ...params, base_path: mockResolvedPath },
+      { ...params, path: mockResolvedPath },
       mockedConduitConfig as ConduitServerConfig
     );
   });
@@ -128,8 +131,9 @@ describe('FindTool', () => {
     mockedFindEntries.mockResolvedValue(expectedResults);
 
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -144,8 +148,9 @@ describe('FindTool', () => {
     mockedValidateAndResolvePath.mockRejectedValue(validationError);
 
     const params: FindTool.Parameters = {
-      base_path: '/invalid/path',
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: '/invalid/path',
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -157,12 +162,13 @@ describe('FindTool', () => {
     });
   });
 
-  it('should return error response if base_path is a file not directory', async () => {
+  it('should return error response if path is a file not directory', async () => {
     mockedFileSystemOps.getStats.mockResolvedValue({ isDirectory: () => false } as any);
 
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -170,7 +176,7 @@ describe('FindTool', () => {
       tool_name: 'find',
       status: 'error',
       error_code: ErrorCode.ERR_FS_PATH_IS_FILE,
-      error_message: `Provided base_path is a file, not a directory: ${mockResolvedPath}`,
+      error_message: `Provided path is a file, not a directory: ${mockResolvedPath}`,
     });
   });
 
@@ -179,8 +185,9 @@ describe('FindTool', () => {
     mockedFindEntries.mockResolvedValue(findError);
 
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -197,8 +204,9 @@ describe('FindTool', () => {
     mockedFindEntries.mockRejectedValue(findError);
 
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -215,8 +223,9 @@ describe('FindTool', () => {
     mockedFindEntries.mockRejectedValue(genericError);
 
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);
@@ -233,8 +242,9 @@ describe('FindTool', () => {
     mockedFileSystemOps.getStats.mockRejectedValue(statsError);
 
     const params: FindTool.Parameters = {
-      base_path: mockBasePath,
-      match_criteria: [{ type: 'name_pattern', pattern: '*' }],
+      operation: 'search',
+      path: mockBasePath,
+      name_pattern: '*',
     };
 
     const result = await findToolHandler(params, mockedConduitConfig as ConduitServerConfig);

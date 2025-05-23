@@ -21,7 +21,7 @@ export async function writeToolHandler(
   config: ConduitServerConfig
 ): Promise<WriteTool.DefinedBatchResponse | WriteTool.DefinedArchiveResponse | MCPErrorStatus> {
   try {
-    switch (params.action) {
+    switch (params.operation) {
       case 'put': {
         const putParams = params as WriteTool.PutParams;
         return await handleBatchPut(putParams, config);
@@ -100,7 +100,7 @@ export async function writeToolHandler(
           tool_name: 'write',
           ...createErrorResponse(
             ErrorCode.UNSUPPORTED_OPERATION,
-            `Unsupported action: ${(params as unknown as { action: string }).action}`
+            `Unsupported operation: ${(params as unknown as { operation: string }).operation}`
           ),
         };
       }

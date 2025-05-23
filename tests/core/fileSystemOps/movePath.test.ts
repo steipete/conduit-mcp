@@ -31,7 +31,6 @@ vi.mock('@/internal', async (importOriginal) => {
 import { describe, it, expect, beforeEach } from 'vitest';
 import { movePath } from '@/core/fileSystemOps';
 import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import { logger } from '@/internal'; // For logger verification
 
 describe('movePath', () => {
   beforeEach(() => {

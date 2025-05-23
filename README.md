@@ -145,16 +145,16 @@ Compare two files and see exactly what changed.
 
 ### ✏️ The `write` Tool - Master Builder Cat
 
-Your cat can modify the file system with surgical precision through various actions:
+Your cat can modify the file system with surgical precision through various operations:
 
-#### File Operations (`action: "put"`)
+#### File Operations (`operation: "put"`)
 
 Write content to files with different encoding and write modes.
 
 ```json
 {
   "tool": "write",
-  "action": "put",
+  "operation": "put",
   "entries": [
     {
       "path": "~/Documents/new_file.txt",
@@ -173,14 +173,14 @@ Write content to files with different encoding and write modes.
 - `input_encoding?`: `"text" | "base64"` (Optional, default: `"text"`)
 - `write_mode?`: `"overwrite" | "append" | "error_if_exists"` (Optional, default: `"overwrite"`)
 
-#### Directory Operations (`action: "mkdir"`)
+#### Directory Operations (`operation: "mkdir"`)
 
 Create directories with optional recursive creation.
 
 ```json
 {
   "tool": "write",
-  "action": "mkdir",
+  "operation": "mkdir",
   "entries": [
     {
       "path": "~/Documents/new_folder/subfolder",
@@ -190,14 +190,14 @@ Create directories with optional recursive creation.
 }
 ```
 
-#### File Management (`action: "copy" | "move" | "delete"`)
+#### File Management (`operation: "copy" | "move" | "delete"`)
 
 Copy, move, or delete files and directories.
 
 ```json
 {
   "tool": "write",
-  "action": "copy",
+  "operation": "copy",
   "entries": [
     {
       "source_path": "~/file.txt",
@@ -207,7 +207,7 @@ Copy, move, or delete files and directories.
 }
 ```
 
-**Available Actions:**
+**Available Operations:**
 
 - `"put"` - Write files (text or base64)
 - `"mkdir"` - Create directories (with `recursive` option)
@@ -220,12 +220,12 @@ Copy, move, or delete files and directories.
 
 Create and extract archives in multiple formats.
 
-**Create Archive (`action: "archive"`):**
+**Create Archive (`operation: "archive"`):**
 
 ```json
 {
   "tool": "write",
-  "action": "archive",
+  "operation": "archive",
   "source_paths": ["~/Documents/folder1", "~/Documents/file1.txt"],
   "archive_path": "~/backup.zip",
   "format": "zip",
@@ -233,12 +233,12 @@ Create and extract archives in multiple formats.
 }
 ```
 
-**Extract Archive (`action: "unarchive"`):**
+**Extract Archive (`operation: "unarchive"`):**
 
 ```json
 {
   "tool": "write",
-  "action": "unarchive",
+  "operation": "unarchive",
   "archive_path": "~/backup.zip",
   "destination_path": "~/restored/",
   "format": "zip"
@@ -293,76 +293,86 @@ Get information about the server and file system.
 - `"server_capabilities"` - Server version, configuration, supported features
 - `"filesystem_stats"` - File system statistics for a given path
 
-### 🔎 The `find` Tool - Bloodhound Cat
+### 🔎 The `find` Tool - Master Detective Cat
 
-The most sophisticated search tool - your cat can find ANYTHING using multiple criteria:
+Your cat can hunt down files and directories using sophisticated search criteria. All search parameters are specified directly for simplicity and Claude-friendliness.
 
 ```json
 {
   "tool": "find",
-  "base_path": "~/Documents",
+  "operation": "search",
+  "path": "~/Documents",
   "recursive": true,
-  "match_criteria": [
-    {
-      "type": "name_pattern",
-      "pattern": "*.{pdf,doc,docx}"
-    },
-    {
-      "type": "metadata_filter",
-      "attribute": "size_bytes",
-      "operator": "gt",
-      "value": 1048576
-    }
-  ],
-  "entry_type_filter": "file"
+  "name_pattern": "*.{pdf,doc,docx}",
+  "size_min": 1048576,
+  "entry_type": "file"
 }
 ```
 
 **Parameters:**
 
-- `base_path`: `string` (Required) - Starting directory
+- `operation`: `string` (Required) - Must be `"search"`
+- `path`: `string` (Required) - Starting directory
 - `recursive?`: `boolean` (Optional, default: `true`) - Search subdirectories
-- `match_criteria`: `object[]` (Required) - Array of search criteria (ALL must match)
-- `entry_type_filter?`: `"file" | "directory" | "any"` (Optional) - Filter by entry type
+- `name_pattern?`: `string` (Optional) - Glob pattern for file/directory names
+- `case_sensitive?`: `boolean` (Optional, default: `false`) - Case sensitivity for name matching
+- `content_pattern?`: `string` (Optional) - Text or regex pattern to search in file contents
+- `content_is_regex?`: `boolean` (Optional, default: `false`) - Treat content_pattern as regex
+- `content_case_sensitive?`: `boolean` (Optional, default: `false`) - Case sensitivity for content search
+- `file_extensions?`: `string[]` (Optional) - Limit content search to specific file types
+- `size_min?`: `integer` (Optional) - Minimum file size in bytes
+- `size_max?`: `integer` (Optional) - Maximum file size in bytes
+- `modified_after?`: `string` (Optional) - ISO 8601 datetime string
+- `modified_before?`: `string` (Optional) - ISO 8601 datetime string
+- `created_after?`: `string` (Optional) - ISO 8601 datetime string
+- `created_before?`: `string` (Optional) - ISO 8601 datetime string
+- `entry_type?`: `"file" | "directory" | "any"` (Optional) - Filter by entry type
+- `mime_type?`: `string` (Optional) - Filter by MIME type
+- `max_results?`: `integer` (Optional) - Limit number of results
 
-#### Search Criteria Types
+#### Example Searches
 
-**Name Pattern Matching:**
+**Find large PDF files:**
 
 ```json
 {
-  "type": "name_pattern",
-  "pattern": "*.txt"
+  "tool": "find",
+  "operation": "search",
+  "path": "~/Documents",
+  "name_pattern": "*.pdf",
+  "size_min": 1048576
 }
 ```
 
-**Content Search:**
+**Search for TODO comments in code:**
 
 ```json
 {
-  "type": "content_pattern",
-  "pattern": "TODO|FIXME",
-  "is_regex": true,
-  "case_sensitive": false,
-  "file_types_to_search": [".js", ".ts", ".py"]
+  "tool": "find",
+  "operation": "search",
+  "path": "~/Projects",
+  "content_pattern": "TODO|FIXME",
+  "content_is_regex": true,
+  "content_case_sensitive": false,
+  "file_extensions": [".js", ".ts", ".py"]
 }
 ```
 
-**Metadata Filtering:**
+**Find recently modified files:**
 
 ```json
 {
-  "type": "metadata_filter",
-  "attribute": "modified_at_iso",
-  "operator": "after",
-  "value": "2023-01-01T00:00:00Z",
-  "case_sensitive": false
+  "tool": "find",
+  "operation": "search",
+  "path": "~/Documents",
+  "modified_after": "2023-01-01T00:00:00Z",
+  "entry_type": "file"
 }
 ```
 
 **Search Superpowers:**
 
-- 🎯 **Multi-criteria AND logic**: All criteria must match
+- 🎯 **Multi-criteria AND logic**: All specified criteria must match
 - 🔤 **Glob patterns**: `*.txt`, `image[0-9]?.png`, `**/logs/*.log`
 - 📝 **Content search**: Text or regex patterns in file contents
 - 📅 **Date filtering**: Find files by creation/modification dates
@@ -465,7 +475,7 @@ Efficiency expert! Process multiple files in a single request:
 ```json
 {
   "tool": "write",
-  "action": "copy",
+  "operation": "copy",
   "entries": [
     { "source_path": "~/file1.txt", "destination_path": "~/backup/" },
     { "source_path": "~/file2.txt", "destination_path": "~/backup/" },

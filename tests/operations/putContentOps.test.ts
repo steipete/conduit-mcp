@@ -66,7 +66,7 @@ vi.mock('fs/promises', async (importOriginal) => {
 
 // Define a more specific type for the error result in the checksum failure case
 interface PutContentChecksumErrorResult extends MCPErrorStatus {
-  action_performed: 'put';
+  operation_performed: 'put';
   path: string;
   bytes_written?: number;
 }
@@ -394,7 +394,7 @@ describe('putContentOps', () => {
       const result = (await putContent(entry, testConfig)) as WriteTool.WriteResultSuccess;
 
       expect(result.status).toBe('success');
-      expect(result.action_performed).toBe('put');
+      expect(result.operation_performed).toBe('put');
       expect(result.path).toBe(testFilePath);
       expect(result.bytes_written).toBe(Buffer.from(entry.content as string).length);
       expect(mockedFsOps.writeFile).toHaveBeenCalledWith(
@@ -532,7 +532,7 @@ describe('putContentOps', () => {
       const resultItem = (await putContent(entry, testConfig)) as WriteTool.WriteResultItem;
       expect(resultItem.status).toBe('error');
       if (resultItem.status === 'error') {
-        expect(resultItem.action_performed).toBe('put');
+        expect(resultItem.operation_performed).toBe('put');
         expect(resultItem.error_code).toBe(ErrorCode.ERR_FS_ALREADY_EXISTS);
       } else {
         assert.fail('Expected error status');
@@ -638,7 +638,7 @@ describe('putContentOps', () => {
       const resultItem = (await putContent(entry, testConfig)) as PutContentChecksumErrorResult;
 
       expect(resultItem.status).toBe('error');
-      expect(resultItem.action_performed).toBe('put');
+      expect(resultItem.operation_performed).toBe('put');
       expect(resultItem.path).toBe(testFilePath);
       expect(resultItem.bytes_written).toBe(Buffer.from(entry.content as string).length);
       expect(mockedFsOps.writeFile).toHaveBeenCalledWith(
