@@ -1,6 +1,6 @@
 {
   "name": "@steipete/conduit-mcp",
-  "version": "1.0.0-rc.5",
+  "version": "1.0.0",
   "description": "MCP server for rich file system ops, web content fetching (HTML/Markdown), image processing, search, diff & archives, via concise tools.",
   "main": "dist/src/mcp-server.js",
   "bin": {

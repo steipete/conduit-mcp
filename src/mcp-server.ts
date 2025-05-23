@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
-import {
-  Server,
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  StdioServerTransport,
-} from '@modelcontextprotocol/sdk/server/index.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import {
   logger,
   conduitConfig,
@@ -25,19 +22,10 @@ import { findToolHandler } from '@/tools/findTool';
 import { archiveToolHandler } from '@/operations/archiveOps';
 import { testToolHandler } from '@/tools/testTool';
 
-// Union type for all tool parameters
-type ToolArguments =
-  | ReadTool.Parameters
-  | WriteTool.Parameters
-  | ListTool.Parameters
-  | FindTool.Parameters
-  | ArchiveTool.Params
-  | TestTool.Parameters;
-
 const server = new Server(
   {
     name: 'conduit-mcp',
-    version: '1.0.0-rc.5',
+    version: '1.0.0',
   },
   {
     capabilities: {
@@ -351,22 +339,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     switch (name) {
       case 'read':
-        toolResponse = await readToolHandler(args as ReadTool.Parameters, conduitConfig);
+        toolResponse = await readToolHandler(args as unknown as ReadTool.Parameters, conduitConfig);
         break;
       case 'write':
-        toolResponse = await writeToolHandler(args as WriteTool.Parameters, conduitConfig);
+        toolResponse = await writeToolHandler(args as unknown as WriteTool.Parameters, conduitConfig);
         break;
       case 'list':
-        toolResponse = await listToolHandler(args as ListTool.Parameters, conduitConfig);
+        toolResponse = await listToolHandler(args as unknown as ListTool.Parameters, conduitConfig);
         break;
       case 'find':
-        toolResponse = await findToolHandler(args as FindTool.Parameters, conduitConfig);
+        toolResponse = await findToolHandler(args as unknown as FindTool.Parameters, conduitConfig);
         break;
       case 'archive':
-        toolResponse = await archiveToolHandler(args as ArchiveTool.Params, conduitConfig, name);
+        toolResponse = await archiveToolHandler(args as unknown as ArchiveTool.Params, conduitConfig, name);
         break;
       case 'test':
-        toolResponse = await testToolHandler(args as TestTool.Parameters, conduitConfig);
+        toolResponse = await testToolHandler(args as unknown as TestTool.Parameters, conduitConfig);
         break;
       default:
         throw new Error(`Unknown tool: ${name}`);
