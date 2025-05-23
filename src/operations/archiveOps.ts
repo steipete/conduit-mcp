@@ -1,14 +1,15 @@
-import * as tar from 'tar';
-import * as fs from 'fs-extra';
+import * as fsExtra from 'fs-extra';
 import * as path from 'path';
+import * as tar from 'tar';
 import AdmZip from 'adm-zip';
 import {
+  logger,
   ArchiveTool,
   ConduitServerConfig,
   ConduitError,
   ErrorCode,
-  logger,
-  validateAndResolvePath,
+  PathValidationStrategy,
+  validateAndResolvePath // Keep for backward compatibility where needed
 } from '@/internal';
 import { calculateChecksum } from '@/utils/checksum';
 
@@ -65,7 +66,7 @@ export const createArchive = async (
     );
   }
 
-  if ((await fs.pathExists(absoluteArchivePath)) && !options?.overwrite) {
+  if ((await fsExtra.pathExists(absoluteArchivePath)) && !options?.overwrite) {
     return createErrorArchiveResultItem(
       'create',
       `Archive already exists at ${archive_path} and overwrite is false.`,
@@ -92,13 +93,13 @@ export const createArchive = async (
   const inferredFormat = archive_path.endsWith('.zip') ? 'zip' : 'tar.gz'; // Or just 'tar' if .gz is separate
 
   try {
-    await fs.ensureDir(path.dirname(absoluteArchivePath));
+    await fsExtra.ensureDir(path.dirname(absoluteArchivePath));
 
     if (inferredFormat === 'zip') {
       const zip = new AdmZip();
       for (let i = 0; i < source_paths.length; i++) {
         const absoluteSourcePath = resolvedSourcePaths[i];
-        const stats = await fs.stat(absoluteSourcePath);
+        const stats = await fsExtra.stat(absoluteSourcePath);
 
         if (stats.isDirectory()) {
           const dirBaseName = path.basename(source_paths[i]);
@@ -135,7 +136,7 @@ export const createArchive = async (
       await tar.create(tarOptions, relativeSourcePathsForTar);
     }
 
-    const stats = await fs.stat(absoluteArchivePath);
+    const stats = await fsExtra.stat(absoluteArchivePath);
     const checksum = await calculateChecksum(absoluteArchivePath, 'sha256');
 
     const successResult: ArchiveTool.CreateArchiveSuccess = {
@@ -212,7 +213,7 @@ export const extractArchive = async (
   }
 
   try {
-    await fs.ensureDir(absoluteTargetPath);
+    await fsExtra.ensureDir(absoluteTargetPath);
 
     // Determine the archive format from extension, ignore params.format
     const inferredFormat = archive_path.endsWith('.zip')
@@ -253,7 +254,7 @@ export const extractArchive = async (
           const entries = zip.getEntries();
           for (const entry of entries) {
             const entryPath = path.join(absoluteTargetPath, entry.entryName);
-            if (await fs.pathExists(entryPath)) {
+            if (await fsExtra.pathExists(entryPath)) {
               throw new Error(`adm-zip: Cannot overwrite file: ${entryPath}`);
             }
           }
