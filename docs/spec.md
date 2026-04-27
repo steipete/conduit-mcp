@@ -133,7 +133,7 @@ _Documentation must prominently explain the `CONDUIT_ALLOWED_PATHS` variable, it
 
 1.  Clone the repository: `git clone <repository_url_for_conduit-mcp>`
 2.  Navigate to the directory: `cd conduit-mcp`
-3.  Install dependencies: `npm install`
+3.  Install dependencies: `pnpm install`
 4.  The server can then be run using the `start.sh` script. Configure the MCP client to point to this script.
 
     Example for client's `mcp.json` using a local development instance:
@@ -196,15 +196,15 @@ else
   # If tsx is not found after initial checks, attempt to install it locally (dev dependency style).
   # This output to stderr is acceptable as it's a bootstrap/dev environment issue not an MCP violation.
   if [ -z "$TSX_CMD" ]; then
-    echo "WARN: [conduit-mcp/start.sh] tsx command not found. Attempting to install it locally (will not be saved to package.json)..." >&2
-    # Execute npm install in the project root context
-    (cd "$PROJECT_ROOT" && npm install tsx --no-save)
+    echo "WARN: [conduit-mcp/start.sh] tsx command not found. Attempting to install project dependencies locally..." >&2
+    # Install project dependencies in the project root context.
+    (cd "$PROJECT_ROOT" && corepack pnpm install --prod=false)
     # Re-check for local tsx after attempting install
     if [ -f "$LOCAL_TSX_PATH" ]; then
       TSX_CMD="$LOCAL_TSX_PATH"
     else
       # If still not found, error out.
-      echo "ERROR: [conduit-mcp/start.sh] Failed to find or install tsx. Please install tsx globally ('npm install -g tsx') or ensure it's a devDependency and install project dependencies, or build the project first." >&2
+      echo "ERROR: [conduit-mcp/start.sh] Failed to find tsx after pnpm install. Please install project dependencies or build the project first." >&2
       exit 1
     fi
   fi
@@ -454,7 +454,7 @@ _(The AI building the server is responsible for generating extensive description
 
 ```
 conduit-mcp/
-├── dist/                     # Compiled JavaScript output (e.g., after `npm run build`)
+├── dist/                     # Compiled JavaScript output (e.g., after `pnpm run build`)
 ├── src/
 │   ├── server.ts             # Main server entry point, MCP request/response router
 │   ├── tools/                # Implementations for each of the 4 tools

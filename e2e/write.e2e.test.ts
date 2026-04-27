@@ -1,15 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { runConduitMCPScript } from './utils/e2eTestRunner';
-import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
-import { isNoticeResponse, type BufferEncoding } from './utils/types';
-import path from 'path';
-import fs from 'fs';
-import AdmZip from 'adm-zip';
-import * as tar from 'tar';
-import { ensureDirSync } from 'fs-extra';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { runConduitMCPScript } from "./utils/e2eTestRunner";
+import { createTempDir } from "./utils/tempFs";
+import { loadTestScenarios, TestScenario } from "./utils/scenarioLoader";
+import { isNoticeResponse, type BufferEncoding } from "./utils/types";
+import path from "path";
+import fs from "fs";
+import AdmZip from "adm-zip";
+import * as tar from "tar";
+import { ensureDirSync } from "fs-extra";
 
-describe('E2E Write Operations', () => {
+describe("E2E Write Operations", () => {
   let testWorkspaceDir: string;
 
   beforeEach(() => {
@@ -25,18 +25,18 @@ describe('E2E Write Operations', () => {
     }
   });
 
-  describe('First Use Informational Notice', () => {
-    it('should show info notice on first request with default paths', async () => {
-      const testFile = path.join(testWorkspaceDir, 'test.txt');
+  describe("First Use Informational Notice", () => {
+    it("should show info notice on first request with default paths", async () => {
+      const testFile = path.join(testWorkspaceDir, "test.txt");
       const requestPayload = {
-        tool_name: 'write',
+        tool_name: "write",
         params: {
-          operation: 'put',
+          operation: "put",
           entries: [
             {
               path: testFile,
-              content: 'Hello, World!',
-              input_encoding: 'text',
+              content: "Hello, World!",
+              input_encoding: "text",
             },
           ],
         },
@@ -54,33 +54,33 @@ describe('E2E Write Operations', () => {
       expect(isNoticeResponse(result.response)).toBe(true);
       if (isNoticeResponse(result.response)) {
         const [infoNotice, toolResponse] = result.response;
-        expect(infoNotice.type).toBe('info_notice');
-        expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-        expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
+        expect(infoNotice.type).toBe("info_notice");
+        expect(infoNotice.notice_code).toBe("DEFAULT_PATHS_USED");
+        expect(infoNotice.message).toContain("CONDUIT_ALLOWED_PATHS was not explicitly set");
 
         // Second element should be the actual tool response object
         const actualResponse = toolResponse as unknown as Record<string, unknown>;
-        expect(actualResponse.tool_name).toBe('write');
+        expect(actualResponse.tool_name).toBe("write");
         expect(Array.isArray(actualResponse.results)).toBe(true);
         expect((actualResponse.results as any[]).length).toBe(1);
-        expect((actualResponse.results as any[])[0].status).toBe('success');
+        expect((actualResponse.results as any[])[0].status).toBe("success");
         expect((actualResponse.results as any[])[0].path).toBe(testFile);
       } else {
-        throw new Error('Expected notice response');
+        throw new Error("Expected notice response");
       }
     });
 
-    it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
-      const testFile = path.join(testWorkspaceDir, 'test.txt');
+    it("should not show info notice when CONDUIT_ALLOWED_PATHS is set", async () => {
+      const testFile = path.join(testWorkspaceDir, "test.txt");
       const requestPayload = {
-        tool_name: 'write',
+        tool_name: "write",
         params: {
-          operation: 'put',
+          operation: "put",
           entries: [
             {
               path: testFile,
-              content: 'Hello, World!',
-              input_encoding: 'text',
+              content: "Hello, World!",
+              input_encoding: "text",
             },
           ],
         },
@@ -98,17 +98,17 @@ describe('E2E Write Operations', () => {
 
       // Should be the direct tool response object (no notice)
       const response = result.response as Record<string, unknown>;
-      expect(response.tool_name).toBe('write');
+      expect(response.tool_name).toBe("write");
       expect(Array.isArray(response.results)).toBe(true);
       const results = response.results as Array<Record<string, unknown>>;
       expect(results).toHaveLength(1);
-      expect(results[0].status).toBe('success');
+      expect(results[0].status).toBe("success");
       expect(results[0].path).toBe(testFile);
     });
   });
 
   // Load scenarios and create dynamic tests
-  const scenarios = loadTestScenarios('writeTool.scenarios.json');
+  const scenarios = loadTestScenarios("writeTool.scenarios.json");
 
   scenarios.forEach((scenario: TestScenario) => {
     describe(`${scenario.name}`, () => {
@@ -126,26 +126,26 @@ describe('E2E Write Operations', () => {
             }
 
             // Handle archive creation
-            if (file.content_type === 'archive') {
-              if (file.archive_type === 'zip') {
+            if (file.content_type === "archive") {
+              if (file.archive_type === "zip") {
                 const zip = new AdmZip();
 
                 for (const entry of file.entries || []) {
                   if (entry.content !== undefined) {
                     // Regular file
                     zip.addFile(entry.path, Buffer.from(entry.content));
-                  } else if (entry.path.endsWith('/')) {
+                  } else if (entry.path.endsWith("/")) {
                     // Directory entry
-                    zip.addFile(entry.path, Buffer.alloc(0), '');
+                    zip.addFile(entry.path, Buffer.alloc(0), "");
                   }
                 }
 
                 ensureDirSync(parentDir);
                 zip.writeZip(filePath);
-              } else if (file.archive_type === 'tar.gz') {
+              } else if (file.archive_type === "tar.gz") {
                 // Create temporary staging directory
                 const archiveName = path.basename(filePath, path.extname(filePath));
-                const stagingDir = path.join(testWorkspaceDir, 'temp_archive_staging', archiveName);
+                const stagingDir = path.join(testWorkspaceDir, "temp_archive_staging", archiveName);
                 ensureDirSync(stagingDir);
 
                 const filesToArchive: string[] = [];
@@ -154,7 +154,7 @@ describe('E2E Write Operations', () => {
                   if (entry.content !== undefined) {
                     const entryPath = path.join(stagingDir, entry.path);
                     ensureDirSync(path.dirname(entryPath));
-                    fs.writeFileSync(entryPath, entry.content, 'utf8');
+                    fs.writeFileSync(entryPath, entry.content, "utf8");
                     filesToArchive.push(entry.path);
                   }
                 }
@@ -168,22 +168,22 @@ describe('E2E Write Operations', () => {
                     file: filePath,
                     cwd: stagingDir,
                   },
-                  filesToArchive
+                  filesToArchive,
                 );
 
                 // Clean up staging directory
-                fs.rmSync(path.join(testWorkspaceDir, 'temp_archive_staging'), {
+                fs.rmSync(path.join(testWorkspaceDir, "temp_archive_staging"), {
                   recursive: true,
                   force: true,
                 });
               }
-            } else if (file.content_type === 'directory') {
+            } else if (file.content_type === "directory") {
               // Create directory
               fs.mkdirSync(filePath, { recursive: true });
             } else {
               // Regular file
-              fs.writeFileSync(filePath, file.content || '', {
-                encoding: (file.encoding as BufferEncoding) || 'utf8',
+              fs.writeFileSync(filePath, file.content || "", {
+                encoding: (file.encoding as BufferEncoding) || "utf8",
               });
             }
           }
@@ -194,17 +194,17 @@ describe('E2E Write Operations', () => {
         // Process placeholder substitution
         const processedRequestPayload = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.request_payload)),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         const processedExpectedStdout = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.expected_stdout)),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         const processedEnvVars = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.env_vars || {})),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         // Initialize timestamp tracking for custom_logic assertions
@@ -214,13 +214,13 @@ describe('E2E Write Operations', () => {
         if (scenario.assertions) {
           for (const assertion of scenario.assertions) {
             if (
-              assertion.type === 'custom_logic' &&
-              assertion.name === 'check_timestamp_updated' &&
+              assertion.type === "custom_logic" &&
+              assertion.name === "check_timestamp_updated" &&
               assertion.setup_path
             ) {
               const resolvedSetupPath = substituteTemplateValues(
                 assertion.setup_path as string,
-                testWorkspaceDir
+                testWorkspaceDir,
               ) as string;
               if (fs.existsSync(resolvedSetupPath)) {
                 const initialTimestamp = fs.statSync(resolvedSetupPath).mtimeMs;
@@ -231,14 +231,14 @@ describe('E2E Write Operations', () => {
         }
 
         // Handle pre-run delay if specified
-        if (scenario.pre_run_delay_ms && typeof scenario.pre_run_delay_ms === 'number') {
+        if (scenario.pre_run_delay_ms && typeof scenario.pre_run_delay_ms === "number") {
           await new Promise((resolve) => setTimeout(resolve, scenario.pre_run_delay_ms));
         }
 
         // Run the test
         const result = await runConduitMCPScript(
           processedRequestPayload as object,
-          processedEnvVars as Record<string, string>
+          processedEnvVars as Record<string, string>,
         );
 
         // Assertions
@@ -249,13 +249,13 @@ describe('E2E Write Operations', () => {
           expect(isNoticeResponse(result.response)).toBe(true);
           if (isNoticeResponse(result.response)) {
             const [infoNotice, actualToolResponse] = result.response;
-            expect(infoNotice.type).toBe('info_notice');
+            expect(infoNotice.type).toBe("info_notice");
             if (scenario.notice_code) {
               expect(infoNotice.notice_code).toBe(scenario.notice_code);
             }
             verifyScenarioResults(actualToolResponse, processedExpectedStdout);
           } else {
-            throw new Error('Expected notice response');
+            throw new Error("Expected notice response");
           }
         } else {
           verifyScenarioResults(result.response, processedExpectedStdout);
@@ -266,44 +266,44 @@ describe('E2E Write Operations', () => {
           for (const assertion of scenario.assertions) {
             const processedAssertion = substituteTemplateValues(
               assertion,
-              testWorkspaceDir
+              testWorkspaceDir,
             ) as Record<string, unknown>;
 
-            if (processedAssertion.type === 'file_content') {
+            if (processedAssertion.type === "file_content") {
               expect(fs.existsSync(processedAssertion.path as string)).toBe(true);
-              const actualContent = fs.readFileSync(processedAssertion.path as string, 'utf8');
+              const actualContent = fs.readFileSync(processedAssertion.path as string, "utf8");
               expect(actualContent).toBe(processedAssertion.expected_content);
-            } else if (processedAssertion.type === 'file_exists') {
+            } else if (processedAssertion.type === "file_exists") {
               expect(fs.existsSync(processedAssertion.path as string)).toBe(
-                processedAssertion.should_exist
+                processedAssertion.should_exist,
               );
-            } else if (processedAssertion.type === 'file_not_exists') {
+            } else if (processedAssertion.type === "file_not_exists") {
               expect(fs.existsSync(processedAssertion.path as string)).toBe(false);
-            } else if (processedAssertion.type === 'archive_contains') {
+            } else if (processedAssertion.type === "archive_contains") {
               expect(fs.existsSync(processedAssertion.archive_path as string)).toBe(true);
 
               const archivePath = processedAssertion.archive_path as string;
               const expectedEntries = processedAssertion.expected_entries as string[];
 
-              if (archivePath.endsWith('.zip')) {
+              if (archivePath.endsWith(".zip")) {
                 // Handle ZIP archives
                 const zip = new AdmZip(archivePath);
-                const actualEntries = zip.getEntries().map((e) => e.entryName.replace(/\\/g, '/'));
+                const actualEntries = zip.getEntries().map((e) => e.entryName.replace(/\\/g, "/"));
                 expect(actualEntries).toEqual(expect.arrayContaining(expectedEntries));
-              } else if (archivePath.endsWith('.tar.gz') || archivePath.endsWith('.tar')) {
+              } else if (archivePath.endsWith(".tar.gz") || archivePath.endsWith(".tar")) {
                 // Handle TAR/TAR.GZ archives
                 const actualEntries: string[] = [];
                 await tar.list({
                   file: archivePath,
                   onentry: (entry) => {
-                    actualEntries.push(entry.path.replace(/\\/g, '/'));
+                    actualEntries.push(entry.path.replace(/\\/g, "/"));
                   },
                 });
                 expect(actualEntries).toEqual(expect.arrayContaining(expectedEntries));
               }
-            } else if (processedAssertion.type === 'custom_logic') {
+            } else if (processedAssertion.type === "custom_logic") {
               // Handle custom logic assertions
-              if (processedAssertion.name === 'check_timestamp_updated') {
+              if (processedAssertion.name === "check_timestamp_updated") {
                 const resolvedSetupPath = processedAssertion.setup_path as string;
                 expect(fs.existsSync(resolvedSetupPath)).toBe(true);
 
@@ -358,18 +358,18 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
       }
       if ((expectedTyped.error as Record<string, unknown>)?.message_contains) {
         expect(actualTyped.error?.message).toContain(
-          (expectedTyped.error as Record<string, unknown>).message_contains
+          (expectedTyped.error as Record<string, unknown>).message_contains,
         );
       }
-    } else if (actualTyped.status === 'error') {
+    } else if (actualTyped.status === "error") {
       // Handle actual server error response format
-      expect(actualTyped.status).toBe('error');
+      expect(actualTyped.status).toBe("error");
       if (expectedTyped.error?.code) {
         expect(actualTyped.error_code).toBe(expectedTyped.error.code);
       }
       if ((expectedTyped.error as Record<string, unknown>)?.message_contains) {
         expect(actualTyped.error_message).toContain(
-          (expectedTyped.error as Record<string, unknown>).message_contains
+          (expectedTyped.error as Record<string, unknown>).message_contains,
         );
       }
     } else {
@@ -379,17 +379,17 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
   }
 
   // Handle direct server error response format (when actual.status === 'error')
-  if (actualTyped.status === 'error') {
+  if (actualTyped.status === "error") {
     // The actual response is a direct error, not wrapped in tool response
     // But expected might be in tool response format, so we need to handle this
     if (
-      expectedTyped.tool_name === 'write' &&
+      expectedTyped.tool_name === "write" &&
       expectedTyped.results &&
       expectedTyped.results[0] &&
-      expectedTyped.results[0].status === 'error'
+      expectedTyped.results[0].status === "error"
     ) {
       const expectedResult = expectedTyped.results[0] as Record<string, unknown>;
-      expect(actualTyped.status).toBe('error');
+      expect(actualTyped.status).toBe("error");
       if (expectedResult.error_code) {
         // Be flexible with error codes as server implementation may use different codes
         expect(actualTyped.error_code).toBeDefined();
@@ -444,12 +444,12 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
       }
       if (expectedResult.bytes_written_gt !== undefined) {
         expect(actualResult.bytes_written).toBeGreaterThan(
-          expectedResult.bytes_written_gt as number
+          expectedResult.bytes_written_gt as number,
         );
       }
 
       // Check error details for failed operations
-      if (expectedResult.status === 'error') {
+      if (expectedResult.status === "error") {
         if (expectedResult.error_code) {
           expect(actualResult.error_code).toBe(expectedResult.error_code);
         }
@@ -470,17 +470,17 @@ function verifyScenarioResults(actual: unknown, expected: unknown) {
  * Recursively substitute template values in an object
  */
 function substituteTemplateValues(obj: unknown, tempDir: string): unknown {
-  if (typeof obj === 'string') {
+  if (typeof obj === "string") {
     return obj
       .replace(/\{\{TEMP_DIR\}\}/g, tempDir)
-      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, '/'));
+      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, "/"));
   }
 
   if (Array.isArray(obj)) {
     return obj.map((item) => substituteTemplateValues(item, tempDir));
   }
 
-  if (obj && typeof obj === 'object') {
+  if (obj && typeof obj === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = substituteTemplateValues(value, tempDir);

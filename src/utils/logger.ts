@@ -1,8 +1,23 @@
-import pino, { LoggerOptions, Logger } from 'pino';
-import os from 'os';
-import path from 'path';
+import pino, { LoggerOptions, Logger } from "pino";
+import os from "os";
+import path from "path";
 
-const logLevel = process.env.LOG_LEVEL || 'INFO';
+type LogMethod = (objOrMsg: unknown, ...args: unknown[]) => void;
+
+export type ConduitLogger = Omit<
+  Logger,
+  "trace" | "debug" | "info" | "warn" | "error" | "fatal" | "child"
+> & {
+  trace: LogMethod;
+  debug: LogMethod;
+  info: LogMethod;
+  warn: LogMethod;
+  error: LogMethod;
+  fatal: LogMethod;
+  child: (bindings: Record<string, unknown>) => ConduitLogger;
+};
+
+const logLevel = process.env.LOG_LEVEL || "INFO";
 
 const pinoOptions: LoggerOptions = {
   level: logLevel.toLowerCase(),
@@ -31,46 +46,46 @@ let logger: Logger;
 
 const logFilePathFromEnv = process.env.CONDUIT_LOG_FILE_PATH;
 
-if (logFilePathFromEnv === 'NONE') {
+if (logFilePathFromEnv === "NONE") {
   // Explicitly disable logging
   logger = pino({ ...pinoOptions, enabled: false });
 } else if (logFilePathFromEnv) {
   // Log to the specified file path
   logger = pino(pinoOptions, pino.destination(logFilePathFromEnv));
-} else if (process.env.NODE_ENV === 'test') {
+} else if (process.env.NODE_ENV === "test") {
   // During tests, make it a no-op logger unless a path is specified or "NONE"
-  logger = pino({ ...pinoOptions, level: 'silent' }); // Or enabled: false if preferred
+  logger = pino({ ...pinoOptions, level: "silent" }); // Or enabled: false if preferred
 } else {
   // Default to logging to [SYSTEM_TEMP_DIR]/conduit-mcp.log
   const defaultLogDir = os.tmpdir();
-  const defaultLogFile = path.join(defaultLogDir, 'conduit-mcp.log');
+  const defaultLogFile = path.join(defaultLogDir, "conduit-mcp.log");
   try {
     logger = pino(pinoOptions, pino.destination(defaultLogFile));
   } catch (error) {
     // Fallback to no-op if default log file creation fails (e.g., permissions)
     console.error(
-      `Failed to create default log file at ${defaultLogFile}: ${error instanceof Error ? error.message : String(error)}. Logging will be disabled.`
+      `Failed to create default log file at ${defaultLogFile}: ${error instanceof Error ? error.message : String(error)}. Logging will be disabled.`,
     );
     logger = pino({ ...pinoOptions, enabled: false });
   }
 }
 
 // Initial log to confirm logger setup
-if (logFilePathFromEnv === 'NONE') {
+if (logFilePathFromEnv === "NONE") {
   // Log to console because the main logger is disabled.
   console.log(`Internal logger is explicitly disabled via CONDUIT_LOG_FILE_PATH="NONE".`);
-} else if (process.env.NODE_ENV === 'test' && pinoOptions.level === 'silent') {
+} else if (process.env.NODE_ENV === "test" && pinoOptions.level === "silent") {
   // No log needed for silent test logger, or it might print if level was overridden by LOG_LEVEL
   // If truly silent, isLevelEnabled('info') would be false.
 } else {
   // Check if the logger is actually enabled and configured to log at the default/current level.
   // Use a common level like 'info' for this check, assuming pinoOptions.level is 'info' or more verbose.
-  if (logger.isLevelEnabled(pinoOptions.level || 'info')) {
+  if (logger.isLevelEnabled(pinoOptions.level || "info")) {
     if (logFilePathFromEnv) {
       logger.info(`Internal logger initialized. Logging to file: ${logFilePathFromEnv}`);
     } else {
       // This case covers the default log file path since "NONE" and explicit path are handled above.
-      const defaultLogFile = path.join(os.tmpdir(), 'conduit-mcp.log');
+      const defaultLogFile = path.join(os.tmpdir(), "conduit-mcp.log");
       logger.info(`Internal logger initialized. Logging to default file: ${defaultLogFile}`);
     }
   } else {
@@ -78,9 +93,9 @@ if (logFilePathFromEnv === 'NONE') {
     // or some other issue like failed stream, but we have a try-catch for that.
     // For safety, we can log to console if logger seems non-operational for info messages.
     console.log(
-      `Internal logger configured, but current log level (${pinoOptions.level}) may prevent initialization messages. Check CONDUIT_LOG_FILE_PATH or LOG_LEVEL.`
+      `Internal logger configured, but current log level (${pinoOptions.level}) may prevent initialization messages. Check CONDUIT_LOG_FILE_PATH or LOG_LEVEL.`,
     );
   }
 }
 
-export default logger;
+export default logger as ConduitLogger;

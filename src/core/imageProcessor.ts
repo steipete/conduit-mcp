@@ -1,7 +1,7 @@
-import sharp from 'sharp';
-import { conduitConfig, logger } from '@/internal';
+import sharp from "sharp";
+import { conduitConfig, logger } from "@/internal";
 
-const operationLogger = logger.child({ component: 'imageProcessor' });
+const operationLogger = logger.child({ component: "imageProcessor" });
 
 export interface CompressionResult {
   buffer: Buffer;
@@ -11,9 +11,9 @@ export interface CompressionResult {
 }
 
 const SUPPORTED_MIME_TYPES_FOR_COMPRESSION = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
+  "image/jpeg",
+  "image/png",
+  "image/webp",
   // 'image/tiff', // Sharp can handle tiff, but compression options might vary
   // 'image/gif',  // Sharp can handle gif, animated gif compression is specific
   // 'image/avif', // Sharp can handle avif
@@ -21,7 +21,7 @@ const SUPPORTED_MIME_TYPES_FOR_COMPRESSION = [
 
 export async function compressImageIfNecessary(
   originalBuffer: Buffer,
-  mimeType: string
+  mimeType: string,
   // config: ConduitServerConfig, // Using imported conduitConfig directly for now as per other core modules
 ): Promise<CompressionResult> {
   const { imageCompressionThresholdBytes, imageCompressionQuality } = conduitConfig;
@@ -29,7 +29,7 @@ export async function compressImageIfNecessary(
 
   if (originalSizeBytes <= imageCompressionThresholdBytes) {
     operationLogger.debug(
-      `Image size ${originalSizeBytes} bytes is below threshold ${imageCompressionThresholdBytes}, no compression attempted.`
+      `Image size ${originalSizeBytes} bytes is below threshold ${imageCompressionThresholdBytes}, no compression attempted.`,
     );
     return {
       buffer: originalBuffer,
@@ -48,33 +48,33 @@ export async function compressImageIfNecessary(
   }
 
   operationLogger.debug(
-    `Attempting compression for ${mimeType}, original size: ${originalSizeBytes} bytes.`
+    `Attempting compression for ${mimeType}, original size: ${originalSizeBytes} bytes.`,
   );
 
   try {
     let sharpInstance = sharp(originalBuffer, {
-      animated: mimeType === 'image/gif' || mimeType === 'image/webp',
+      animated: mimeType === "image/gif" || mimeType === "image/webp",
     }); // Enable animated for relevant types
 
     switch (mimeType.toLowerCase()) {
-      case 'image/jpeg':
+      case "image/jpeg":
         sharpInstance = sharpInstance.jpeg({ quality: imageCompressionQuality, mozjpeg: true });
         break;
-      case 'image/png':
+      case "image/png":
         sharpInstance = sharpInstance.png({
           compressionLevel: 9,
           adaptiveFiltering: true,
           palette: true,
         }); // Added palette for potential size win
         break;
-      case 'image/webp':
+      case "image/webp":
         sharpInstance = sharpInstance.webp({ quality: imageCompressionQuality });
         break;
       // Add cases for tiff, avif if specific settings are desired, otherwise they might use defaults or fail.
       default:
         // Should not be reached if SUPPORTED_MIME_TYPES_FOR_COMPRESSION is accurate
         operationLogger.warn(
-          `No specific compression logic for MIME type: ${mimeType}. Returning original.`
+          `No specific compression logic for MIME type: ${mimeType}. Returning original.`,
         );
         return {
           buffer: originalBuffer,
@@ -85,7 +85,7 @@ export async function compressImageIfNecessary(
 
     const compressedBuffer = await sharpInstance.toBuffer();
     operationLogger.debug(
-      `Compression result for ${mimeType} - Original: ${originalSizeBytes}, Compressed: ${compressedBuffer.length}`
+      `Compression result for ${mimeType} - Original: ${originalSizeBytes}, Compressed: ${compressedBuffer.length}`,
     );
 
     if (compressedBuffer.length < originalSizeBytes) {
@@ -96,19 +96,19 @@ export async function compressImageIfNecessary(
       };
     } else {
       operationLogger.debug(
-        `Compressed size not smaller than original for ${mimeType}. Returning original.`
+        `Compressed size not smaller than original for ${mimeType}. Returning original.`,
       );
       return {
         buffer: originalBuffer,
         original_size_bytes: originalSizeBytes,
         compression_applied: false, // Technically attempted, but no benefit
-        compression_error_note: 'Compressed size was not smaller than original.',
+        compression_error_note: "Compressed size was not smaller than original.",
       };
     }
   } catch (error: unknown) {
     operationLogger.error(
       `Error during image compression for ${mimeType}: ${(error as Error).message}`,
-      error
+      error,
     );
     return {
       buffer: originalBuffer,

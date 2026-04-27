@@ -1,14 +1,14 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
 // Create a mock function that will be used across all tests
 const mockFileTypeFromFile = vi.fn();
 
-vi.mock('file-type', () => ({
+vi.mock("file-type", () => ({
   fileTypeFromFile: mockFileTypeFromFile,
 }));
 
-describe('mimeService', () => {
-  describe('getMimeType', () => {
+describe("mimeService", () => {
+  describe("getMimeType", () => {
     const originalEnv = process.env;
 
     beforeEach(() => {
@@ -21,42 +21,42 @@ describe('mimeService', () => {
       process.env = originalEnv;
     });
 
-    it('should return correct MIME type for a known file type via fileTypeFromFile', async () => {
-      const { getMimeType } = await import('@/core/mimeService');
-      const filePath = 'test.png';
-      mockFileTypeFromFile.mockResolvedValue({ ext: 'png', mime: 'image/png' });
+    it("should return correct MIME type for a known file type via fileTypeFromFile", async () => {
+      const { getMimeType } = await import("@/core/mimeService");
+      const filePath = "test.png";
+      mockFileTypeFromFile.mockResolvedValue({ ext: "png", mime: "image/png" });
       const mimeType = await getMimeType(filePath);
-      expect(mimeType).toBe('image/png');
+      expect(mimeType).toBe("image/png");
       expect(mockFileTypeFromFile).toHaveBeenCalledWith(filePath);
     });
 
-    it('should return undefined if fileTypeFromFile returns undefined (type unknown)', async () => {
-      const { getMimeType } = await import('@/core/mimeService');
-      const filePath = 'file.unknown';
+    it("should return undefined if fileTypeFromFile returns undefined (type unknown)", async () => {
+      const { getMimeType } = await import("@/core/mimeService");
+      const filePath = "file.unknown";
       mockFileTypeFromFile.mockResolvedValue(undefined);
       const mimeType = await getMimeType(filePath);
       expect(mimeType).toBeUndefined();
       expect(mockFileTypeFromFile).toHaveBeenCalledWith(filePath);
     });
 
-    it('should return undefined if fileTypeFromFile throws an error', async () => {
-      const { getMimeType } = await import('@/core/mimeService');
-      const filePath = 'error.file';
-      mockFileTypeFromFile.mockRejectedValue(new Error('Read error'));
+    it("should return undefined if fileTypeFromFile throws an error", async () => {
+      const { getMimeType } = await import("@/core/mimeService");
+      const filePath = "error.file";
+      mockFileTypeFromFile.mockRejectedValue(new Error("Read error"));
       const mimeType = await getMimeType(filePath);
       expect(mimeType).toBeUndefined();
       expect(mockFileTypeFromFile).toHaveBeenCalledWith(filePath);
     });
 
-    it('should behave correctly if file-type module itself fails to load', async () => {
+    it("should behave correctly if file-type module itself fails to load", async () => {
       // Simulate module load failure by making the mock throw an error
       mockFileTypeFromFile.mockImplementation(() => {
-        throw new Error('Simulated module load failure');
+        throw new Error("Simulated module load failure");
       });
 
-      const { getMimeType } = await import('@/core/mimeService');
+      const { getMimeType } = await import("@/core/mimeService");
 
-      const filePath = 'any.file';
+      const filePath = "any.file";
       const mimeType = await getMimeType(filePath);
       expect(mimeType).toBeUndefined();
 

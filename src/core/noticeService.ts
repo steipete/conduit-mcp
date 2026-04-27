@@ -1,4 +1,4 @@
-import { InfoNotice, ConduitServerConfig } from '@/internal';
+import { InfoNotice, ConduitServerConfig } from "@/internal";
 
 let firstUseNoticeSent: boolean = false;
 
@@ -16,8 +16,8 @@ export function generateFirstUseNotice(config: ConduitServerConfig): InfoNotice 
   }
 
   return {
-    type: 'info_notice',
-    notice_code: 'DEFAULT_PATHS_USED',
+    type: "info_notice",
+    notice_code: "DEFAULT_PATHS_USED",
     message: `INFO [conduit-mcp v${config.serverVersion}, Server Started: ${config.serverStartTimeIso}]: CONDUIT_ALLOWED_PATHS was not explicitly set... Defaulting to allow access to resolved paths for '~' and '/tmp'. ...set CONDUIT_ALLOWED_PATHS explicitly...`,
     details: {
       server_version: config.serverVersion,

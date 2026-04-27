@@ -1,7 +1,7 @@
-import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs/promises'; // Using fs.promises for lstat, readlink
-import { ConduitError, ErrorCode, conduitConfig, logger, fileSystemOps } from '@/internal';
+import * as path from "path";
+import * as os from "os";
+import * as fs from "fs/promises"; // Using fs.promises for lstat, readlink
+import { ConduitError, ErrorCode, conduitConfig, logger, fileSystemOps } from "@/internal";
 
 /**
  * Checks if a given resolved path is within the list of allowed path prefixes.
@@ -36,23 +36,23 @@ export function isPathAllowed(resolvedPath: string, allowedPaths: string[]): boo
  */
 export async function validateAndResolvePath(
   originalPath: string,
-  options: { isExistenceRequired?: boolean; checkAllowed?: boolean; forCreation?: boolean } = {}
+  options: { isExistenceRequired?: boolean; checkAllowed?: boolean; forCreation?: boolean } = {},
 ): Promise<string> {
   const { isExistenceRequired = false, checkAllowed = true, forCreation = false } = options;
 
   // Input validation
-  if (!originalPath || typeof originalPath !== 'string' || originalPath.trim() === '') {
-    throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, 'Path must be a non-empty string.');
+  if (!originalPath || typeof originalPath !== "string" || originalPath.trim() === "") {
+    throw new ConduitError(ErrorCode.ERR_FS_INVALID_PATH, "Path must be a non-empty string.");
   }
 
   let currentPath = originalPath;
 
   // 1. Tilde expansion
-  if (currentPath.startsWith('~')) {
+  if (currentPath.startsWith("~")) {
     if (conduitConfig.allowTildeExpansion !== true) {
       throw new ConduitError(
         ErrorCode.INVALID_PARAMETER,
-        'Tilde (~) expansion is not allowed by server configuration.'
+        "Tilde (~) expansion is not allowed by server configuration.",
       );
     }
     currentPath = path.join(os.homedir(), currentPath.substring(1));
@@ -85,7 +85,7 @@ export async function validateAndResolvePath(
         logger.warn(`[securityHandler] Root directory access denied for creation: ${originalPath}`);
         throw new ConduitError(
           ErrorCode.ERR_FS_PERMISSION_DENIED,
-          `Access to root directory is denied: ${originalPath}`
+          `Access to root directory is denied: ${originalPath}`,
         );
       }
       return targetAbsolutePath;
@@ -97,27 +97,27 @@ export async function validateAndResolvePath(
       realParentPath = await fs.realpath(parentDir);
     } catch (e: unknown) {
       const nodeError = e as { code?: string };
-      if (nodeError.code === 'ENOENT') {
+      if (nodeError.code === "ENOENT") {
         logger.warn(`[securityHandler] Parent directory not found for creation: ${parentDir}`);
         throw new ConduitError(
           ErrorCode.ERR_FS_DIR_NOT_FOUND,
-          `Parent directory not found for creation: ${originalPath} (parent: ${parentDir})`
+          `Parent directory not found for creation: ${originalPath} (parent: ${parentDir})`,
         );
-      } else if (nodeError.code === 'ELOOP') {
+      } else if (nodeError.code === "ELOOP") {
         logger.error(
-          `[securityHandler] Too many symbolic links in parent for ${parentDir}: ${(e as Error).message}`
+          `[securityHandler] Too many symbolic links in parent for ${parentDir}: ${(e as Error).message}`,
         );
         throw new ConduitError(
           ErrorCode.ERR_FS_INVALID_PATH,
-          `Too many symbolic links encountered in parent directory: ${originalPath}.`
+          `Too many symbolic links encountered in parent directory: ${originalPath}.`,
         );
       } else {
         logger.error(
-          `[securityHandler] Error resolving parent directory ${parentDir}: ${(e as Error).message}`
+          `[securityHandler] Error resolving parent directory ${parentDir}: ${(e as Error).message}`,
         );
         throw new ConduitError(
           ErrorCode.ERR_FS_INVALID_PATH,
-          `Failed to resolve parent directory for creation: ${originalPath}. ${(e as Error).message}`
+          `Failed to resolve parent directory for creation: ${originalPath}. ${(e as Error).message}`,
         );
       }
     }
@@ -125,11 +125,11 @@ export async function validateAndResolvePath(
     // Check if parent directory is allowed
     if (checkAllowed && !isPathAllowed(realParentPath, conduitConfig.resolvedAllowedPaths)) {
       logger.warn(
-        `[securityHandler] Parent directory access denied for creation: ${originalPath} (parent: ${realParentPath})`
+        `[securityHandler] Parent directory access denied for creation: ${originalPath} (parent: ${realParentPath})`,
       );
       throw new ConduitError(
         ErrorCode.ERR_FS_PERMISSION_DENIED,
-        `Parent directory access denied for creation: ${originalPath}`
+        `Parent directory access denied for creation: ${originalPath}`,
       );
     }
 
@@ -145,31 +145,31 @@ export async function validateAndResolvePath(
       realPath = await fs.realpath(currentPath);
     } catch (e: unknown) {
       const nodeError = e as { code?: string };
-      if (nodeError.code === 'ENOENT') {
+      if (nodeError.code === "ENOENT") {
         if (effectiveIsExistenceRequired) {
           logger.warn(`[securityHandler] Path not found (realpath check): ${currentPath}`);
           throw new ConduitError(
             ErrorCode.ERR_FS_NOT_FOUND,
-            `Path not found: ${originalPath} (resolved to ${currentPath})`
+            `Path not found: ${originalPath} (resolved to ${currentPath})`,
           );
         }
         // If existence is not required, use the resolved path for allowance check
         realPath = currentPath;
-      } else if (nodeError.code === 'ELOOP') {
+      } else if (nodeError.code === "ELOOP") {
         logger.error(
-          `[securityHandler] Too many symbolic links for ${currentPath}: ${(e as Error).message}`
+          `[securityHandler] Too many symbolic links for ${currentPath}: ${(e as Error).message}`,
         );
         throw new ConduitError(
           ErrorCode.ERR_FS_INVALID_PATH,
-          `Too many symbolic links encountered while resolving path: ${originalPath}.`
+          `Too many symbolic links encountered while resolving path: ${originalPath}.`,
         );
       } else {
         logger.error(
-          `[securityHandler] Error during fs.realpath for ${currentPath}: ${(e as Error).message}`
+          `[securityHandler] Error during fs.realpath for ${currentPath}: ${(e as Error).message}`,
         );
         throw new ConduitError(
           ErrorCode.ERR_FS_PATH_RESOLUTION_FAILED,
-          `Failed to resolve real path for: ${originalPath}. ${(e as Error).message}`
+          `Failed to resolve real path for: ${originalPath}. ${(e as Error).message}`,
         );
       }
     }
@@ -180,11 +180,11 @@ export async function validateAndResolvePath(
 
       if (!isPathAllowed(pathToVerify, conduitConfig.resolvedAllowedPaths)) {
         logger.warn(
-          `[securityHandler] Access denied for path: ${originalPath} (resolved to ${pathToVerify})`
+          `[securityHandler] Access denied for path: ${originalPath} (resolved to ${pathToVerify})`,
         );
         throw new ConduitError(
           ErrorCode.ERR_FS_PERMISSION_DENIED,
-          `Access to path is denied: ${originalPath}`
+          `Access to path is denied: ${originalPath}`,
         );
       }
     }
@@ -194,7 +194,7 @@ export async function validateAndResolvePath(
       logger.warn(`[securityHandler] Path not found (final check): ${realPath}`);
       throw new ConduitError(
         ErrorCode.ERR_FS_NOT_FOUND,
-        `Path not found: ${originalPath} (resolved to ${realPath})`
+        `Path not found: ${originalPath} (resolved to ${realPath})`,
       );
     }
 

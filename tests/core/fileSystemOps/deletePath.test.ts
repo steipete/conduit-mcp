@@ -1,16 +1,16 @@
-import { vi } from 'vitest';
-import { mockFs, mockConduitConfig } from './helpers';
-import type { Stats } from 'fs';
+import { vi } from "vitest";
+import { mockFs, mockConduitConfig } from "./helpers";
+import type { Stats } from "fs";
 
 // Mock fs/promises AT THE TOP of the test file
-vi.mock('fs/promises', () => ({
+vi.mock("fs/promises", () => ({
   ...mockFs,
   default: mockFs,
 }));
 
 // Mock @/internal AT THE TOP of the test file
-vi.mock('@/internal', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/internal')>();
+vi.mock("@/internal", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/internal")>();
   return {
     ...original,
     conduitConfig: mockConduitConfig,
@@ -21,20 +21,20 @@ vi.mock('@/internal', async (importOriginal) => {
       debug: vi.fn(),
       child: vi.fn().mockReturnThis(),
     },
-    getMimeType: vi.fn().mockResolvedValue('application/octet-stream'),
+    getMimeType: vi.fn().mockResolvedValue("application/octet-stream"),
     formatToISO8601UTC: vi.fn((date: Date) => date.toISOString()),
   };
 });
 
 // Now proceed with other imports
-import { describe, it, expect, beforeEach } from 'vitest';
-import { deletePath } from '@/core/fileSystemOps';
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import { logger } from '@/internal'; // To verify logger calls
+import { describe, it, expect, beforeEach } from "vitest";
+import { deletePath } from "@/core/fileSystemOps";
+import { ConduitError, ErrorCode } from "@/utils/errorHandler";
+import { logger } from "@/internal"; // To verify logger calls
 
-describe('deletePath', () => {
-  const filePath = '/path/to/file.txt';
-  const dirPath = '/path/to/dir';
+describe("deletePath", () => {
+  const filePath = "/path/to/file.txt";
+  const dirPath = "/path/to/dir";
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,7 +45,7 @@ describe('deletePath', () => {
       // Default to path not found to ensure tests explicitly set up what they need
       const error = new Error(`ENOENT: no such file or directory, lstat '${p as string}'`);
       // @ts-expect-error code is readonly
-      error.code = 'ENOENT';
+      error.code = "ENOENT";
       throw error;
     });
 
@@ -55,7 +55,7 @@ describe('deletePath', () => {
     mockFs.readdir.mockImplementation(async () => []); // Default to empty directory for readdir
   });
 
-  it('should delete a file using fs.unlink', async () => {
+  it("should delete a file using fs.unlink", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => false, isFile: () => true } as Stats);
     await deletePath(filePath);
     expect(mockFs.lstat).toHaveBeenCalledWith(filePath);
@@ -64,7 +64,7 @@ describe('deletePath', () => {
     expect(mockFs.rmdir).not.toHaveBeenCalled();
   });
 
-  it('should delete a directory using fs.rm with recursive option when recursive is true', async () => {
+  it("should delete a directory using fs.rm with recursive option when recursive is true", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
     await deletePath(dirPath, true); // Recursive true
     expect(mockFs.lstat).toHaveBeenCalledWith(dirPath);
@@ -74,7 +74,7 @@ describe('deletePath', () => {
     expect(mockFs.rmdir).not.toHaveBeenCalled();
   });
 
-  it('should delete an empty directory using fs.rmdir when recursive is false', async () => {
+  it("should delete an empty directory using fs.rmdir when recursive is false", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
     mockFs.readdir.mockResolvedValue([]); // Ensure readdir returns empty for this test
     await deletePath(dirPath, false); // Recursive false
@@ -85,15 +85,15 @@ describe('deletePath', () => {
     expect(mockFs.unlink).not.toHaveBeenCalled();
   });
 
-  it('should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false', async () => {
+  it("should throw ERR_FS_DIR_NOT_EMPTY when trying to delete non-empty directory with recursive false", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
-    mockFs.readdir.mockResolvedValue(['file1.txt', 'file2.txt']);
+    mockFs.readdir.mockResolvedValue(["file1.txt", "file2.txt"]);
 
     await expect(deletePath(dirPath, false)).rejects.toThrow(
       expect.objectContaining({
         errorCode: ErrorCode.ERR_FS_DIR_NOT_EMPTY,
         message: `Directory ${dirPath} is not empty and recursive is false.`,
-      })
+      }),
     );
     expect(mockFs.lstat).toHaveBeenCalledWith(dirPath);
     expect(mockFs.readdir).toHaveBeenCalledWith(dirPath);
@@ -101,38 +101,38 @@ describe('deletePath', () => {
     expect(mockFs.rm).not.toHaveBeenCalled();
   });
 
-  it('should be idempotent and log debug if path does not exist (ENOENT on lstat)', async () => {
-    const enoentError = new Error('Path does not exist');
+  it("should be idempotent and log debug if path does not exist (ENOENT on lstat)", async () => {
+    const enoentError = new Error("Path does not exist");
     // @ts-expect-error code is readonly
-    enoentError.code = 'ENOENT';
+    enoentError.code = "ENOENT";
     mockFs.lstat.mockRejectedValue(enoentError);
 
     await expect(deletePath(filePath)).resolves.toBeUndefined();
     expect(logger.debug).toHaveBeenCalledWith(
-      `Path not found for deletion (considered success): ${filePath}`
+      `Path not found for deletion (considered success): ${filePath}`,
     );
     expect(mockFs.unlink).not.toHaveBeenCalled();
     expect(mockFs.rm).not.toHaveBeenCalled();
     expect(mockFs.rmdir).not.toHaveBeenCalled();
   });
 
-  it('should consider deletion successful if readdir throws ENOENT (directory disappeared)', async () => {
+  it("should consider deletion successful if readdir throws ENOENT (directory disappeared)", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
-    const enoentError = new Error('Directory disappeared');
+    const enoentError = new Error("Directory disappeared");
     // @ts-expect-error code is readonly
-    enoentError.code = 'ENOENT';
+    enoentError.code = "ENOENT";
     mockFs.readdir.mockRejectedValue(enoentError);
 
     await expect(deletePath(dirPath, false)).resolves.toBeUndefined(); // Recursive false, non-empty path would try readdir
     expect(logger.debug).toHaveBeenCalledWith(
-      `Directory disappeared during deletion check (considered success): ${dirPath}`
+      `Directory disappeared during deletion check (considered success): ${dirPath}`,
     );
     expect(mockFs.rmdir).not.toHaveBeenCalled(); // rmdir shouldn't be called if readdir failed (even if ENOENT)
   });
 
-  it('should throw ERR_FS_DELETE_FAILED if fs.unlink fails', async () => {
+  it("should throw ERR_FS_DELETE_FAILED if fs.unlink fails", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => false, isFile: () => true } as Stats);
-    const unlinkError = new Error('Permission denied for unlink');
+    const unlinkError = new Error("Permission denied for unlink");
     mockFs.unlink.mockRejectedValue(unlinkError);
 
     await expect(deletePath(filePath)).rejects.toThrow(ConduitError);
@@ -142,14 +142,14 @@ describe('deletePath', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_DELETE_FAILED);
       expect(err.message).toContain(
-        `Failed to delete path: ${filePath}. Error: Permission denied for unlink`
+        `Failed to delete path: ${filePath}. Error: Permission denied for unlink`,
       );
     }
   });
 
-  it('should throw ERR_FS_DELETE_FAILED if fs.rm fails for a directory (recursive true)', async () => {
+  it("should throw ERR_FS_DELETE_FAILED if fs.rm fails for a directory (recursive true)", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
-    const rmError = new Error('Cannot delete directory with rm');
+    const rmError = new Error("Cannot delete directory with rm");
     mockFs.rm.mockRejectedValue(rmError);
 
     await expect(deletePath(dirPath, true)).rejects.toThrow(ConduitError);
@@ -159,15 +159,15 @@ describe('deletePath', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_DELETE_FAILED);
       expect(err.message).toContain(
-        `Failed to delete path: ${dirPath}. Error: Cannot delete directory with rm`
+        `Failed to delete path: ${dirPath}. Error: Cannot delete directory with rm`,
       );
     }
   });
 
-  it('should throw ERR_FS_DELETE_FAILED if fs.rmdir fails for an empty directory (recursive false)', async () => {
+  it("should throw ERR_FS_DELETE_FAILED if fs.rmdir fails for an empty directory (recursive false)", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
     mockFs.readdir.mockResolvedValue([]); // Directory is empty
-    const rmdirError = new Error('Cannot delete directory with rmdir');
+    const rmdirError = new Error("Cannot delete directory with rmdir");
     mockFs.rmdir.mockRejectedValue(rmdirError);
 
     await expect(deletePath(dirPath, false)).rejects.toThrow(ConduitError);
@@ -177,14 +177,14 @@ describe('deletePath', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_DELETE_FAILED);
       expect(err.message).toContain(
-        `Failed to delete path: ${dirPath}. Error: Cannot delete directory with rmdir` // SUT wraps the original error
+        `Failed to delete path: ${dirPath}. Error: Cannot delete directory with rmdir`, // SUT wraps the original error
       );
     }
   });
 
-  it('should throw ERR_FS_DELETE_FAILED if readdir fails (not ENOENT) when checking if dir is empty', async () => {
+  it("should throw ERR_FS_DELETE_FAILED if readdir fails (not ENOENT) when checking if dir is empty", async () => {
     mockFs.lstat.mockResolvedValue({ isDirectory: () => true, isFile: () => false } as Stats);
-    const readdirError = new Error('Arbitrary readdir failure');
+    const readdirError = new Error("Arbitrary readdir failure");
     mockFs.readdir.mockRejectedValue(readdirError);
 
     await expect(deletePath(dirPath, false)).rejects.toThrow(ConduitError);
@@ -194,7 +194,7 @@ describe('deletePath', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_DELETE_FAILED);
       expect(err.message).toContain(
-        `Failed to check directory contents: ${dirPath}. Error: Arbitrary readdir failure`
+        `Failed to check directory contents: ${dirPath}. Error: Arbitrary readdir failure`,
       );
     }
   });

@@ -1,6 +1,6 @@
-import { spawn, ChildProcess } from 'child_process';
-import path from 'path';
-import { isMCPResponse, isMCPToolCallResult, extractMCPResponseData } from './types';
+import { spawn, ChildProcess } from "child_process";
+import path from "path";
+import { isMCPResponse, isMCPToolCallResult, extractMCPResponseData } from "./types";
 
 export interface E2ETestResult {
   response: unknown;
@@ -18,16 +18,16 @@ const DEFAULT_TIMEOUT = 10000; // 10 seconds
 export async function runConduitMCPScript(
   requestPayload: object,
   envVars: Record<string, string> = {},
-  options: E2ETestOptions = {}
+  options: E2ETestOptions = {},
 ): Promise<E2ETestResult> {
   const { timeout = DEFAULT_TIMEOUT, workingDir } = options;
 
-  const projectRoot = path.resolve(__dirname, '../..');
-  const startScript = path.join(projectRoot, 'start.sh');
+  const projectRoot = path.resolve(__dirname, "../..");
+  const startScript = path.join(projectRoot, "start.sh");
 
   return new Promise((resolve) => {
-    let stdout = '';
-    let stderr = '';
+    let stdout = "";
+    let stderr = "";
     let serverProcess: ChildProcess;
     let timeoutId: NodeJS.Timeout;
     let resolved = false;
@@ -37,11 +37,11 @@ export async function runConduitMCPScript(
         clearTimeout(timeoutId);
       }
       if (serverProcess && !serverProcess.killed) {
-        serverProcess.kill('SIGTERM');
+        serverProcess.kill("SIGTERM");
         // Force kill after 2 seconds if graceful shutdown fails
         setTimeout(() => {
           if (!serverProcess.killed) {
-            serverProcess.kill('SIGKILL');
+            serverProcess.kill("SIGKILL");
           }
         }, 2000);
       }
@@ -58,7 +58,7 @@ export async function runConduitMCPScript(
     timeoutId = setTimeout(() => {
       finishTest({
         response: null,
-        error: 'Test timeout exceeded',
+        error: "Test timeout exceeded",
         exitCode: null,
       });
     }, timeout);
@@ -77,10 +77,10 @@ export async function runConduitMCPScript(
       };
 
       // Spawn the server process
-      serverProcess = spawn('bash', [startScript], spawnOptions);
+      serverProcess = spawn("bash", [startScript], spawnOptions);
 
       // Handle process errors
-      serverProcess.on('error', (error) => {
+      serverProcess.on("error", (error) => {
         finishTest({
           response: null,
           error: `Failed to start server: ${error.message}`,
@@ -89,17 +89,17 @@ export async function runConduitMCPScript(
       });
 
       // Collect stdout
-      serverProcess.stdout?.on('data', (data) => {
+      serverProcess.stdout?.on("data", (data) => {
         stdout += data.toString();
       });
 
       // Collect stderr
-      serverProcess.stderr?.on('data', (data) => {
+      serverProcess.stderr?.on("data", (data) => {
         stderr += data.toString();
       });
 
       // Handle process exit
-      serverProcess.on('close', (code) => {
+      serverProcess.on("close", (code) => {
         let parsedResponse = null;
         let errorMessage = stderr;
 
@@ -109,7 +109,7 @@ export async function runConduitMCPScript(
             // Parse JSON-RPC responses
             const lines = stdout
               .trim()
-              .split('\n')
+              .split("\n")
               .filter((line) => line.trim());
 
             // Filter only JSON lines (ignore log messages)
@@ -126,7 +126,8 @@ export async function runConduitMCPScript(
 
             // Find the tool call response (skip initialize response)
             const toolCallResponse = responses.find(
-              (resp) => isMCPResponse(resp) && resp.id !== 'initialize' && resp.result !== undefined
+              (resp) =>
+                isMCPResponse(resp) && resp.id !== "initialize" && resp.result !== undefined,
             );
 
             if (toolCallResponse && isMCPResponse(toolCallResponse)) {
@@ -136,16 +137,16 @@ export async function runConduitMCPScript(
                 if (isMCPToolCallResult(result)) {
                   // Parse the JSON text content
                   const textContent = result.content
-                    .filter((item) => item.type === 'text')
+                    .filter((item) => item.type === "text")
                     .map((item) => item.text)
-                    .join('\n');
+                    .join("\n");
 
                   const parsedContent = JSON.parse(textContent);
 
                   // Check if this is a notice response (array with notice + tool response)
                   if (Array.isArray(parsedContent) && parsedContent.length === 2) {
                     const [notice, toolResponse] = parsedContent;
-                    if (notice?.type === 'info_notice' && toolResponse?.tool_name) {
+                    if (notice?.type === "info_notice" && toolResponse?.tool_name) {
                       // Return as notice response format expected by tests
                       parsedResponse = [notice, toolResponse];
                     } else {
@@ -193,17 +194,17 @@ export async function runConduitMCPScript(
       // 1. Initialize
       // 2. Tools/call (for our actual test)
       const requests = [
-        createMCPRequest('initialize', {
-          protocolVersion: '2024-11-05',
+        createMCPRequest("initialize", {
+          protocolVersion: "2024-11-05",
           capabilities: {},
-          clientInfo: { name: 'test-client', version: '1.0.0' },
+          clientInfo: { name: "test-client", version: "1.0.0" },
         }),
         mcpRequest,
       ];
 
       // Send all requests
       for (const request of requests) {
-        const requestJson = JSON.stringify(request) + '\n';
+        const requestJson = JSON.stringify(request) + "\n";
         serverProcess.stdin?.write(requestJson);
       }
       serverProcess.stdin?.end();
@@ -225,7 +226,7 @@ function convertToMCPRequest(oldRequest: any): object {
 
   // Convert old format to MCP format
   if (oldRequest.tool_name && oldRequest.params) {
-    return createMCPRequest('tools/call', {
+    return createMCPRequest("tools/call", {
       name: oldRequest.tool_name,
       arguments: oldRequest.params,
     });
@@ -236,9 +237,9 @@ function convertToMCPRequest(oldRequest: any): object {
 }
 
 export function createMCPRequest(method: string, params: unknown): object {
-  const id = method === 'initialize' ? 'initialize' : Math.floor(Math.random() * 1000000);
+  const id = method === "initialize" ? "initialize" : Math.floor(Math.random() * 1000000);
   return {
-    jsonrpc: '2.0',
+    jsonrpc: "2.0",
     id,
     method,
     params,
@@ -250,9 +251,9 @@ export async function runMCPToolCall(
   toolName: string,
   toolArgs: unknown,
   envVars: Record<string, string> = {},
-  options: E2ETestOptions = {}
+  options: E2ETestOptions = {},
 ): Promise<E2ETestResult> {
-  const mcpRequest = createMCPRequest('tools/call', {
+  const mcpRequest = createMCPRequest("tools/call", {
     name: toolName,
     arguments: toolArgs,
   });

@@ -1,15 +1,15 @@
-import { vi } from 'vitest';
-import { mockFs, mockConduitConfig } from './helpers';
+import { vi } from "vitest";
+import { mockFs, mockConduitConfig } from "./helpers";
 
 // Mock fs/promises AT THE TOP of the test file
-vi.mock('fs/promises', () => ({
+vi.mock("fs/promises", () => ({
   ...mockFs,
   default: mockFs,
 }));
 
 // Mock @/internal AT THE TOP of the test file
-vi.mock('@/internal', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/internal')>();
+vi.mock("@/internal", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/internal")>();
   return {
     ...original,
     conduitConfig: mockConduitConfig,
@@ -20,20 +20,20 @@ vi.mock('@/internal', async (importOriginal) => {
       debug: vi.fn(),
       child: vi.fn().mockReturnThis(),
     },
-    getMimeType: vi.fn().mockResolvedValue('application/octet-stream'),
+    getMimeType: vi.fn().mockResolvedValue("application/octet-stream"),
     formatToISO8601UTC: vi.fn((date: Date) => date.toISOString()),
   };
 });
 
 // Now proceed with other imports
-import { describe, it, expect, beforeEach } from 'vitest';
-import { listDirectory } from '@/core/fileSystemOps';
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
+import { describe, it, expect, beforeEach } from "vitest";
+import { listDirectory } from "@/core/fileSystemOps";
+import { ConduitError, ErrorCode } from "@/utils/errorHandler";
 // logger is imported from the mocked @/internal, no need to import directly if only verifying calls
 
-describe('listDirectory', () => {
-  const dirPath = '/my/directory';
-  const entries = ['file1.txt', 'subdir', 'file2.js'];
+describe("listDirectory", () => {
+  const dirPath = "/my/directory";
+  const entries = ["file1.txt", "subdir", "file2.js"];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -41,16 +41,16 @@ describe('listDirectory', () => {
     mockFs.readdir.mockImplementation(async () => entries as any); // Cast as any if Dirent objects are not fully mocked
   });
 
-  it('should return an array of entry names on success', async () => {
+  it("should return an array of entry names on success", async () => {
     const result = await listDirectory(dirPath);
     expect(result).toEqual(entries);
     expect(mockFs.readdir).toHaveBeenCalledWith(dirPath);
   });
 
-  it('should throw ERR_FS_DIR_NOT_FOUND if directory does not exist (ENOENT)', async () => {
-    const nonExistentDirPath = '/test/non_existent_dir';
-    const error = Object.assign(new Error('Directory not found'), {
-      code: 'ENOENT',
+  it("should throw ERR_FS_DIR_NOT_FOUND if directory does not exist (ENOENT)", async () => {
+    const nonExistentDirPath = "/test/non_existent_dir";
+    const error = Object.assign(new Error("Directory not found"), {
+      code: "ENOENT",
     }) as NodeJS.ErrnoException;
     mockFs.readdir.mockRejectedValue(error);
 
@@ -64,10 +64,10 @@ describe('listDirectory', () => {
     }
   });
 
-  it('should throw ERR_FS_PATH_IS_FILE if path is a file (ENOTDIR)', async () => {
-    const fileAsDirPath = '/test/file_as_dir';
-    const error = Object.assign(new Error('Path is a file'), {
-      code: 'ENOTDIR',
+  it("should throw ERR_FS_PATH_IS_FILE if path is a file (ENOTDIR)", async () => {
+    const fileAsDirPath = "/test/file_as_dir";
+    const error = Object.assign(new Error("Path is a file"), {
+      code: "ENOTDIR",
     }) as NodeJS.ErrnoException;
     mockFs.readdir.mockRejectedValue(error);
 
@@ -81,10 +81,10 @@ describe('listDirectory', () => {
     }
   });
 
-  it('should throw ERR_FS_DIR_LIST_FAILED for other fs.readdir errors', async () => {
-    const anotherDirPath = '/test/some_other_dir';
-    const error = Object.assign(new Error('Permission denied'), {
-      code: 'EACCES',
+  it("should throw ERR_FS_DIR_LIST_FAILED for other fs.readdir errors", async () => {
+    const anotherDirPath = "/test/some_other_dir";
+    const error = Object.assign(new Error("Permission denied"), {
+      code: "EACCES",
     }) as NodeJS.ErrnoException;
     mockFs.readdir.mockRejectedValue(error);
 
@@ -95,7 +95,7 @@ describe('listDirectory', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.ERR_FS_DIR_LIST_FAILED);
       expect(err.message).toContain(
-        `Failed to list directory: ${anotherDirPath}. Error: Permission denied`
+        `Failed to list directory: ${anotherDirPath}. Error: Permission denied`,
       );
     }
   });

@@ -1,26 +1,27 @@
-import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { defineConfig } from "vitest/config";
+import path from "path";
 
 export default defineConfig({
   test: {
+    include: ["tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
     globals: true, // Use Vitest globals (describe, it, expect, etc.) without importing
-    environment: 'node', // Or 'jsdom' if testing frontend components
+    environment: "node", // Or 'jsdom' if testing frontend components
     coverage: {
-      provider: 'v8', // or 'istanbul'
-      reporter: ['text', 'json', 'html', 'lcov'],
-      reportsDirectory: './coverage',
-      all: true, // Include all files in coverage, not just tested ones
-      include: ['src/**/*.ts'],
+      provider: "v8", // or 'istanbul'
+      reporter: ["text", "json", "html", "lcov"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.ts"],
       exclude: [
-        'src/types/**/*.ts',
-        'src/server.ts', // Typically E2E tested, or requires complex mocking for unit tests
-        '**/*.test.ts',
-        '**/*.spec.ts',
+        "src/types/**/*.ts",
+        "src/server.ts", // Typically E2E tested, or requires complex mocking for unit tests
+        "**/*.test.ts",
+        "**/*.spec.ts",
       ],
     },
-    setupFiles: ['./tests/setupTests.ts'], // Similar to Jest's setupFilesAfterEnv
+    setupFiles: ["./tests/setupTests.ts"], // Similar to Jest's setupFilesAfterEnv
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 });

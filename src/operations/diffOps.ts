@@ -10,20 +10,21 @@ import {
   webFetcher,
   validateAndResolvePath,
   createMCPErrorStatus,
-} from '@/internal';
-import * as diff from 'diff'; // Using the 'diff' library
+} from "@/internal";
+import * as diff from "diff"; // Using the 'diff' library
+import type { ConduitLogger } from "@/utils/logger";
 // import logger from '@/utils/logger'; // Direct import
 
 function createErrorDiffResultItem(
   // source1: string, // Removed
   // source2: string, // Removed
   errorCode: ErrorCode,
-  errorMessage: string
+  errorMessage: string,
 ): ReadTool.DiffResult {
   // Changed DiffResultItem to DiffResult
   const errorResult: MCPErrorStatus = {
     // No longer needs BaseResultForError fields
-    status: 'error',
+    status: "error",
     error_code: errorCode,
     error_message: errorMessage,
   };
@@ -35,14 +36,14 @@ function createErrorDiffResultItem(
 async function readFileContentForDiff(
   filePath: string,
   config: ConduitServerConfig,
-  operationLogger: import('pino').Logger
+  operationLogger: ConduitLogger,
 ): Promise<string> {
   operationLogger.debug(`Reading file source for diff: ${filePath}`);
   const stats = await fileSystemOps.getStats(filePath);
   if (!stats || stats.isDirectory()) {
     throw new ConduitError(
       ErrorCode.ERR_FS_PATH_IS_FILE,
-      `Source is not a file or does not exist: ${filePath}`
+      `Source is not a file or does not exist: ${filePath}`,
     ); // Corrected ErrorCode
   }
   const mimeType = await getMimeType(filePath);
@@ -50,32 +51,32 @@ async function readFileContentForDiff(
   // Added 'application/octet-stream' as a fallback if mime type detection is generic for text-like files without specific extensions.
   if (
     mimeType &&
-    !mimeType.startsWith('text/') &&
-    !mimeType.includes('json') &&
-    !mimeType.includes('xml') &&
-    !mimeType.includes('script') &&
-    mimeType !== 'application/octet-stream'
+    !mimeType.startsWith("text/") &&
+    !mimeType.includes("json") &&
+    !mimeType.includes("xml") &&
+    !mimeType.includes("script") &&
+    mimeType !== "application/octet-stream"
   ) {
     throw new ConduitError(
       ErrorCode.ERR_UNSUPPORTED_MIME_TYPE,
-      `Source is not a text-based file: ${filePath} (MIME: ${mimeType})`
+      `Source is not a text-based file: ${filePath} (MIME: ${mimeType})`,
     ); // Corrected ErrorCode (ERR_UNSUPPORTED_CONTENT_TYPE -> ERR_UNSUPPORTED_MIME_TYPE)
   }
   const bufferContent = await fileSystemOps.readFileAsBuffer(filePath, config.maxFileReadBytes); // Corrected config property
-  return bufferContent.toString('utf8');
+  return bufferContent.toString("utf8");
 }
 
 async function readUrlContentForDiff(
   urlString: string,
   config: ConduitServerConfig,
-  operationLogger: import('pino').Logger
+  operationLogger: ConduitLogger,
 ): Promise<string> {
   operationLogger.debug(`Reading URL source for diff: ${urlString}`);
   const webContent = await webFetcher.fetchUrlContent(
     urlString,
     false,
     undefined,
-    config.maxUrlDownloadSizeBytes // Corrected config property
+    config.maxUrlDownloadSizeBytes, // Corrected config property
   );
   // fetchUrlContent now throws ConduitError on HTTP/network issues or returns FetchedContent with potential content:null
   // It no longer has an 'error' property in the success return object.
@@ -85,21 +86,21 @@ async function readUrlContentForDiff(
     // Assuming fetchUrlContent throws for non-2xx, this handles cases where 2xx was received but content is empty.
     throw new ConduitError(
       ErrorCode.ERR_HTTP_EMPTY_RESPONSE,
-      `Empty content from URL: ${urlString}`
+      `Empty content from URL: ${urlString}`,
     );
   }
   // For URLs, we assume text content for diff. Further MIME type checks could be added if needed.
-  return webContent.content.toString('utf8');
+  return webContent.content.toString("utf8");
 }
 
 export async function getDiff(
   params: ReadTool.DiffParams,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<ReadTool.DiffResult> {
   // Changed DiffResultItem to DiffResult
-  const operationLogger = logger.child({ component: 'diffOps' });
+  const operationLogger = logger.child({ component: "diffOps" });
   operationLogger.info(
-    `Performing diff for sources: ${params.sources[0]} and ${params.sources[1]}`
+    `Performing diff for sources: ${params.sources[0]} and ${params.sources[1]}`,
   );
   const [source1PathOrUrl, source2PathOrUrl] = params.sources;
 
@@ -109,9 +110,9 @@ export async function getDiff(
     let resolvedSource2 = source2PathOrUrl;
 
     const isUrl1 =
-      source1PathOrUrl.startsWith('http://') || source1PathOrUrl.startsWith('https://');
+      source1PathOrUrl.startsWith("http://") || source1PathOrUrl.startsWith("https://");
     const isUrl2 =
-      source2PathOrUrl.startsWith('http://') || source2PathOrUrl.startsWith('https://');
+      source2PathOrUrl.startsWith("http://") || source2PathOrUrl.startsWith("https://");
 
     // Validate file paths (skip URLs)
     if (!isUrl1) {
@@ -126,7 +127,7 @@ export async function getDiff(
         }
         return createMCPErrorStatus(
           ErrorCode.ERR_FS_INVALID_PATH,
-          `Invalid file path: ${source1PathOrUrl}`
+          `Invalid file path: ${source1PathOrUrl}`,
         );
       }
     }
@@ -143,7 +144,7 @@ export async function getDiff(
         }
         return createMCPErrorStatus(
           ErrorCode.ERR_FS_INVALID_PATH,
-          `Invalid file path: ${source2PathOrUrl}`
+          `Invalid file path: ${source2PathOrUrl}`,
         );
       }
     }
@@ -169,21 +170,21 @@ export async function getDiff(
       resolvedSource2,
       strContent1,
       strContent2,
-      '',
-      '',
-      { context: 3 }
+      "",
+      "",
+      { context: 3 },
     );
 
     return {
       sources_compared: [resolvedSource1, resolvedSource2],
-      status: 'success',
-      diff_format_used: 'unified',
+      status: "success",
+      diff_format_used: "unified",
       diff_content: diffOutput,
     } as ReadTool.DiffResultSuccess;
   } catch (error: unknown) {
     operationLogger.error(
       `Error in getDiff for ${source1PathOrUrl} vs ${source2PathOrUrl}:`,
-      error
+      error,
     );
     if (error instanceof ConduitError) {
       // ConduitError constructor is (errorCode, message). HTTP status is not part of its general signature.
@@ -195,7 +196,7 @@ export async function getDiff(
     const errorMessage =
       error instanceof Error
         ? error.message
-        : 'An unexpected error occurred during diff operation.';
+        : "An unexpected error occurred during diff operation.";
     return createErrorDiffResultItem(ErrorCode.ERR_INTERNAL_SERVER_ERROR, errorMessage);
   }
 }

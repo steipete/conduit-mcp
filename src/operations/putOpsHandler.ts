@@ -1,11 +1,11 @@
-import { WriteTool, ConduitServerConfig, ErrorCode, logger, putContent } from '@/internal';
+import { WriteTool, ConduitServerConfig, ErrorCode, logger, putContent } from "@/internal";
 
-const operationLogger = logger.child({ component: 'putOpsHandler' });
+const operationLogger = logger.child({ component: "putOpsHandler" });
 
 // Main handler for the 'put' action of the 'write' tool
 export async function handleWritePut(
   params: WriteTool.PutParams,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling write tool 'put' action with params: ${JSON.stringify(params)}`);
 
@@ -15,11 +15,11 @@ export async function handleWritePut(
     // Note: The spec implies individual results. A single error for an empty batch might be an exception.
     // For now, adhering to returning an array, even if it's a single global error item.
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         {
-          status: 'error',
-          operation_performed: 'put', // Generic operation for the batch attempt
+          status: "error",
+          operation_performed: "put", // Generic operation for the batch attempt
           // path is not applicable for a missing entries error
           error_code: ErrorCode.INVALID_PARAMETER,
           error_message: "'entries' array is missing or empty for put operation.",
@@ -29,8 +29,8 @@ export async function handleWritePut(
   }
 
   const results: WriteTool.WriteResultItem[] = await Promise.all(
-    params.entries.map((entry) => putContent(entry, config))
+    params.entries.map((entry) => putContent(entry, config)),
   );
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }

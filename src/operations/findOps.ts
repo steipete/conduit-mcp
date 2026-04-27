@@ -1,4 +1,4 @@
-import path from 'path';
+import path from "path";
 import {
   ConduitServerConfig,
   EntryInfo,
@@ -8,18 +8,18 @@ import {
   ConduitError,
   getMimeType,
   logger,
-} from '@/internal';
-import micromatch from 'micromatch';
+} from "@/internal";
+import micromatch from "micromatch";
 
 // Legacy types for internal use (to avoid refactoring all the logic right now)
 interface NamePatternCriterion {
-  type: 'name_pattern';
+  type: "name_pattern";
   pattern: string;
   case_sensitive?: boolean;
 }
 
 interface ContentPatternCriterion {
-  type: 'content_pattern';
+  type: "content_pattern";
   pattern: string;
   is_regex?: boolean;
   case_sensitive?: boolean;
@@ -27,7 +27,7 @@ interface ContentPatternCriterion {
 }
 
 interface MetadataFilterCriterion {
-  type: 'metadata_filter';
+  type: "metadata_filter";
   attribute: string;
   operator: string;
   value: string | number | Date;
@@ -43,7 +43,7 @@ function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
   // Name pattern
   if (params.name_pattern) {
     criteria.push({
-      type: 'name_pattern',
+      type: "name_pattern",
       pattern: params.name_pattern,
       case_sensitive: params.case_sensitive,
     });
@@ -52,7 +52,7 @@ function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
   // Content pattern
   if (params.content_pattern) {
     criteria.push({
-      type: 'content_pattern',
+      type: "content_pattern",
       pattern: params.content_pattern,
       is_regex: params.content_is_regex,
       case_sensitive: params.content_case_sensitive,
@@ -63,18 +63,18 @@ function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
   // Size filters
   if (params.size_min !== undefined) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'size_bytes',
-      operator: 'gte',
+      type: "metadata_filter",
+      attribute: "size_bytes",
+      operator: "gte",
       value: params.size_min,
     });
   }
 
   if (params.size_max !== undefined) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'size_bytes',
-      operator: 'lte',
+      type: "metadata_filter",
+      attribute: "size_bytes",
+      operator: "lte",
       value: params.size_max,
     });
   }
@@ -82,36 +82,36 @@ function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
   // Date filters
   if (params.modified_after) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'modified_at',
-      operator: 'after',
+      type: "metadata_filter",
+      attribute: "modified_at",
+      operator: "after",
       value: params.modified_after,
     });
   }
 
   if (params.modified_before) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'modified_at',
-      operator: 'before',
+      type: "metadata_filter",
+      attribute: "modified_at",
+      operator: "before",
       value: params.modified_before,
     });
   }
 
   if (params.created_after) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'created_at',
-      operator: 'after',
+      type: "metadata_filter",
+      attribute: "created_at",
+      operator: "after",
       value: params.created_after,
     });
   }
 
   if (params.created_before) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'created_at',
-      operator: 'before',
+      type: "metadata_filter",
+      attribute: "created_at",
+      operator: "before",
       value: params.created_before,
     });
   }
@@ -119,9 +119,9 @@ function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
   // MIME type filter
   if (params.mime_type) {
     criteria.push({
-      type: 'metadata_filter',
-      attribute: 'mime_type',
-      operator: 'equals',
+      type: "metadata_filter",
+      attribute: "mime_type",
+      operator: "equals",
       value: params.mime_type,
       case_sensitive: false,
     });
@@ -132,17 +132,17 @@ function convertToMatchCriteria(params: FindTool.Parameters): MatchCriterion[] {
 
 async function isTextBasedFileForContentSearch(
   filePath: string,
-  fileTypesToSearch?: string[]
+  fileTypesToSearch?: string[],
 ): Promise<boolean> {
   if (fileTypesToSearch && fileTypesToSearch.length > 0) {
     const ext = path.extname(filePath).toLowerCase();
     if (fileTypesToSearch.map((ft) => ft.toLowerCase()).includes(ext)) {
       const mime = await getMimeType(filePath);
       return mime
-        ? mime.startsWith('text/') ||
-            mime.includes('json') ||
-            mime.includes('xml') ||
-            mime.includes('script')
+        ? mime.startsWith("text/") ||
+            mime.includes("json") ||
+            mime.includes("xml") ||
+            mime.includes("script")
         : true;
     }
     return false;
@@ -151,62 +151,62 @@ async function isTextBasedFileForContentSearch(
   // First check common text file extensions that might not have detectable MIME types
   const ext = path.extname(filePath).toLowerCase();
   const commonTextExtensions = [
-    '.txt',
-    '.text',
-    '.log',
-    '.md',
-    '.markdown',
-    '.rst',
-    '.js',
-    '.ts',
-    '.jsx',
-    '.tsx',
-    '.json',
-    '.json5',
-    '.xml',
-    '.html',
-    '.htm',
-    '.css',
-    '.scss',
-    '.sass',
-    '.less',
-    '.py',
-    '.rb',
-    '.java',
-    '.c',
-    '.cpp',
-    '.cc',
-    '.cxx',
-    '.h',
-    '.hpp',
-    '.cs',
-    '.go',
-    '.rs',
-    '.php',
-    '.pl',
-    '.sh',
-    '.bash',
-    '.zsh',
-    '.fish',
-    '.ps1',
-    '.bat',
-    '.cmd',
-    '.yaml',
-    '.yml',
-    '.toml',
-    '.ini',
-    '.cfg',
-    '.conf',
-    '.sql',
-    '.csv',
-    '.tsv',
-    '.dockerfile',
-    '.gitignore',
-    '.gitattributes',
-    '.env',
-    '.editorconfig',
-    '.eslintrc',
-    '.prettierrc',
+    ".txt",
+    ".text",
+    ".log",
+    ".md",
+    ".markdown",
+    ".rst",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".json",
+    ".json5",
+    ".xml",
+    ".html",
+    ".htm",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".py",
+    ".rb",
+    ".java",
+    ".c",
+    ".cpp",
+    ".cc",
+    ".cxx",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".go",
+    ".rs",
+    ".php",
+    ".pl",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".fish",
+    ".ps1",
+    ".bat",
+    ".cmd",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".sql",
+    ".csv",
+    ".tsv",
+    ".dockerfile",
+    ".gitignore",
+    ".gitattributes",
+    ".env",
+    ".editorconfig",
+    ".eslintrc",
+    ".prettierrc",
   ];
 
   if (commonTextExtensions.includes(ext)) {
@@ -221,9 +221,9 @@ async function isTextBasedFileForContentSearch(
     if (!ext) {
       try {
         const buffer = await fileSystemOps.readFileAsBuffer(filePath, 1024); // Read first 1KB
-        const content = buffer.toString('utf-8');
+        const content = buffer.toString("utf-8");
         // Check if content appears to be text (no null bytes and mostly printable characters)
-        return !content.includes('\0') && /^[\x20-\x7E\s]*$/.test(content);
+        return !content.includes("\0") && /^[\x20-\x7E\s]*$/.test(content);
       } catch {
         return false;
       }
@@ -232,36 +232,36 @@ async function isTextBasedFileForContentSearch(
   }
 
   return (
-    mime.startsWith('text/') ||
-    mime.includes('json') ||
-    mime.includes('xml') ||
-    mime.includes('javascript') ||
-    mime.includes('typescript') ||
-    mime.includes('application/x-sh') ||
-    mime.includes('application/csv')
+    mime.startsWith("text/") ||
+    mime.includes("json") ||
+    mime.includes("xml") ||
+    mime.includes("javascript") ||
+    mime.includes("typescript") ||
+    mime.includes("application/x-sh") ||
+    mime.includes("application/csv")
   );
 }
 
 async function matchesContentPattern(
   filePath: string,
   criterion: ContentPatternCriterion,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<boolean> {
-  const operationLogger = logger.child({ component: 'findOps' });
+  const operationLogger = logger.child({ component: "findOps" });
   if (!(await isTextBasedFileForContentSearch(filePath, criterion.file_types_to_search))) {
     return false;
   }
   try {
     const buffer = await fileSystemOps.readFileAsBuffer(filePath, config.maxFileReadBytesFind);
-    const content = buffer.toString('utf-8');
+    const content = buffer.toString("utf-8");
     const pattern = criterion.pattern;
     if (criterion.is_regex) {
-      const flags = criterion.case_sensitive === false ? 'i' : '';
+      const flags = criterion.case_sensitive === false ? "i" : "";
       const regex = new RegExp(pattern, flags);
 
       // If the pattern contains line anchors (^ or $), apply it line by line
-      if (pattern.includes('^') || pattern.includes('$')) {
-        const lines = content.split('\n');
+      if (pattern.includes("^") || pattern.includes("$")) {
+        const lines = content.split("\n");
         return lines.some((line) => regex.test(line));
       } else {
         // For patterns without line anchors, test against the entire content
@@ -276,7 +276,7 @@ async function matchesContentPattern(
   } catch (err: unknown) {
     if (err instanceof ConduitError && err.errorCode === ErrorCode.RESOURCE_LIMIT_EXCEEDED) {
       operationLogger.warn(
-        `Content search for ${filePath} skipped: file exceeds max size (${config.maxFileReadBytesFind} bytes).`
+        `Content search for ${filePath} skipped: file exceeds max size (${config.maxFileReadBytesFind} bytes).`,
       );
     } else {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -287,19 +287,19 @@ async function matchesContentPattern(
 }
 
 function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCriterion): boolean {
-  const operationLogger = logger.child({ component: 'findOps' });
-  const attributeName = criterion.attribute === 'entry_type' ? 'type' : criterion.attribute;
+  const operationLogger = logger.child({ component: "findOps" });
+  const attributeName = criterion.attribute === "entry_type" ? "type" : criterion.attribute;
 
   const entryRecord = entryInfo as unknown as Record<string, unknown>;
   const attributeValue = entryRecord[attributeName];
 
   if (
     attributeValue === undefined &&
-    attributeName !== 'mime_type' &&
-    attributeName !== 'size_bytes'
+    attributeName !== "mime_type" &&
+    attributeName !== "size_bytes"
   ) {
     operationLogger.warn(
-      `Metadata attribute ${criterion.attribute} (resolved to ${attributeName}) not found or undefined on entry ${entryInfo.path}`
+      `Metadata attribute ${criterion.attribute} (resolved to ${attributeName}) not found or undefined on entry ${entryInfo.path}`,
     );
     return false;
   }
@@ -308,35 +308,35 @@ function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCr
   const op = criterion.operator;
 
   switch (criterion.attribute) {
-    case 'name':
-    case 'entry_type':
-    case 'mime_type': {
-      const strAttr = String(attributeValue ?? '');
+    case "name":
+    case "entry_type":
+    case "mime_type": {
+      const strAttr = String(attributeValue ?? "");
       const strVal = String(val);
       const caseSensitive = criterion.case_sensitive === true; // undefined or false means case-insensitive
 
       switch (op) {
-        case 'equals':
+        case "equals":
           return caseSensitive
             ? strAttr === strVal
             : strAttr.toLowerCase() === strVal.toLowerCase();
-        case 'not_equals':
+        case "not_equals":
           return caseSensitive
             ? strAttr !== strVal
             : strAttr.toLowerCase() !== strVal.toLowerCase();
-        case 'contains':
+        case "contains":
           return caseSensitive
             ? strAttr.includes(strVal)
             : strAttr.toLowerCase().includes(strVal.toLowerCase());
-        case 'starts_with':
+        case "starts_with":
           return caseSensitive
             ? strAttr.startsWith(strVal)
             : strAttr.toLowerCase().startsWith(strVal.toLowerCase());
-        case 'ends_with':
+        case "ends_with":
           return caseSensitive
             ? strAttr.endsWith(strVal)
             : strAttr.toLowerCase().endsWith(strVal.toLowerCase());
-        case 'matches_regex':
+        case "matches_regex":
           try {
             return new RegExp(strVal).test(strAttr);
           } catch (e: unknown) {
@@ -349,42 +349,42 @@ function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCr
           return false;
       }
     }
-    case 'size_bytes': {
+    case "size_bytes": {
       const numAttr = Number(attributeValue);
       const numVal = Number(val);
       if (isNaN(numAttr) || isNaN(numVal)) {
         // size_bytes can be undefined for dirs if not calculated
-        if (op === 'eq' && val === null && attributeValue === undefined) return true; // Special case: check if size is undefined
-        if (op === 'neq' && val === null && attributeValue !== undefined) return true;
+        if (op === "eq" && val === null && attributeValue === undefined) return true; // Special case: check if size is undefined
+        if (op === "neq" && val === null && attributeValue !== undefined) return true;
         operationLogger.warn(`Invalid number comparison: ${attributeValue} vs ${val}`);
         return false;
       }
       switch (op) {
-        case 'eq':
+        case "eq":
           return numAttr === numVal;
-        case 'neq':
+        case "neq":
           return numAttr !== numVal;
-        case 'gt':
+        case "gt":
           return numAttr > numVal;
-        case 'gte':
+        case "gte":
           return numAttr >= numVal;
-        case 'lt':
+        case "lt":
           return numAttr < numVal;
-        case 'lte':
+        case "lte":
           return numAttr <= numVal;
         default:
           operationLogger.warn(`Unsupported numeric operator: ${op}`);
           return false;
       }
     }
-    case 'created_at':
-    case 'modified_at': {
+    case "created_at":
+    case "modified_at": {
       try {
         if (!attributeValue) return false; // Date cannot be undefined for these checks
         const dateAttr = new Date(attributeValue as string).getTime();
         if (isNaN(dateAttr)) return false;
 
-        if (op === 'on_date') {
+        if (op === "on_date") {
           const dateValStart = new Date(val as string);
           dateValStart.setUTCHours(0, 0, 0, 0);
           const dateValEnd = new Date(val as string);
@@ -394,9 +394,9 @@ function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCr
         const dateVal = new Date(val as string).getTime();
         if (isNaN(dateVal)) return false;
         switch (op) {
-          case 'before':
+          case "before":
             return dateAttr < dateVal;
-          case 'after':
+          case "after":
             return dateAttr > dateVal;
           default:
             operationLogger.warn(`Unsupported date operator: ${op}`);
@@ -405,7 +405,7 @@ function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCr
       } catch (e) {
         operationLogger.error(
           `Error parsing dates for metadata filter: ${attributeValue}, ${val}`,
-          e
+          e,
         );
         return false;
       }
@@ -419,7 +419,7 @@ function matchesMetadataFilter(entryInfo: EntryInfo, criterion: MetadataFilterCr
 function matchesNamePattern(
   entryName: string,
   pattern: string,
-  caseSensitive: boolean = true
+  caseSensitive: boolean = true,
 ): boolean {
   return micromatch.isMatch(entryName, pattern, {
     dot: true, // {dot: true} to match hidden files by default like shell glob
@@ -430,29 +430,29 @@ function matchesNamePattern(
 async function checkAllCriteria(
   entryInfo: EntryInfo,
   criteria: MatchCriterion[],
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<boolean> {
-  const operationLogger = logger.child({ component: 'findOps' });
+  const operationLogger = logger.child({ component: "findOps" });
   for (const criterion of criteria) {
     let match = false;
     switch (criterion.type) {
-      case 'name_pattern':
+      case "name_pattern":
         match = matchesNamePattern(entryInfo.name, criterion.pattern, criterion.case_sensitive);
         break;
-      case 'content_pattern':
-        if (entryInfo.type === 'file') {
+      case "content_pattern":
+        if (entryInfo.type === "file") {
           match = await matchesContentPattern(entryInfo.path, criterion, config);
         } else {
           match = false;
         }
         break;
-      case 'metadata_filter':
+      case "metadata_filter":
         match = matchesMetadataFilter(entryInfo, criterion);
         break;
       default: {
         const _exhaustiveCheck: never = criterion;
         operationLogger.warn(
-          `Unknown match criterion type encountered: ${JSON.stringify(_exhaustiveCheck)}`
+          `Unknown match criterion type encountered: ${JSON.stringify(_exhaustiveCheck)}`,
         );
         return false;
       }
@@ -468,9 +468,9 @@ export async function findEntriesRecursive(
   config: ConduitServerConfig,
   currentDepth: number,
   processedPaths: Set<string>,
-  matchCriteria: MatchCriterion[]
+  matchCriteria: MatchCriterion[],
 ): Promise<EntryInfo[]> {
-  const operationLogger = logger.child({ component: 'findOps' });
+  const operationLogger = logger.child({ component: "findOps" });
   const foundEntries: EntryInfo[] = [];
   if (processedPaths.has(currentPath)) {
     return foundEntries;
@@ -505,7 +505,7 @@ export async function findEntriesRecursive(
       const entryInfo = await fileSystemOps.createEntryInfo(entryAbsolutePath, stats, entryName);
 
       let matchesCurrentEntry = true;
-      if (params.entry_type && params.entry_type !== 'any') {
+      if (params.entry_type && params.entry_type !== "any") {
         if (entryInfo.type !== params.entry_type) {
           matchesCurrentEntry = false;
         }
@@ -523,14 +523,14 @@ export async function findEntriesRecursive(
             config,
             currentDepth + 1,
             processedPaths,
-            matchCriteria
-          ))
+            matchCriteria,
+          )),
         );
       }
     } catch (statError: unknown) {
       const errorMessage = statError instanceof Error ? statError.message : String(statError);
       operationLogger.warn(
-        `Could not stat or process entry during find ${entryAbsolutePath}: ${errorMessage}. Skipping.`
+        `Could not stat or process entry during find ${entryAbsolutePath}: ${errorMessage}. Skipping.`,
       );
     }
   }
@@ -539,7 +539,7 @@ export async function findEntriesRecursive(
 
 export async function handleFindEntries(
   params: FindTool.Parameters,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<EntryInfo[]> {
   const result = await findEntries(params, config);
   if (result instanceof ConduitError) {
@@ -550,15 +550,15 @@ export async function handleFindEntries(
 
 export async function findEntries(
   params: FindTool.Parameters,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<EntryInfo[] | ConduitError> {
-  const operationLogger = logger.child({ component: 'findOps' });
+  const operationLogger = logger.child({ component: "findOps" });
 
   // Convert new flat parameters to legacy criteria format
   const matchCriteria = convertToMatchCriteria(params);
 
   operationLogger.debug(
-    `Processing findEntries in path: ${params.path} with criteria: ${JSON.stringify(matchCriteria)}`
+    `Processing findEntries in path: ${params.path} with criteria: ${JSON.stringify(matchCriteria)}`,
   );
 
   // params.path should already be validated and resolved by the tool handler
@@ -568,7 +568,7 @@ export async function findEntries(
     operationLogger.error(`Base path for find not found: ${params.path}`);
     return new ConduitError(
       ErrorCode.ERR_FS_NOT_FOUND,
-      `Base path for find not found: ${params.path}`
+      `Base path for find not found: ${params.path}`,
     );
   }
   const baseStats = await fileSystemOps.getStats(absoluteBasePath);
@@ -579,11 +579,11 @@ export async function findEntries(
         const entryInfo = await fileSystemOps.createEntryInfo(
           absoluteBasePath,
           baseStats,
-          path.basename(absoluteBasePath)
+          path.basename(absoluteBasePath),
         );
         if (
           params.entry_type &&
-          params.entry_type !== 'any' &&
+          params.entry_type !== "any" &&
           entryInfo.type !== params.entry_type
         ) {
           return [];
@@ -602,7 +602,7 @@ export async function findEntries(
         operationLogger.error(`Failed to process path file ${params.path}: ${errorMessage}`);
         return new ConduitError(
           ErrorCode.OPERATION_FAILED,
-          `Failed to process path file ${params.path}: ${errorMessage}`
+          `Failed to process path file ${params.path}: ${errorMessage}`,
         );
       }
     } else {
@@ -624,7 +624,7 @@ export async function findEntries(
         try {
           const stats = await fileSystemOps.getLstats(entryPath);
           const entryInfoBase = await fileSystemOps.createEntryInfo(entryPath, stats, name);
-          if (params.entry_type && params.entry_type !== 'any') {
+          if (params.entry_type && params.entry_type !== "any") {
             if (entryInfoBase.type !== params.entry_type) {
               continue;
             }
@@ -635,7 +635,7 @@ export async function findEntries(
         } catch (statError: unknown) {
           const errorMessage = statError instanceof Error ? statError.message : String(statError);
           operationLogger.warn(
-            `Could not stat or process entry ${entryPath} in non-recursive find: ${errorMessage}. Skipping.`
+            `Could not stat or process entry ${entryPath} in non-recursive find: ${errorMessage}. Skipping.`,
           );
         }
       }
@@ -653,7 +653,7 @@ export async function findEntries(
         config,
         0,
         processedPaths,
-        matchCriteria
+        matchCriteria,
       );
 
       // Apply max_results if specified
@@ -669,7 +669,7 @@ export async function findEntries(
     if (error instanceof ConduitError) return error;
     return new ConduitError(
       ErrorCode.ERR_INTERNAL_SERVER_ERROR,
-      `An unexpected error occurred during find: ${error instanceof Error ? error.message : String(error)}`
+      `An unexpected error occurred during find: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }

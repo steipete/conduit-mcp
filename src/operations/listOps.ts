@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from "path";
 import {
   ListTool,
   EntryInfo,
@@ -8,15 +8,14 @@ import {
   validateAndResolvePath,
   logger,
   conduitConfig, // To access maxRecursiveDepth and recursiveDirSizeTimeoutMs
-} from '@/internal';
+} from "@/internal";
 
-const operationLogger = logger.child({ component: 'listOps' });
+const operationLogger = logger.child({ component: "listOps" });
 
 async function listDirectoryRecursive(
   currentPath: string,
-  basePath: string, // The initial path from the request, for relative calculations if any
   currentDepth: number,
-  params: ListTool.EntriesParams
+  params: ListTool.EntriesParams,
   // config: ConduitServerConfig // Using global conduitConfig
 ): Promise<EntryInfo[]> {
   const entries: EntryInfo[] = [];
@@ -37,9 +36,9 @@ async function listDirectoryRecursive(
     // Log and skip this directory if it's not readable, but don't fail the whole operation.
     // Parent operation should still return successfully with what it could list.
     // However, if the *initial* path fails, that's an error handled by handleListEntries.
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     operationLogger.warn(
-      `Error listing directory ${currentPath}: ${errorMessage}. Skipping this directory.`
+      `Error listing directory ${currentPath}: ${errorMessage}. Skipping this directory.`,
     );
     return entries; // Return empty for this problematic path
   }
@@ -52,7 +51,7 @@ async function listDirectoryRecursive(
       // fileSystemOps.createEntryInfo handles symlink resolution internally for its target info.
       stats = await fileSystemOps.getLstats(entryPath);
     } catch (statError: unknown) {
-      const errorMessage = statError instanceof Error ? statError.message : 'Unknown error';
+      const errorMessage = statError instanceof Error ? statError.message : "Unknown error";
       operationLogger.warn(`Could not stat ${entryPath}: ${errorMessage}. Skipping entry.`);
       continue;
     }
@@ -64,7 +63,7 @@ async function listDirectoryRecursive(
       // children and recursive_size_calculation_note will be added below
     };
 
-    if (entry.type === 'directory') {
+    if (entry.type === "directory") {
       if (params.calculate_recursive_size) {
         try {
           const sizeInfo = await fileSystemOps.calculateRecursiveDirectorySize(
@@ -72,29 +71,23 @@ async function listDirectoryRecursive(
             0, // Start depth 0 for this specific directory's recursive size calculation
             conduitConfig.maxRecursiveDepth, // Max depth for size calculation
             conduitConfig.recursiveSizeTimeoutMs,
-            Date.now()
+            Date.now(),
           );
           entry.size_bytes = sizeInfo.size;
           if (sizeInfo.note) {
             entry.recursive_size_calculation_note = sizeInfo.note;
           }
         } catch (sizeError: unknown) {
-          const errorMessage = sizeError instanceof Error ? sizeError.message : 'Unknown error';
+          const errorMessage = sizeError instanceof Error ? sizeError.message : "Unknown error";
           operationLogger.warn(
-            `Error calculating recursive size for ${entryPath}: ${errorMessage}`
+            `Error calculating recursive size for ${entryPath}: ${errorMessage}`,
           );
-          entry.recursive_size_calculation_note = 'Error during size calculation';
+          entry.recursive_size_calculation_note = "Error during size calculation";
         }
       }
       // Recursive call for children if depth allows
       if (currentDepth < effectiveMaxDepth) {
-        entry.children = await listDirectoryRecursive(
-          entryPath,
-          basePath,
-          currentDepth + 1,
-          params
-          // config
-        );
+        entry.children = await listDirectoryRecursive(entryPath, currentDepth + 1, params);
       }
     }
     // If not a directory, createEntryInfo already got file size if applicable.
@@ -107,11 +100,11 @@ async function listDirectoryRecursive(
 }
 
 export async function handleListEntries(
-  params: ListTool.EntriesParams
+  params: ListTool.EntriesParams,
   // config: ConduitServerConfig // using global conduitConfig
 ): Promise<EntryInfo[]> {
   operationLogger.info(
-    `Handling list.entries for path: ${params.path}, depth: ${params.recursive_depth}, calc_size: ${params.calculate_recursive_size}`
+    `Handling list.entries for path: ${params.path}, depth: ${params.recursive_depth}, calc_size: ${params.calculate_recursive_size}`,
   );
 
   const resolvedBasePath = await validateAndResolvePath(params.path, {
@@ -123,7 +116,7 @@ export async function handleListEntries(
   if (!baseStats.isDirectory()) {
     throw new ConduitError(
       ErrorCode.ERR_FS_PATH_IS_FILE,
-      `Provided path is a file, not a directory: ${resolvedBasePath}`
+      `Provided path is a file, not a directory: ${resolvedBasePath}`,
     );
   }
 
@@ -137,16 +130,10 @@ export async function handleListEntries(
   // If recursive_depth is 0, listDirectoryRecursive lists immediate children.
   // If recursive_depth > 0, it lists children and their children up to depth.
 
-  const results = await listDirectoryRecursive(
-    resolvedBasePath,
-    resolvedBasePath, // Base path for reference
-    0, // Initial depth
-    params
-    // config
-  );
+  const results = await listDirectoryRecursive(resolvedBasePath, 0, params);
 
   operationLogger.debug(
-    `list.entries for ${params.path} found ${results.length} top-level entries.`
+    `list.entries for ${params.path} found ${results.length} top-level entries.`,
   );
   return results;
 }

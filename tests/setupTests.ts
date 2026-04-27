@@ -1,15 +1,14 @@
 // This file can be used for global test setup.
 // Vitest specific setup can go here (e.g. extending expect).
 
-import { TextEncoder, TextDecoder } from 'util';
-import { vi, afterEach } from 'vitest';
+import { TextEncoder, TextDecoder } from "util";
+import { vi, afterEach } from "vitest";
 
 // Polyfills for TextEncoder/TextDecoder if not globally available in test env.
-if (typeof global.TextEncoder === 'undefined') {
+if (typeof global.TextEncoder === "undefined") {
   global.TextEncoder = TextEncoder;
 }
-if (typeof global.TextDecoder === 'undefined') {
-  // @ts-expect-error Polyfilling TextDecoder for test environment if not present
+if (typeof global.TextDecoder === "undefined") {
   global.TextDecoder = TextDecoder;
 }
 
@@ -28,7 +27,7 @@ afterEach(() => {
 // don't provide their own factory still receive a usable mock implementation
 // that includes a **default** export (required when the module is imported
 // using `import logger from '@/utils/logger'`).
-vi.mock('@/utils/logger', () => {
+vi.mock("@/utils/logger", () => {
   const mockLogger = {
     trace: vi.fn(),
     debug: vi.fn(),

@@ -1,4 +1,4 @@
-import logger from '@/utils/logger';
+import logger from "@/utils/logger";
 
 // file-type is an ES module, so we need to use dynamic import in a CommonJS environment.
 let fileTypeFromFile:
@@ -8,10 +8,10 @@ let fileTypeFromFile:
 async function loadFileTypeModule() {
   if (!fileTypeFromFile) {
     try {
-      const module = await import('file-type');
+      const module = await import("file-type");
       fileTypeFromFile = module.fileTypeFromFile;
     } catch (err) {
-      logger.error('Failed to load file-type module dynamically', err);
+      logger.error("Failed to load file-type module dynamically", err);
       fileTypeFromFile = async () => undefined; // Fallback to prevent further errors
     }
   }

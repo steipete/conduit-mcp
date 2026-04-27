@@ -1,6 +1,6 @@
-import * as fs from 'fs/promises';
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from "fs/promises";
+import * as os from "os";
+import * as path from "path";
 
 /**
  * Creates a unique temporary directory for testing.
@@ -8,7 +8,7 @@ import * as path from 'path';
  */
 export async function createTemporaryDirectory(): Promise<string> {
   const tempDirParent = os.tmpdir();
-  const tempDir = await fs.mkdtemp(path.join(tempDirParent, 'conduit-mcp-test-'));
+  const tempDir = await fs.mkdtemp(path.join(tempDirParent, "conduit-mcp-test-"));
   return tempDir;
 }
 

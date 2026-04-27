@@ -1,7 +1,7 @@
-import * as fsExtra from 'fs-extra';
-import * as path from 'path';
-import tar from 'tar';
-import AdmZip from 'adm-zip';
+import * as fsExtra from "fs-extra";
+import * as path from "path";
+import * as tar from "tar";
+import AdmZip from "adm-zip";
 import {
   ArchiveTool,
   ConduitError,
@@ -9,16 +9,16 @@ import {
   ErrorCode,
   logger,
   PathValidationStrategy,
-} from '@/internal';
-import { calculateChecksum } from '@/utils/checksum';
+} from "@/internal";
+import { calculateChecksum } from "@/utils/checksum";
 
 const createErrorArchiveResultItem = (
-  operation: 'create' | 'extract',
+  operation: "create" | "extract",
   message: string,
   errorCode: ErrorCode,
-  details?: string
+  details?: string,
 ): ArchiveTool.ArchiveResultError => ({
-  status: 'error',
+  status: "error",
   error_code: errorCode,
   error_message: details ? `${message} (Details: ${details})` : message,
   operation,
@@ -26,9 +26,24 @@ const createErrorArchiveResultItem = (
 
 export const createArchive = async (
   params: ArchiveTool.CreateArchiveParams,
-  _config: ConduitServerConfig
+  _config: ConduitServerConfig,
 ): Promise<ArchiveTool.ArchiveResultItem> => {
   const { archive_path, source_paths, compression, options } = params;
+
+  if (!archive_path) {
+    return createErrorArchiveResultItem(
+      "create",
+      "archive_path is required for create.",
+      ErrorCode.INVALID_PARAMETER,
+    );
+  }
+  if (!source_paths || source_paths.length === 0) {
+    return createErrorArchiveResultItem(
+      "create",
+      "source_paths are required for create.",
+      ErrorCode.INVALID_PARAMETER,
+    );
+  }
 
   let absoluteArchivePath: string;
   let resolvedSourcePaths: string[] = [];
@@ -49,46 +64,45 @@ export const createArchive = async (
     }
   } catch (error: unknown) {
     if (error instanceof ConduitError) {
-      return createErrorArchiveResultItem('create', error.message, error.errorCode, error.stack);
+      return createErrorArchiveResultItem("create", error.message, error.errorCode, error.stack);
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     return createErrorArchiveResultItem(
-      'create',
+      "create",
       `Path validation failed: ${errorMessage}`,
-      ErrorCode.INVALID_PARAMETER
+      ErrorCode.INVALID_PARAMETER,
     );
   }
 
   if ((await fsExtra.pathExists(absoluteArchivePath)) && !options?.overwrite) {
     return createErrorArchiveResultItem(
-      'create',
+      "create",
       `Archive already exists at ${archive_path} and overwrite is false.`,
       ErrorCode.RESOURCE_ALREADY_EXISTS,
-      `File ${absoluteArchivePath} exists.`
+      `File ${absoluteArchivePath} exists.`,
     );
   }
 
-  if (!params.archive_path) {
-    return createErrorArchiveResultItem(
-      'create',
-      'archive_path is required for archive creation.',
-      ErrorCode.INVALID_PARAMETER
-    );
-  }
-  if (!source_paths || source_paths.length === 0) {
-    return createErrorArchiveResultItem(
-      'create',
-      'source_paths cannot be empty for archive creation.',
-      ErrorCode.ERR_ARCHIVE_NO_SOURCES
-    );
-  }
+  const inferredFormat = archive_path.endsWith(".zip")
+    ? "zip"
+    : archive_path.endsWith(".tar.gz") ||
+        archive_path.endsWith(".tgz") ||
+        archive_path.endsWith(".tar")
+      ? "tar.gz"
+      : "unknown";
 
-  const inferredFormat = archive_path.endsWith('.zip') ? 'zip' : 'tar.gz'; // Or just 'tar' if .gz is separate
+  if (inferredFormat === "unknown") {
+    return createErrorArchiveResultItem(
+      "create",
+      `Unsupported archive type for ${archive_path}. Supported: .zip, .tar, .tar.gz, .tgz`,
+      ErrorCode.ERR_ARCHIVE_FORMAT_NOT_SUPPORTED,
+    );
+  }
 
   try {
     await fsExtra.ensureDir(path.dirname(absoluteArchivePath));
 
-    if (inferredFormat === 'zip') {
+    if (inferredFormat === "zip") {
       const zip = new AdmZip();
       for (let i = 0; i < source_paths.length; i++) {
         const absoluteSourcePath = resolvedSourcePaths[i];
@@ -101,7 +115,7 @@ export const createArchive = async (
             : dirBaseName;
           zip.addLocalFolder(absoluteSourcePath, entryZipPath);
         } else {
-          const dirInZip = options?.prefix ? options.prefix : '';
+          const dirInZip = options?.prefix ? options.prefix : "";
           const fileNameInZip = path.basename(source_paths[i]);
           zip.addLocalFile(absoluteSourcePath, dirInZip, fileNameInZip);
         }
@@ -112,10 +126,9 @@ export const createArchive = async (
       // Use the parent directory of the first source as the cwd to preserve relative structure
       const firstSourceParent = path.dirname(resolvedSourcePaths[0]);
       const tarOptions: Record<string, unknown> = {
-        gzip: compression === 'gzip' || archive_path.endsWith('.gz'), // prefer .gz in name
+        gzip: compression === "gzip" || archive_path.endsWith(".gz"), // prefer .gz in name
         file: absoluteArchivePath,
         cwd: firstSourceParent,
-        portable: options?.portable ?? true,
         prefix: options?.prefix,
       };
 
@@ -130,22 +143,22 @@ export const createArchive = async (
     }
 
     const stats = await fsExtra.stat(absoluteArchivePath);
-    const checksum = await calculateChecksum(absoluteArchivePath, 'sha256');
+    const checksum = await calculateChecksum(absoluteArchivePath, "sha256");
 
     const successResult: ArchiveTool.CreateArchiveSuccess = {
-      status: 'success',
-      operation: 'create',
-      archive_path,
+      status: "success",
+      operation: "create",
+      archive_path: absoluteArchivePath,
       format_used: inferredFormat,
       size_bytes: stats.size,
       entries_processed: source_paths.length, // This is count of top-level sources, not all files
       checksum_sha256: checksum,
       compression_used:
-        inferredFormat === 'zip'
-          ? 'zip'
-          : compression === 'gzip' || archive_path.endsWith('.gz')
-            ? 'gzip'
-            : 'none',
+        inferredFormat === "zip"
+          ? "zip"
+          : compression === "gzip" || archive_path.endsWith(".gz")
+            ? "gzip"
+            : "none",
       metadata: params.metadata,
       options_applied: params.options,
       message: `Archive created successfully at ${archive_path}.`,
@@ -156,19 +169,40 @@ export const createArchive = async (
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
     return createErrorArchiveResultItem(
-      'create',
+      "create",
       `Failed to create archive: ${errorMessage}`,
       ErrorCode.ERR_ARCHIVE_CREATION_FAILED,
-      errorStack
+      errorStack,
     );
   }
 };
 
 export const extractArchive = async (
   params: ArchiveTool.ExtractArchiveParams,
-  _config: ConduitServerConfig
+  _config: ConduitServerConfig,
 ): Promise<ArchiveTool.ArchiveResultItem> => {
-  const { archive_path, target_path = '.', options } = params;
+  const { archive_path, options } = params;
+  const legacyDestinationPath = (
+    params as ArchiveTool.ExtractArchiveParams & {
+      destination_path?: string;
+    }
+  ).destination_path;
+  const target_path = params.target_path ?? legacyDestinationPath;
+
+  if (!archive_path) {
+    return createErrorArchiveResultItem(
+      "extract",
+      "archive_path is required for archive extraction.",
+      ErrorCode.INVALID_PARAMETER,
+    );
+  }
+  if (!target_path) {
+    return createErrorArchiveResultItem(
+      "extract",
+      "target_path is required for extract.",
+      ErrorCode.INVALID_PARAMETER,
+    );
+  }
 
   let absoluteArchivePath: string;
   let absoluteTargetPath: string;
@@ -182,13 +216,13 @@ export const extractArchive = async (
     absoluteTargetPath = await PathValidationStrategy.validateForWriting(target_path);
   } catch (error: unknown) {
     if (error instanceof ConduitError) {
-      return createErrorArchiveResultItem('extract', error.message, error.errorCode, error.stack);
+      return createErrorArchiveResultItem("extract", error.message, error.errorCode, error.stack);
     }
     const errorMessage = error instanceof Error ? error.message : String(error);
     return createErrorArchiveResultItem(
-      'extract',
+      "extract",
       `Path validation failed: ${errorMessage}`,
-      ErrorCode.INVALID_PARAMETER
+      ErrorCode.INVALID_PARAMETER,
     );
   }
 
@@ -196,15 +230,15 @@ export const extractArchive = async (
     await fsExtra.ensureDir(absoluteTargetPath);
 
     // Determine the archive format from extension, ignore params.format
-    const inferredFormat = archive_path.endsWith('.zip')
-      ? 'zip'
-      : archive_path.endsWith('.tar.gz') || archive_path.endsWith('.tgz')
-        ? 'tar.gz'
-        : archive_path.endsWith('.tar')
-          ? 'tar'
-          : 'unknown';
+    const inferredFormat = archive_path.endsWith(".zip")
+      ? "zip"
+      : archive_path.endsWith(".tar.gz") || archive_path.endsWith(".tgz")
+        ? "tar.gz"
+        : archive_path.endsWith(".tar")
+          ? "tar"
+          : "unknown";
 
-    if (inferredFormat === 'zip') {
+    if (inferredFormat === "zip") {
       // Extract zip archive
       const zip = new AdmZip(absoluteArchivePath);
 
@@ -213,7 +247,7 @@ export const extractArchive = async (
         const entries = zip.getEntries();
         for (const entry of entries) {
           const isIncluded = options.filter_paths.some((filterPath) =>
-            entry.entryName.startsWith(filterPath)
+            entry.entryName.startsWith(filterPath),
           );
 
           if (isIncluded) {
@@ -223,7 +257,7 @@ export const extractArchive = async (
               entry,
               absoluteTargetPath,
               /*maintainEntryPath*/ true,
-              /*overwrite*/ options?.overwrite ?? true
+              /*overwrite*/ options?.overwrite ?? true,
             );
           }
         }
@@ -241,16 +275,18 @@ export const extractArchive = async (
         }
         zip.extractAllTo(absoluteTargetPath, options?.overwrite ?? true);
       }
-    } else if (inferredFormat === 'tar.gz' || inferredFormat === 'tar') {
+    } else if (inferredFormat === "tar.gz" || inferredFormat === "tar") {
       // Extract tar.gz or tar archive
       const tarOptions: Record<string, unknown> = {
         file: absoluteArchivePath,
         cwd: absoluteTargetPath,
-        strip: options?.strip_components ?? 0,
       };
+      if (options?.strip_components !== undefined) {
+        tarOptions.strip = options.strip_components;
+      }
       if (options?.filter_paths && options.filter_paths.length > 0) {
         tarOptions.filter = (entryPath: string) => {
-          const normalizedEntryPath = entryPath.startsWith('./')
+          const normalizedEntryPath = entryPath.startsWith("./")
             ? entryPath.substring(2)
             : entryPath;
           return options.filter_paths!.some((filterPath: string) => {
@@ -261,20 +297,20 @@ export const extractArchive = async (
       await tar.extract(tarOptions);
     } else {
       return createErrorArchiveResultItem(
-        'extract',
-        `Unsupported archive format inferred for ${archive_path}. Supported: .zip, .tar, .tar.gz, .tgz`,
-        ErrorCode.ERR_ARCHIVE_FORMAT_NOT_SUPPORTED
+        "extract",
+        `Unsupported archive type for ${archive_path}. Supported: .zip, .tar, .tar.gz, .tgz`,
+        ErrorCode.ERR_ARCHIVE_FORMAT_NOT_SUPPORTED,
       );
     }
 
     // For simplicity, not calculating extracted_files_count precisely here without walking the target_path.
     // This could be added if essential.
     const successResult: ArchiveTool.ExtractArchiveSuccess & { destination_path?: string } = {
-      status: 'success',
-      operation: 'extract',
+      status: "success",
+      operation: "extract",
       archive_path,
-      target_path: target_path || '.',
-      destination_path: target_path || '.', // Add for compatibility with scenarios
+      target_path: absoluteTargetPath,
+      destination_path: absoluteTargetPath, // Add for compatibility with scenarios
       format_used: inferredFormat,
       entries_extracted: -1, // Placeholder, actual counting is complex and not implemented
       options_applied: params.options,
@@ -285,9 +321,9 @@ export const extractArchive = async (
     logger.error(`Error extracting archive ${archive_path} to ${target_path}:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return createErrorArchiveResultItem(
-      'extract',
+      "extract",
       `Failed to extract archive: ${errorMessage}`,
-      ErrorCode.ERR_ARCHIVE_EXTRACTION_FAILED
+      ErrorCode.ERR_ARCHIVE_EXTRACTION_FAILED,
     );
   }
 };
@@ -295,15 +331,15 @@ export const extractArchive = async (
 export const archiveToolHandler = async (
   params: ArchiveTool.Params, // Archive tool parameters
   config: ConduitServerConfig,
-  toolName: string = 'ArchiveTool'
+  toolName: string = "ArchiveTool",
 ): Promise<ArchiveTool.Response> => {
   let resultItem: ArchiveTool.ArchiveResultItem;
   try {
     switch (params.operation) {
-      case 'create':
+      case "create":
         resultItem = await createArchive(params, config);
         break;
-      case 'extract':
+      case "extract":
         resultItem = await extractArchive(params, config);
         break;
       default: {
@@ -312,29 +348,29 @@ export const archiveToolHandler = async (
         void _exhaustiveCheck;
         // This code should be unreachable, but handle it gracefully
         resultItem = createErrorArchiveResultItem(
-          'create', // Provide a fallback operation
-          'Invalid or unsupported archive operation.',
-          ErrorCode.UNSUPPORTED_OPERATION,
-          `Unexpected operation type in archiveToolHandler.`
+          "create", // Provide a fallback operation
+          "Invalid operation.",
+          ErrorCode.INVALID_PARAMETER,
+          `Unexpected operation type in archiveToolHandler.`,
         );
         break;
       }
     }
   } catch (error: unknown) {
-    logger.error('Unexpected error in archiveToolHandler:', error);
+    logger.error("Unexpected error in archiveToolHandler:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     // Determine operation from params for error reporting
-    const operation = 'operation' in params ? params.operation : 'create';
+    const operation = "operation" in params ? params.operation : "create";
     resultItem = createErrorArchiveResultItem(
       operation,
-      `An unexpected error occurred: ${errorMessage || 'Unknown error'}`,
+      `An unexpected error occurred: ${errorMessage || "Unknown error"}`,
       ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.stack : undefined
+      error instanceof Error ? error.stack : undefined,
     );
   }
 
   return {
-    tool_name: toolName as 'ArchiveTool',
+    tool_name: toolName as "ArchiveTool",
     results: [resultItem],
   };
 };

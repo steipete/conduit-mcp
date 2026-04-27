@@ -35,12 +35,12 @@ The project follows a typical Node.js/TypeScript server architecture with clear 
     - `common.ts` - Shared types (e.g., EntryInfo)
 - **`tests/`** - Test suites mirroring the src structure
 - **`docs/`** - Technical specification and documentation
-- **`dist/`** - Compiled JavaScript output (after `npm run build`)
+- **`dist/`** - Compiled JavaScript output (after `pnpm run build`)
 
 ## Prerequisites
 
-- **Node.js** - Version 18.x or 20.x LTS (as specified in `package.json` engines field)
-- **npm** - Comes with Node.js installation
+- **Node.js** - Version 24.x or newer (as specified in `package.json` engines field)
+- **pnpm** - Managed through Corepack
 
 ## Getting Started / Local Setup
 
@@ -54,7 +54,7 @@ cd conduit-mcp
 ### 2. Install Dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 3. Environment Configuration
@@ -96,7 +96,7 @@ Refer to `README.md` or `docs/spec.md` for a full list of `CONDUIT_*` environmen
 **For Development (with hot reload):**
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 This typically uses `tsx` to run `src/server.ts` and watches for changes.
@@ -112,7 +112,7 @@ This script attempts to run the compiled version from `dist/server.js` first, an
 **Build for Production:**
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 This compiles the TypeScript source to JavaScript in the `dist/` directory.
@@ -125,7 +125,7 @@ node dist/server.js
 
 ### 5. Using with an MCP Client
 
-When running the server locally (either via `npm run dev` or `./start.sh`), configure your MCP client (e.g., in its `mcp.json`) to connect to your local instance. If using `./start.sh`, the command would be the absolute path to the script:
+When running the server locally (either via `pnpm run dev` or `./start.sh`), configure your MCP client (e.g., in its `mcp.json`) to connect to your local instance. If using `./start.sh`, the command would be the absolute path to the script:
 
 ```json
 {
@@ -142,17 +142,17 @@ When running the server locally (either via `npm run dev` or `./start.sh`), conf
 }
 ```
 
-If running directly with `npm run dev`, the client would need to know how to invoke that (which might be more complex if `npm run dev` involves `tsx watch`). Using `start.sh` is generally more straightforward for client configuration pointing to a local dev version.
+If running directly with `pnpm run dev`, the client would need to know how to invoke that (which might be more complex if `pnpm run dev` involves `tsx watch`). Using `start.sh` is generally more straightforward for client configuration pointing to a local dev version.
 
 ## Building for Production
 
 To compile the TypeScript code to JavaScript for production deployment:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
-This command compiles all TypeScript files in the `src/` directory to JavaScript files in the `dist/` directory using the TypeScript compiler (`tsc`). The compiled output (`dist/server.js`) can then be run directly with Node.js:
+This command compiles all TypeScript files in the `src/` directory to JavaScript files in the `dist/` directory using `tsgo`. The compiled output (`dist/server.js`) can then be run directly with Node.js:
 
 ```bash
 node dist/server.js
@@ -167,18 +167,18 @@ The project uses Vitest as the testing framework with comprehensive test coverag
 - **Run all tests:**
 
   ```bash
-  npm test
+  pnpm test
   ```
 
 - **Run tests in watch mode (reruns on file changes):**
 
   ```bash
-  npm run test:watch
+  pnpm run test:watch
   ```
 
 - **Run tests with coverage report:**
   ```bash
-  npm run coverage
+  pnpm run coverage
   ```
 
 The test suite includes unit tests, integration tests, and end-to-end testing to ensure reliability and correctness of all functionality. Test files are organized in the `tests/` directory, mirroring the structure of the `src/` directory.
@@ -190,7 +190,7 @@ The project includes a comprehensive E2E testing suite that validates the comple
 ### How to Run E2E Tests
 
 ```bash
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 This command runs all E2E tests in the `e2e/` directory using Vitest with a specialized configuration (`vitest.config.e2e.ts`).
@@ -236,20 +236,20 @@ This approach ensures that E2E tests validate real-world usage patterns while ma
 
 ## Linting and Formatting
 
-This project uses ESLint for linting and Prettier for code formatting to maintain consistent code quality and style.
+This project uses Oxlint for linting and Oxfmt for code formatting to maintain consistent code quality and style.
 
 - **Check for linting errors:**
 
   ```bash
-  npm run lint
+  pnpm run lint
   ```
 
-- **Automatically fix formatting issues with Prettier:**
+- **Automatically fix formatting issues with Oxfmt:**
   ```bash
-  npm run format
+  pnpm run format
   ```
 
-The configuration includes TypeScript-specific ESLint rules (`@typescript-eslint/eslint-plugin`) and Prettier integration (`eslint-config-prettier`, `eslint-plugin-prettier`). It's recommended to configure your editor to format on save using Prettier and display ESLint errors inline for the best development experience.
+The Oxlint command runs with Node, import, and Vitest rules enabled. It's recommended to configure your editor to format on save using Oxfmt and display lint errors inline for the best development experience.
 
 ## Contribution Guidelines
 
@@ -311,10 +311,10 @@ chore: update dependencies to latest versions
 
 Ensure your code meets quality standards:
 
-1. **Tests pass**: Run `npm test` and verify all tests pass
-2. **Code is linted**: Run `npm run lint` and fix any issues
-3. **Code is formatted**: Run `npm run format` to ensure consistent styling
-4. **Build succeeds**: Run `npm run build` to verify TypeScript compilation
+1. **Tests pass**: Run `pnpm test` and verify all tests pass
+2. **Code is linted**: Run `pnpm run lint` and fix any issues
+3. **Code is formatted**: Run `pnpm run format` to ensure consistent styling
+4. **Build succeeds**: Run `pnpm run build` to verify TypeScript compilation
 
 #### PR Requirements
 
@@ -338,17 +338,17 @@ Ensure your code meets quality standards:
 
 The project maintains consistent code style through automated tooling:
 
-- **ESLint**: Enforces TypeScript-specific linting rules and best practices
-- **Prettier**: Handles code formatting automatically
-- **Configuration files**: `.eslintrc.json` and `.prettierrc` define the project's style rules
+- **Oxlint**: Enforces TypeScript-specific linting rules and best practices
+- **Oxfmt**: Handles code formatting automatically
+- **Configuration files**: `.oxfmtrc.json` defines the project's formatter settings
 
 **Editor setup**: Configure your editor to:
 
-- Format on save using Prettier
-- Display ESLint errors inline
+- Format on save using Oxfmt
+- Display Oxlint errors inline
 - Use the project's TypeScript configuration for accurate IntelliSense
 
-For the best development experience, run `npm run format` and `npm run lint` regularly during development, and consider setting up pre-commit hooks to automate these checks.
+For the best development experience, run `pnpm run format` and `pnpm run lint` regularly during development, and consider setting up pre-commit hooks to automate these checks.
 
 ## Understanding the MCP Protocol
 

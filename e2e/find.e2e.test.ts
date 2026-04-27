@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { runConduitMCPScript } from './utils/e2eTestRunner';
-import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario, ToolResult } from './utils/scenarioLoader';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { runConduitMCPScript } from "./utils/e2eTestRunner";
+import { createTempDir } from "./utils/tempFs";
+import { loadTestScenarios, TestScenario, ToolResult } from "./utils/scenarioLoader";
 import {
   FindResultItem,
   ToolResponse,
@@ -9,11 +9,11 @@ import {
   isNoticeResponse,
   isToolResponse,
   assertFindToolResponse,
-} from './utils/types';
-import path from 'path';
-import fs from 'fs';
+} from "./utils/types";
+import path from "path";
+import fs from "fs";
 
-describe('E2E Find Operations', () => {
+describe("E2E Find Operations", () => {
   let testWorkspaceDir: string;
 
   beforeEach(() => {
@@ -30,13 +30,13 @@ describe('E2E Find Operations', () => {
   });
 
   // Helper function to set up filesystem for a scenario
-  function setupFilesystem(setup: TestScenario['setup_filesystem'], tempDir: string) {
+  function setupFilesystem(setup: TestScenario["setup_filesystem"], tempDir: string) {
     if (!setup) return;
 
     for (const item of setup) {
       // Handle symlinks differently as they don't use the 'path' field
-      if (item.type === 'createSymlink') {
-        if ('target' in item && 'link' in item && item.target && item.link) {
+      if (item.type === "createSymlink") {
+        if ("target" in item && "link" in item && item.target && item.link) {
           const targetPath = path.resolve(tempDir, item.target);
           const linkPath = path.join(tempDir, item.link);
           const linkDir = path.dirname(linkPath);
@@ -69,14 +69,14 @@ describe('E2E Find Operations', () => {
       }
 
       switch (item.type) {
-        case 'createFile': {
-          const content = 'content' in item && item.content ? item.content : '';
-          const encoding = 'encoding' in item && item.encoding ? item.encoding : 'utf8';
+        case "createFile": {
+          const content = "content" in item && item.content ? item.content : "";
+          const encoding = "encoding" in item && item.encoding ? item.encoding : "utf8";
 
           // Handle special filename patterns
-          if (item.path.includes('{{LONG_FILENAME}}')) {
-            const longName = 'a'.repeat(200);
-            const actualPath = path.join(tempDir, item.path.replace('{{LONG_FILENAME}}', longName));
+          if (item.path.includes("{{LONG_FILENAME}}")) {
+            const longName = "a".repeat(200);
+            const actualPath = path.join(tempDir, item.path.replace("{{LONG_FILENAME}}", longName));
             const actualDirPath = path.dirname(actualPath);
             if (!fs.existsSync(actualDirPath)) {
               fs.mkdirSync(actualDirPath, { recursive: true });
@@ -87,45 +87,45 @@ describe('E2E Find Operations', () => {
           }
 
           // Set custom timestamps if specified
-          if (('mtime' in item && item.mtime) || ('ctime' in item && item.ctime)) {
-            const mtime = 'mtime' in item && item.mtime ? new Date(item.mtime) : undefined;
-            const ctime = 'ctime' in item && item.ctime ? new Date(item.ctime) : undefined;
+          if (("mtime" in item && item.mtime) || ("ctime" in item && item.ctime)) {
+            const mtime = "mtime" in item && item.mtime ? new Date(item.mtime) : undefined;
+            const ctime = "ctime" in item && item.ctime ? new Date(item.ctime) : undefined;
 
             if (mtime || ctime) {
               // Use mtime for both access and modify time if available
               const timeToSet = mtime || ctime || new Date();
               fs.utimesSync(
-                item.path.includes('{{LONG_FILENAME}}')
-                  ? path.join(tempDir, item.path.replace('{{LONG_FILENAME}}', 'a'.repeat(200)))
+                item.path.includes("{{LONG_FILENAME}}")
+                  ? path.join(tempDir, item.path.replace("{{LONG_FILENAME}}", "a".repeat(200)))
                   : fullPath,
                 timeToSet,
-                timeToSet
+                timeToSet,
               );
             }
           }
           break;
         }
 
-        case 'createDirectory':
+        case "createDirectory":
           if (!fs.existsSync(fullPath)) {
             fs.mkdirSync(fullPath, { recursive: true });
           }
           break;
 
-        case 'createBinaryFile': {
+        case "createBinaryFile": {
           let binaryData: Buffer;
 
-          if ('binary_content' in item && item.binary_content) {
+          if ("binary_content" in item && item.binary_content) {
             binaryData = Buffer.from(item.binary_content);
           } else if (
-            'content' in item &&
+            "content" in item &&
             item.content &&
-            'encoding' in item &&
-            item.encoding === 'base64'
+            "encoding" in item &&
+            item.encoding === "base64"
           ) {
-            binaryData = Buffer.from(item.content, 'base64');
+            binaryData = Buffer.from(item.content, "base64");
           } else {
-            binaryData = Buffer.from('content' in item && item.content ? item.content : '', 'utf8');
+            binaryData = Buffer.from("content" in item && item.content ? item.content : "", "utf8");
           }
 
           fs.writeFileSync(fullPath, binaryData);
@@ -152,13 +152,13 @@ describe('E2E Find Operations', () => {
         }
 
         // Handle glob patterns for cleanup
-        if (item.includes('*')) {
+        if (item.includes("*")) {
           const dir = path.dirname(fullPath);
           const pattern = path.basename(item);
           if (fs.existsSync(dir)) {
             const files = fs.readdirSync(dir);
             files.forEach((file) => {
-              if (file.match(pattern.replace('*', '.*'))) {
+              if (file.match(pattern.replace("*", ".*"))) {
                 const filePath = path.join(dir, file);
                 if (fs.existsSync(filePath)) {
                   fs.unlinkSync(filePath);
@@ -199,8 +199,8 @@ describe('E2E Find Operations', () => {
         // Check name contains
         if (
           expectedItem.name_contains &&
-          !String((item as Record<string, unknown>).name || '').includes(
-            String(expectedItem.name_contains)
+          !String((item as Record<string, unknown>).name || "").includes(
+            String(expectedItem.name_contains),
           )
         ) {
           matches = false;
@@ -209,8 +209,8 @@ describe('E2E Find Operations', () => {
         // Check path contains
         if (
           expectedItem.path_contains &&
-          !String((item as Record<string, unknown>).path || '').includes(
-            String(expectedItem.path_contains)
+          !String((item as Record<string, unknown>).path || "").includes(
+            String(expectedItem.path_contains),
           )
         ) {
           matches = false;
@@ -231,15 +231,15 @@ describe('E2E Find Operations', () => {
     }
   }
 
-  describe('First Use Informational Notice', () => {
-    it('should show info notice on first request with default paths', async () => {
+  describe("First Use Informational Notice", () => {
+    it("should show info notice on first request with default paths", async () => {
       const requestPayload = {
-        tool_name: 'find',
+        tool_name: "find",
         params: {
-          operation: 'search',
-          path: '/nonexistent/directory',
+          operation: "search",
+          path: "/nonexistent/directory",
           recursive: true,
-          name_pattern: '*.txt',
+          name_pattern: "*.txt",
         },
       };
 
@@ -254,29 +254,29 @@ describe('E2E Find Operations', () => {
       if (isNoticeResponse(result.response)) {
         // Should have 2 elements: info notice + actual tool response
         const [infoNotice, actualToolResponse] = result.response;
-        expect(infoNotice.type).toBe('info_notice');
-        expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-        expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
+        expect(infoNotice.type).toBe("info_notice");
+        expect(infoNotice.notice_code).toBe("DEFAULT_PATHS_USED");
+        expect(infoNotice.message).toContain("CONDUIT_ALLOWED_PATHS was not explicitly set");
 
         // Second element should be the actual tool response object
-        expect(actualToolResponse.status).toBe('error');
-        expect(actualToolResponse.error_message).toContain('Path not found');
+        expect(actualToolResponse.status).toBe("error");
+        expect(actualToolResponse.error_message).toContain("Path not found");
       } else {
         // Direct error response
         assertFindToolResponse(result.response);
-        expect(result.response.status).toBe('error');
-        expect(result.response.error_message).toContain('Path not found');
+        expect(result.response.status).toBe("error");
+        expect(result.response.error_message).toContain("Path not found");
       }
     });
 
-    it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
+    it("should not show info notice when CONDUIT_ALLOWED_PATHS is set", async () => {
       const requestPayload = {
-        tool_name: 'find',
+        tool_name: "find",
         params: {
-          operation: 'search',
-          path: '/nonexistent/directory',
+          operation: "search",
+          path: "/nonexistent/directory",
           recursive: true,
-          name_pattern: '*.txt',
+          name_pattern: "*.txt",
         },
       };
 
@@ -292,13 +292,13 @@ describe('E2E Find Operations', () => {
 
       // Should be the direct tool response object (no notice)
       assertFindToolResponse(result.response);
-      expect(result.response.status).toBe('error');
-      expect(result.response.error_message).toContain('Path not found');
+      expect(result.response.status).toBe("error");
+      expect(result.response.error_message).toContain("Path not found");
     });
   });
 
-  describe('Scenario-based Tests', () => {
-    const scenarios = loadTestScenarios('findTool.scenarios.json');
+  describe("Scenario-based Tests", () => {
+    const scenarios = loadTestScenarios("findTool.scenarios.json");
 
     scenarios.forEach((scenario) => {
       it(`${scenario.name}: ${scenario.description}`, async () => {
@@ -309,8 +309,8 @@ describe('E2E Find Operations', () => {
         const requestPayload = JSON.parse(
           JSON.stringify(scenario.request_payload).replace(
             /TEMP_DIR_PLACEHOLDER/g,
-            testWorkspaceDir
-          )
+            testWorkspaceDir,
+          ),
         );
 
         // Prepare environment variables
@@ -338,13 +338,13 @@ describe('E2E Find Operations', () => {
           expect(isNoticeResponse(result.response)).toBe(true);
           if (isNoticeResponse(result.response)) {
             const [notice, actualResponse] = result.response;
-            expect(notice.type).toBe('info_notice');
+            expect(notice.type).toBe("info_notice");
             if (scenario.notice_code) {
               expect(notice.notice_code).toBe(scenario.notice_code);
             }
             toolResponse = actualResponse;
           } else {
-            throw new Error('Expected notice response');
+            throw new Error("Expected notice response");
           }
         } else {
           expect(isToolResponse(result.response)).toBe(true);
@@ -360,14 +360,14 @@ describe('E2E Find Operations', () => {
         if (scenario.expected_stdout?.results) {
           assertFindToolResponse(toolResponse);
           // Special handling for case-insensitive filesystem scenarios
-          if (scenario.name === 'case_insensitive_filename_search') {
+          if (scenario.name === "case_insensitive_filename_search") {
             // On case-insensitive filesystems, files with names differing only in case
             // are the same file, so we expect at least 1 file containing "test"
             expect(toolResponse.results).toBeDefined();
             expect(Array.isArray(toolResponse.results)).toBe(true);
             expect(toolResponse.results!.length).toBeGreaterThanOrEqual(1);
             const hasTestFile = toolResponse.results!.some(
-              (r) => r.type === 'file' && r.name?.toLowerCase().includes('test')
+              (r) => r.type === "file" && r.name?.toLowerCase().includes("test"),
             );
             expect(hasTestFile).toBe(true);
           } else {
@@ -376,11 +376,11 @@ describe('E2E Find Operations', () => {
         }
 
         // Handle error expectations
-        if (toolResponse.status === 'error') {
-          expect(scenario.expected_stdout?.status).toBe('error');
+        if (toolResponse.status === "error") {
+          expect(scenario.expected_stdout?.status).toBe("error");
           if ((scenario.expected_stdout as Record<string, unknown>)?.error_message) {
             expect(toolResponse.error_message).toContain(
-              (scenario.expected_stdout as Record<string, unknown>).error_message
+              (scenario.expected_stdout as Record<string, unknown>).error_message,
             );
           }
         }
@@ -392,39 +392,39 @@ describe('E2E Find Operations', () => {
   });
 
   // Keep some of the original manual tests for core functionality
-  describe('Core Manual Tests', () => {
+  describe("Core Manual Tests", () => {
     beforeEach(() => {
       // Create test directory structure with various files
-      const subDir1 = path.join(testWorkspaceDir, 'subdir1');
-      const subDir2 = path.join(testWorkspaceDir, 'subdir2');
-      const nestedDir = path.join(subDir1, 'nested');
+      const subDir1 = path.join(testWorkspaceDir, "subdir1");
+      const subDir2 = path.join(testWorkspaceDir, "subdir2");
+      const nestedDir = path.join(subDir1, "nested");
 
       fs.mkdirSync(subDir1, { recursive: true });
       fs.mkdirSync(subDir2, { recursive: true });
       fs.mkdirSync(nestedDir, { recursive: true });
 
       // Create test files with different extensions
-      fs.writeFileSync(path.join(testWorkspaceDir, 'file1.txt'), 'Text content 1');
-      fs.writeFileSync(path.join(testWorkspaceDir, 'file2.log'), 'Log content');
-      fs.writeFileSync(path.join(testWorkspaceDir, 'readme.md'), 'Markdown content');
-      fs.writeFileSync(path.join(testWorkspaceDir, 'config.json'), '{"key": "value"}');
-      fs.writeFileSync(path.join(subDir1, 'nested-file.txt'), 'Nested text content');
-      fs.writeFileSync(path.join(nestedDir, 'deep-file.log'), 'Deep log content');
-      fs.writeFileSync(path.join(subDir2, 'another.txt'), 'Another text file');
+      fs.writeFileSync(path.join(testWorkspaceDir, "file1.txt"), "Text content 1");
+      fs.writeFileSync(path.join(testWorkspaceDir, "file2.log"), "Log content");
+      fs.writeFileSync(path.join(testWorkspaceDir, "readme.md"), "Markdown content");
+      fs.writeFileSync(path.join(testWorkspaceDir, "config.json"), '{"key": "value"}');
+      fs.writeFileSync(path.join(subDir1, "nested-file.txt"), "Nested text content");
+      fs.writeFileSync(path.join(nestedDir, "deep-file.log"), "Deep log content");
+      fs.writeFileSync(path.join(subDir2, "another.txt"), "Another text file");
 
       // Create hidden files
-      fs.writeFileSync(path.join(testWorkspaceDir, '.hidden.txt'), 'Hidden content');
-      fs.writeFileSync(path.join(testWorkspaceDir, '.env'), 'SECRET=value');
+      fs.writeFileSync(path.join(testWorkspaceDir, ".hidden.txt"), "Hidden content");
+      fs.writeFileSync(path.join(testWorkspaceDir, ".env"), "SECRET=value");
     });
 
-    it('should find files matching glob pattern (*.txt)', async () => {
+    it("should find files matching glob pattern (*.txt)", async () => {
       const requestPayload = {
-        tool_name: 'find',
+        tool_name: "find",
         params: {
-          operation: 'search',
+          operation: "search",
           path: testWorkspaceDir,
           recursive: true,
-          name_pattern: '*.txt',
+          name_pattern: "*.txt",
         },
       };
 
@@ -439,44 +439,44 @@ describe('E2E Find Operations', () => {
       expect(result.response).toBeDefined();
 
       assertFindToolResponse(result.response);
-      expect(result.response.tool_name).toBe('find');
+      expect(result.response.tool_name).toBe("find");
       expect(Array.isArray(result.response.results)).toBe(true);
 
       const foundFiles = result.response.results as FindResultItem[];
       const foundNames = foundFiles.map((f) => path.basename(f.path));
 
       // Should find all .txt files including hidden ones
-      expect(foundNames).toContain('file1.txt');
-      expect(foundNames).toContain('nested-file.txt');
-      expect(foundNames).toContain('another.txt');
-      expect(foundNames).toContain('.hidden.txt');
+      expect(foundNames).toContain("file1.txt");
+      expect(foundNames).toContain("nested-file.txt");
+      expect(foundNames).toContain("another.txt");
+      expect(foundNames).toContain(".hidden.txt");
 
       // Should not find non-.txt files
-      expect(foundNames).not.toContain('file2.log');
-      expect(foundNames).not.toContain('readme.md');
-      expect(foundNames).not.toContain('config.json');
+      expect(foundNames).not.toContain("file2.log");
+      expect(foundNames).not.toContain("readme.md");
+      expect(foundNames).not.toContain("config.json");
 
       // Verify entry structure
-      const file1 = foundFiles.find((f) => path.basename(f.path) === 'file1.txt');
+      const file1 = foundFiles.find((f) => path.basename(f.path) === "file1.txt");
       expect(file1).toBeDefined();
-      expect(file1?.type).toBe('file');
-      expect(file1?.name).toBe('file1.txt');
-      expect(file1?.path).toBe(path.join(testWorkspaceDir, 'file1.txt'));
+      expect(file1?.type).toBe("file");
+      expect(file1?.name).toBe("file1.txt");
+      expect(file1?.path).toBe(path.join(testWorkspaceDir, "file1.txt"));
       expect(file1?.size_bytes).toBeGreaterThan(0);
       expect(file1?.created_at).toBeDefined();
       expect(file1?.modified_at).toBeDefined();
     });
 
-    it('should handle error cases gracefully', async () => {
-      const nonExistentPath = path.join(testWorkspaceDir, 'nonexistent');
+    it("should handle error cases gracefully", async () => {
+      const nonExistentPath = path.join(testWorkspaceDir, "nonexistent");
 
       const requestPayload = {
-        tool_name: 'find',
+        tool_name: "find",
         params: {
-          operation: 'search',
+          operation: "search",
           path: nonExistentPath,
           recursive: true,
-          name_pattern: '*',
+          name_pattern: "*",
         },
       };
 
@@ -490,8 +490,8 @@ describe('E2E Find Operations', () => {
       expect(result.exitCode).toBe(0);
       expect(result.response).toBeDefined();
 
-      expect((result.response as ToolResult).status).toBe('error');
-      expect((result.response as ToolResult).error_message).toContain('Path not found');
+      expect((result.response as ToolResult).status).toBe("error");
+      expect((result.response as ToolResult).error_message).toContain("Path not found");
     });
   });
 });

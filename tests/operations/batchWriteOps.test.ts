@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mockDeep, type DeepMockProxy } from 'vitest-mock-extended';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { mockDeep, type DeepMockProxy } from "vitest-mock-extended";
 import {
   handleBatchPut,
   handleBatchMkdir,
@@ -7,7 +7,7 @@ import {
   handleBatchMove,
   handleBatchDelete,
   handleBatchTouch,
-} from '@/operations/batchWriteOps';
+} from "@/operations/batchWriteOps";
 import {
   WriteTool,
   ConduitServerConfig,
@@ -15,12 +15,12 @@ import {
   putContent,
   makeDirectory,
   fileSystemOps,
-} from '@/internal';
+} from "@/internal";
 
 // Mock dependencies
-vi.mock('@/internal', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/internal')>();
-  const mockLogger = mockDeep<import('pino').Logger>();
+vi.mock("@/internal", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/internal")>();
+  const mockLogger = mockDeep<import("pino").Logger>();
   mockLogger.child.mockReturnValue(mockLogger as any);
 
   return {
@@ -38,235 +38,235 @@ const mockedPutContent = vi.mocked(putContent);
 const mockedMakeDirectory = vi.mocked(makeDirectory);
 const mockedFileSystemOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
 
-describe('batchWriteOps', () => {
+describe("batchWriteOps", () => {
   let mockConfig: ConduitServerConfig;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockConfig = {
-      workspaceRoot: '/workspace',
-      allowedPaths: ['/workspace'],
-      resolvedAllowedPaths: ['/workspace'],
+      workspaceRoot: "/workspace",
+      allowedPaths: ["/workspace"],
+      resolvedAllowedPaths: ["/workspace"],
     } as ConduitServerConfig;
   });
 
-  describe('handleBatchPut', () => {
-    it('should handle successful put operations', async () => {
+  describe("handleBatchPut", () => {
+    it("should handle successful put operations", async () => {
       const params: WriteTool.PutParams = {
-        operation: 'put',
+        operation: "put",
         entries: [
           {
-            path: '/workspace/file1.txt',
-            content: 'Hello World',
-            input_encoding: 'text',
+            path: "/workspace/file1.txt",
+            content: "Hello World",
+            input_encoding: "text",
           },
           {
-            path: '/workspace/file2.txt',
-            content: 'Hello Again',
-            input_encoding: 'text',
+            path: "/workspace/file2.txt",
+            content: "Hello Again",
+            input_encoding: "text",
           },
         ],
       };
 
       mockedValidateAndResolvePath
-        .mockResolvedValueOnce('/workspace/file1.txt')
-        .mockResolvedValueOnce('/workspace/file2.txt');
+        .mockResolvedValueOnce("/workspace/file1.txt")
+        .mockResolvedValueOnce("/workspace/file2.txt");
 
       mockedPutContent
         .mockResolvedValueOnce({
-          status: 'success',
-          operation_performed: 'put',
-          path: '/workspace/file1.txt',
+          status: "success",
+          operation_performed: "put",
+          path: "/workspace/file1.txt",
           bytes_written: 11,
         } as WriteTool.WriteResultSuccess)
         .mockResolvedValueOnce({
-          status: 'success',
-          operation_performed: 'put',
-          path: '/workspace/file2.txt',
+          status: "success",
+          operation_performed: "put",
+          path: "/workspace/file2.txt",
           bytes_written: 11,
         } as WriteTool.WriteResultSuccess);
 
       const result = await handleBatchPut(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].status).toBe('success');
-      expect(result.results[1].status).toBe('success');
+      expect(result.results[0].status).toBe("success");
+      expect(result.results[1].status).toBe("success");
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/file1.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, "/workspace/file1.txt", {
         forCreation: true,
         checkAllowed: true,
       });
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, '/workspace/file2.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, "/workspace/file2.txt", {
         forCreation: true,
         checkAllowed: true,
       });
     });
 
-    it('should handle path validation errors', async () => {
+    it("should handle path validation errors", async () => {
       const params: WriteTool.PutParams = {
-        operation: 'put',
+        operation: "put",
         entries: [
           {
-            path: '/invalid/path.txt',
-            content: 'Hello World',
-            input_encoding: 'text',
+            path: "/invalid/path.txt",
+            content: "Hello World",
+            input_encoding: "text",
           },
         ],
       };
 
-      mockedValidateAndResolvePath.mockRejectedValueOnce(new Error('Path validation failed'));
+      mockedValidateAndResolvePath.mockRejectedValueOnce(new Error("Path validation failed"));
 
       const result = await handleBatchPut(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].status).toBe('error');
-      expect((result.results[0] as any).error_message).toBe('Path validation failed');
+      expect(result.results[0].status).toBe("error");
+      expect((result.results[0] as any).error_message).toBe("Path validation failed");
     });
 
-    it('should handle empty entries array', async () => {
+    it("should handle empty entries array", async () => {
       const params: WriteTool.PutParams = {
-        operation: 'put',
+        operation: "put",
         entries: [],
       };
 
       const result = await handleBatchPut(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].status).toBe('error');
+      expect(result.results[0].status).toBe("error");
       expect((result.results[0] as any).error_message).toBe(
-        "'entries' array is missing or empty for put operation."
+        "'entries' array is missing or empty for put operation.",
       );
     });
   });
 
-  describe('handleBatchMkdir', () => {
-    it('should handle successful mkdir operations', async () => {
+  describe("handleBatchMkdir", () => {
+    it("should handle successful mkdir operations", async () => {
       const params: WriteTool.MkdirParams = {
-        operation: 'mkdir',
-        entries: [{ path: '/workspace/dir1' }, { path: '/workspace/dir2', recursive: true }],
+        operation: "mkdir",
+        entries: [{ path: "/workspace/dir1" }, { path: "/workspace/dir2", recursive: true }],
       };
 
       mockedValidateAndResolvePath
-        .mockResolvedValueOnce('/workspace/dir1')
-        .mockResolvedValueOnce('/workspace/dir2');
+        .mockResolvedValueOnce("/workspace/dir1")
+        .mockResolvedValueOnce("/workspace/dir2");
 
       mockedMakeDirectory
         .mockResolvedValueOnce({
-          status: 'success',
-          operation_performed: 'mkdir',
-          path: '/workspace/dir1',
-          message: 'Directory created.',
+          status: "success",
+          operation_performed: "mkdir",
+          path: "/workspace/dir1",
+          message: "Directory created.",
         } as WriteTool.WriteResultSuccess)
         .mockResolvedValueOnce({
-          status: 'success',
-          operation_performed: 'mkdir',
-          path: '/workspace/dir2',
-          message: 'Directory and any necessary parent directories created.',
+          status: "success",
+          operation_performed: "mkdir",
+          path: "/workspace/dir2",
+          message: "Directory and any necessary parent directories created.",
         } as WriteTool.WriteResultSuccess);
 
       const result = await handleBatchMkdir(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].status).toBe('success');
-      expect(result.results[1].status).toBe('success');
+      expect(result.results[0].status).toBe("success");
+      expect(result.results[1].status).toBe("success");
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/dir1', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, "/workspace/dir1", {
         forCreation: true,
         checkAllowed: true,
       });
     });
   });
 
-  describe('handleBatchCopy', () => {
-    it('should handle successful copy operations', async () => {
+  describe("handleBatchCopy", () => {
+    it("should handle successful copy operations", async () => {
       const params: WriteTool.CopyParams = {
-        operation: 'copy',
+        operation: "copy",
         entries: [
           {
-            source_path: '/workspace/source.txt',
-            destination_path: '/workspace/dest.txt',
+            source_path: "/workspace/source.txt",
+            destination_path: "/workspace/dest.txt",
           },
         ],
       };
 
       mockedValidateAndResolvePath
-        .mockResolvedValueOnce('/workspace/source.txt')
-        .mockResolvedValueOnce('/workspace/dest.txt');
+        .mockResolvedValueOnce("/workspace/source.txt")
+        .mockResolvedValueOnce("/workspace/dest.txt");
 
       mockedFileSystemOps.copyPath.mockResolvedValueOnce(undefined);
 
       const result = await handleBatchCopy(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].status).toBe('success');
-      expect(result.results[0].operation_performed).toBe('copy');
+      expect(result.results[0].status).toBe("success");
+      expect(result.results[0].operation_performed).toBe("copy");
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/source.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, "/workspace/source.txt", {
         isExistenceRequired: true,
         checkAllowed: true,
       });
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, '/workspace/dest.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, "/workspace/dest.txt", {
         forCreation: true,
         checkAllowed: true,
       });
     });
   });
 
-  describe('handleBatchMove', () => {
-    it('should handle successful move operations', async () => {
+  describe("handleBatchMove", () => {
+    it("should handle successful move operations", async () => {
       const params: WriteTool.MoveParams = {
-        operation: 'move',
+        operation: "move",
         entries: [
           {
-            source_path: '/workspace/source.txt',
-            destination_path: '/workspace/moved.txt',
+            source_path: "/workspace/source.txt",
+            destination_path: "/workspace/moved.txt",
           },
         ],
       };
 
       mockedValidateAndResolvePath
-        .mockResolvedValueOnce('/workspace/source.txt')
-        .mockResolvedValueOnce('/workspace/moved.txt');
+        .mockResolvedValueOnce("/workspace/source.txt")
+        .mockResolvedValueOnce("/workspace/moved.txt");
 
       mockedFileSystemOps.movePath.mockResolvedValueOnce(undefined);
 
       const result = await handleBatchMove(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].status).toBe('success');
-      expect(result.results[0].operation_performed).toBe('move');
+      expect(result.results[0].status).toBe("success");
+      expect(result.results[0].operation_performed).toBe("move");
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/source.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, "/workspace/source.txt", {
         isExistenceRequired: true,
         checkAllowed: true,
       });
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, '/workspace/moved.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, "/workspace/moved.txt", {
         forCreation: true,
         checkAllowed: true,
       });
     });
   });
 
-  describe('handleBatchDelete', () => {
-    it('should handle successful delete operations', async () => {
+  describe("handleBatchDelete", () => {
+    it("should handle successful delete operations", async () => {
       const params: WriteTool.DeleteParams = {
-        operation: 'delete',
-        entries: [{ path: '/workspace/file.txt' }, { path: '/workspace/dir', recursive: true }],
+        operation: "delete",
+        entries: [{ path: "/workspace/file.txt" }, { path: "/workspace/dir", recursive: true }],
       };
 
       mockedValidateAndResolvePath
-        .mockResolvedValueOnce('/workspace/file.txt')
-        .mockResolvedValueOnce('/workspace/dir');
+        .mockResolvedValueOnce("/workspace/file.txt")
+        .mockResolvedValueOnce("/workspace/dir");
 
       mockedFileSystemOps.deletePath
         .mockResolvedValueOnce(undefined)
@@ -274,41 +274,41 @@ describe('batchWriteOps', () => {
 
       const result = await handleBatchDelete(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(2);
-      expect(result.results[0].status).toBe('success');
-      expect(result.results[1].status).toBe('success');
+      expect(result.results[0].status).toBe("success");
+      expect(result.results[1].status).toBe("success");
 
       expect(mockedValidateAndResolvePath).toHaveBeenCalledTimes(2);
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, '/workspace/file.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(1, "/workspace/file.txt", {
         isExistenceRequired: true,
         checkAllowed: true,
       });
-      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, '/workspace/dir', {
+      expect(mockedValidateAndResolvePath).toHaveBeenNthCalledWith(2, "/workspace/dir", {
         isExistenceRequired: true,
         checkAllowed: true,
       });
     });
   });
 
-  describe('handleBatchTouch', () => {
-    it('should handle successful touch operations', async () => {
+  describe("handleBatchTouch", () => {
+    it("should handle successful touch operations", async () => {
       const params: WriteTool.TouchParams = {
-        operation: 'touch',
-        entries: [{ path: '/workspace/newfile.txt' }],
+        operation: "touch",
+        entries: [{ path: "/workspace/newfile.txt" }],
       };
 
-      mockedValidateAndResolvePath.mockResolvedValueOnce('/workspace/newfile.txt');
+      mockedValidateAndResolvePath.mockResolvedValueOnce("/workspace/newfile.txt");
       mockedFileSystemOps.touchFile.mockResolvedValueOnce(undefined);
 
       const result = await handleBatchTouch(params, mockConfig);
 
-      expect(result.tool_name).toBe('write');
+      expect(result.tool_name).toBe("write");
       expect(result.results).toHaveLength(1);
-      expect(result.results[0].status).toBe('success');
-      expect(result.results[0].operation_performed).toBe('touch');
+      expect(result.results[0].status).toBe("success");
+      expect(result.results[0].operation_performed).toBe("touch");
 
-      expect(mockedValidateAndResolvePath).toHaveBeenCalledWith('/workspace/newfile.txt', {
+      expect(mockedValidateAndResolvePath).toHaveBeenCalledWith("/workspace/newfile.txt", {
         forCreation: true,
         checkAllowed: true,
       });

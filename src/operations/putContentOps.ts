@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from "path";
 import {
   WriteTool,
   ConduitServerConfig,
@@ -7,13 +7,13 @@ import {
   fileSystemOps,
   logger,
   MCPErrorStatus,
-} from '@/internal';
+} from "@/internal";
 
 // Define a specific error result type for putContent that can include bytes_written
 interface PutContentOpErrorResult extends MCPErrorStatus {
   // Extends MCPErrorStatus
   // Fields that would come from WriteTool's internal BaseResult structure for a 'put' operation
-  operation_performed: 'put'; // Hardcoded to 'put' for this operation's errors
+  operation_performed: "put"; // Hardcoded to 'put' for this operation's errors
   path: string;
   bytes_written?: number; // Optional: only present if write succeeded before error
 }
@@ -22,13 +22,13 @@ function createErrorPutResultItem(
   targetPath: string,
   errorCode: ErrorCode,
   errorMessage: string,
-  bytesWritten?: number
+  bytesWritten?: number,
 ): PutContentOpErrorResult {
   const errorResult: PutContentOpErrorResult = {
-    status: 'error', // From MCPErrorStatus
+    status: "error", // From MCPErrorStatus
     error_code: errorCode, // From MCPErrorStatus
     error_message: errorMessage, // From MCPErrorStatus
-    operation_performed: 'put', // From our definition matching BaseResult structure
+    operation_performed: "put", // From our definition matching BaseResult structure
     path: targetPath, // From our definition matching BaseResult structure
   };
   if (bytesWritten !== undefined) {
@@ -39,47 +39,47 @@ function createErrorPutResultItem(
 
 export async function putContent(
   entry: WriteTool.PutEntry,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<WriteTool.WriteResultItem> {
   // Return type is the general union
-  const operationLogger = logger.child({ component: 'putContentOps' });
+  const operationLogger = logger.child({ component: "putContentOps" });
   operationLogger.info(`Processing putContent for target: ${entry.path}`);
 
-  const effectiveWriteMode = entry.write_mode ?? 'overwrite';
+  const effectiveWriteMode = entry.write_mode ?? "overwrite";
   const targetPath = entry.path;
   let bufferToWrite: Buffer | undefined = undefined;
   let bytesSuccessfullyWritten: number | undefined = undefined;
 
   try {
-    if (entry.content === undefined && entry.input_encoding !== 'base64_gzipped_file_ref') {
+    if (entry.content === undefined && entry.input_encoding !== "base64_gzipped_file_ref") {
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.INVALID_PARAMETER,
-        "Missing 'content' for the given input_encoding."
+        "Missing 'content' for the given input_encoding.",
       );
     }
     // file_ref_to_decompress logic was removed
 
     if (
-      entry.input_encoding !== 'text' &&
-      entry.input_encoding !== 'base64' &&
-      entry.input_encoding !== 'base64_gzipped_file_ref'
+      entry.input_encoding !== "text" &&
+      entry.input_encoding !== "base64" &&
+      entry.input_encoding !== "base64_gzipped_file_ref"
     ) {
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.INVALID_PARAMETER,
-        `Unsupported input_encoding: ${entry.input_encoding}`
+        `Unsupported input_encoding: ${entry.input_encoding}`,
       );
     }
 
-    if (entry.input_encoding === 'text') {
-      bufferToWrite = Buffer.from(entry.content as string, 'utf8');
-    } else if (entry.input_encoding === 'base64') {
-      if (typeof entry.content !== 'string') {
+    if (entry.input_encoding === "text") {
+      bufferToWrite = Buffer.from(entry.content as string, "utf8");
+    } else if (entry.input_encoding === "base64") {
+      if (typeof entry.content !== "string") {
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.INVALID_PARAMETER,
-          'Content for base64 input_encoding must be a string.'
+          "Content for base64 input_encoding must be a string.",
         );
       }
       const base64Regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
@@ -87,24 +87,24 @@ export async function putContent(
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.ERR_INVALID_BASE64,
-          'Invalid base64 content: Input string contains non-base64 characters or is not correctly padded.'
+          "Invalid base64 content: Input string contains non-base64 characters or is not correctly padded.",
         );
       }
       try {
-        bufferToWrite = Buffer.from(entry.content, 'base64');
+        bufferToWrite = Buffer.from(entry.content, "base64");
       } catch (e: unknown) {
-        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.ERR_INVALID_BASE64,
-          `Invalid base64 content (Buffer.from error): ${errorMessage}`
+          `Invalid base64 content (Buffer.from error): ${errorMessage}`,
         );
       }
-    } else if (entry.input_encoding === 'base64_gzipped_file_ref') {
+    } else if (entry.input_encoding === "base64_gzipped_file_ref") {
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.NOT_IMPLEMENTED,
-        "Processing 'base64_gzipped_file_ref' input_encoding requires pre-fetch and decompression."
+        "Processing 'base64_gzipped_file_ref' input_encoding requires pre-fetch and decompression.",
       );
     } else {
       // This case should ideally not be reached
@@ -112,7 +112,7 @@ export async function putContent(
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.INVALID_PARAMETER,
-        `Internal error: Unhandled input_encoding: ${entry.input_encoding}`
+        `Internal error: Unhandled input_encoding: ${entry.input_encoding}`,
       );
     }
 
@@ -121,13 +121,13 @@ export async function putContent(
 
     // operationLogger.info(`About to write. Mode: ${effectiveWriteMode}, Path: ${targetPath}, Encoding: undefined, Buffer length: ${bufferToWrite?.length}`);
 
-    if (effectiveWriteMode === 'overwrite') {
-      await fileSystemOps.writeFile(targetPath, bufferToWrite, undefined, 'overwrite');
-    } else if (effectiveWriteMode === 'append') {
+    if (effectiveWriteMode === "overwrite") {
+      await fileSystemOps.writeFile(targetPath, bufferToWrite, undefined, "overwrite");
+    } else if (effectiveWriteMode === "append") {
       // operationLogger.info(`[APPEND PATH] Executing append logic now. Path: ${targetPath}, Buffer length: ${bufferToWrite?.length}`);
-      await fileSystemOps.writeFile(targetPath, bufferToWrite, undefined, 'append');
+      await fileSystemOps.writeFile(targetPath, bufferToWrite, undefined, "append");
       // operationLogger.info(`[APPEND PATH] writeFile for append completed for ${targetPath}`);
-    } else if (effectiveWriteMode === 'error_if_exists') {
+    } else if (effectiveWriteMode === "error_if_exists") {
       const fileExists = await fileSystemOps.pathExists(targetPath);
       // operationLogger.info(`In error_if_exists: pathExists for ${targetPath} returned ${fileExists}`);
       if (fileExists) {
@@ -135,16 +135,16 @@ export async function putContent(
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.ERR_FS_ALREADY_EXISTS,
-          `File already exists at ${targetPath} and write_mode is 'error_if_exists'.`
+          `File already exists at ${targetPath} and write_mode is 'error_if_exists'.`,
         );
       }
       // operationLogger.info(`[EIF_BLOCK] File does NOT exist (or bypass), proceeding to write for ${targetPath}`);
-      await fileSystemOps.writeFile(targetPath, bufferToWrite, undefined, 'overwrite');
+      await fileSystemOps.writeFile(targetPath, bufferToWrite, undefined, "overwrite");
     } else {
       return createErrorPutResultItem(
         targetPath,
         ErrorCode.INVALID_PARAMETER,
-        `Unknown write_mode: ${effectiveWriteMode}`
+        `Unknown write_mode: ${effectiveWriteMode}`,
       );
     }
 
@@ -152,12 +152,12 @@ export async function putContent(
 
     const checksum = await calculateChecksum(
       bufferToWrite,
-      entry.checksum_algorithm || config.defaultChecksumAlgorithm
+      entry.checksum_algorithm || config.defaultChecksumAlgorithm,
     );
 
     return {
-      status: 'success',
-      operation_performed: 'put',
+      status: "success",
+      operation_performed: "put",
       path: targetPath,
       bytes_written: bytesSuccessfullyWritten,
       checksum: checksum,
@@ -167,49 +167,49 @@ export async function putContent(
     // operationLogger.error(`[ERROR PATH] Error in putContent for ${targetPath}:`, error);
     if (
       error &&
-      typeof error === 'object' &&
-      'isConduitError' in error &&
+      typeof error === "object" &&
+      "isConduitError" in error &&
       error.isConduitError === true &&
-      'errorCode' in error &&
-      typeof error.errorCode === 'string'
+      "errorCode" in error &&
+      typeof error.errorCode === "string"
     ) {
       // operationLogger.info(`[ERROR PATH] Caught ConduitError. bytesSuccessfullyWritten: ${bytesSuccessfullyWritten}, error code: ${error.errorCode}, message: ${error.message}`);
       return createErrorPutResultItem(
         targetPath,
         error.errorCode as ErrorCode,
-        error instanceof Error ? error.message : 'Unknown error',
-        bytesSuccessfullyWritten
+        error instanceof Error ? error.message : "Unknown error",
+        bytesSuccessfullyWritten,
       );
     }
-    if (error && typeof error === 'object' && 'code' in error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      if (error.code === 'ENOENT') {
+    if (error && typeof error === "object" && "code" in error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (error.code === "ENOENT") {
         // operationLogger.info(`[ERROR PATH] Caught ENOENT error. Message: ${errorMessage}`);
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.ERR_FS_NOT_FOUND,
-          `File or parent directory not found for ${targetPath}: ${errorMessage}`
+          `File or parent directory not found for ${targetPath}: ${errorMessage}`,
         );
       }
-      if (error.code === 'EACCES') {
+      if (error.code === "EACCES") {
         // operationLogger.info(`[ERROR PATH] Caught EACCES error. Message: ${errorMessage}`);
         return createErrorPutResultItem(
           targetPath,
           ErrorCode.ERR_FS_PERMISSION_DENIED,
-          `Permission denied for ${targetPath}: ${errorMessage}`
+          `Permission denied for ${targetPath}: ${errorMessage}`,
         );
       }
     }
     // operationLogger.info(`[ERROR PATH] Fallback error. error.code: ${error.code}, message: ${error.message}`);
     operationLogger.error(
       `Unhandled error in putContent for ${targetPath}. Original error:`,
-      error
+      error,
     ); // Keep one generic error log
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return createErrorPutResultItem(
       targetPath,
       ErrorCode.ERR_FS_WRITE_FAILED,
-      `Failed to write to ${targetPath}: ${errorMessage}`
+      `Failed to write to ${targetPath}: ${errorMessage}`,
     );
   }
 }

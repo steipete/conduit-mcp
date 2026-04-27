@@ -5,7 +5,7 @@
  * @returns ISO 8601 UTC string.
  */
 export function formatToISO8601UTC(date: Date | string | number): string {
-  const dateObj = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const dateObj = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
   return dateObj.toISOString();
 }
 

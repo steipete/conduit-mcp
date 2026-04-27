@@ -1,15 +1,15 @@
-import { vi } from 'vitest';
-import { mockFs, mockConduitConfig } from './helpers'; // Import the raw mock objects
+import { vi } from "vitest";
+import { mockFs, mockConduitConfig } from "./helpers"; // Import the raw mock objects
 
 // Mock fs/promises AT THE TOP of the test file
-vi.mock('fs/promises', () => ({
+vi.mock("fs/promises", () => ({
   ...mockFs, // Spread all functions from mockFs
   default: mockFs, // Ensure fs from 'fs/promises' in SUT gets these mocks
 }));
 
 // Mock @/internal AT THE TOP of the test file
-vi.mock('@/internal', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/internal')>();
+vi.mock("@/internal", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/internal")>();
   return {
     ...original,
     conduitConfig: mockConduitConfig, // Use the imported mockConduitConfig
@@ -20,21 +20,21 @@ vi.mock('@/internal', async (importOriginal) => {
       debug: vi.fn(),
       child: vi.fn().mockReturnThis(),
     },
-    getMimeType: vi.fn().mockResolvedValue('application/octet-stream'),
+    getMimeType: vi.fn().mockResolvedValue("application/octet-stream"),
     formatToISO8601UTC: vi.fn((date: Date) => date.toISOString()),
   };
 });
 
 // Now proceed with other imports
-import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileAsBuffer } from '@/core/fileSystemOps';
-import { conduitConfig } from '@/internal'; // For test logic, should pick up the above mock
-import { ConduitError, ErrorCode } from '@/utils/errorHandler';
-import type { Stats } from 'fs';
-import { Buffer } from 'buffer';
+import { describe, it, expect, beforeEach } from "vitest";
+import { readFileAsBuffer } from "@/core/fileSystemOps";
+import { conduitConfig } from "@/internal"; // For test logic, should pick up the above mock
+import { ConduitError, ErrorCode } from "@/utils/errorHandler";
+import type { Stats } from "fs";
+import { Buffer } from "buffer";
 
-describe('readFileAsBuffer', () => {
-  const filePath = 'test.bin';
+describe("readFileAsBuffer", () => {
+  const filePath = "test.bin";
   const defaultFileBuffer = Buffer.from([0x01, 0x02, 0x03, 0x04]);
 
   const createMockStats = (size: number, isDirectory = false): Stats =>
@@ -72,14 +72,14 @@ describe('readFileAsBuffer', () => {
     mockFs.readFile.mockImplementation(async () => defaultFileBuffer);
   });
 
-  it('should read file content as buffer successfully', async () => {
+  it("should read file content as buffer successfully", async () => {
     const content = await readFileAsBuffer(filePath);
     expect(content).toEqual(defaultFileBuffer);
     expect(mockFs.stat).toHaveBeenCalledWith(filePath);
     expect(mockFs.readFile).toHaveBeenCalledWith(filePath);
   });
 
-  it('should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than configured maxFileReadBytes', async () => {
+  it("should throw ERR_RESOURCE_LIMIT_EXCEEDED if file size is greater than configured maxFileReadBytes", async () => {
     const oversizedStat = createMockStats(conduitConfig.maxFileReadBytes + 1);
     mockFs.stat.mockImplementation(async () => oversizedStat);
 
@@ -91,12 +91,12 @@ describe('readFileAsBuffer', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
       expect(err.message).toContain(
-        `File size ${conduitConfig.maxFileReadBytes + 1} bytes exceeds maximum allowed read limit of ${conduitConfig.maxFileReadBytes} bytes`
+        `File size ${conduitConfig.maxFileReadBytes + 1} bytes exceeds maximum allowed read limit of ${conduitConfig.maxFileReadBytes} bytes`,
       );
     }
   });
 
-  it('should use specified maxLength if provided and throw if size exceeds it', async () => {
+  it("should use specified maxLength if provided and throw if size exceeds it", async () => {
     const specifiedMaxLength = 2;
     const largerThanSpecifiedStat = createMockStats(defaultFileBuffer.length); // defaultFileBuffer.length is 4
     mockFs.stat.mockImplementation(async () => largerThanSpecifiedStat);
@@ -108,12 +108,12 @@ describe('readFileAsBuffer', () => {
       const err = e as ConduitError;
       expect(err.errorCode).toBe(ErrorCode.RESOURCE_LIMIT_EXCEEDED);
       expect(err.message).toContain(
-        `File size ${defaultFileBuffer.length} bytes exceeds maximum allowed read limit of ${specifiedMaxLength} bytes`
+        `File size ${defaultFileBuffer.length} bytes exceeds maximum allowed read limit of ${specifiedMaxLength} bytes`,
       );
     }
   });
 
-  it('should throw ERR_FS_PATH_IS_DIR if path is a directory', async () => {
+  it("should throw ERR_FS_PATH_IS_DIR if path is a directory", async () => {
     const dirStat = createMockStats(100, true);
     mockFs.stat.mockImplementation(async () => dirStat);
 
@@ -126,12 +126,12 @@ describe('readFileAsBuffer', () => {
     }
   });
 
-  it('should throw ERR_FS_NOT_FOUND if fs.readFile throws ENOENT (after stat succeeds)', async () => {
+  it("should throw ERR_FS_NOT_FOUND if fs.readFile throws ENOENT (after stat succeeds)", async () => {
     mockFs.stat.mockImplementation(async () => createMockStats(10)); // Stat succeeds
     mockFs.readFile.mockImplementation(async () => {
-      const error = new Error('File not found');
+      const error = new Error("File not found");
       // @ts-expect-error code is readonly
-      error.code = 'ENOENT';
+      error.code = "ENOENT";
       throw error;
     });
 
@@ -144,12 +144,12 @@ describe('readFileAsBuffer', () => {
     }
   });
 
-  it('should throw ERR_FS_READ_FAILED for other fs.readFile errors (after stat succeeds)', async () => {
+  it("should throw ERR_FS_READ_FAILED for other fs.readFile errors (after stat succeeds)", async () => {
     mockFs.stat.mockImplementation(async () => createMockStats(10)); // Stat succeeds
     mockFs.readFile.mockImplementation(async () => {
-      const error = new Error('Read permission denied');
+      const error = new Error("Read permission denied");
       // @ts-expect-error code is readonly
-      error.code = 'EACCES';
+      error.code = "EACCES";
       throw error;
     });
 
@@ -162,10 +162,10 @@ describe('readFileAsBuffer', () => {
     }
   });
 
-  it('should re-throw ConduitError if getStats throws it', async () => {
+  it("should re-throw ConduitError if getStats throws it", async () => {
     const specificError = new ConduitError(
       ErrorCode.ERR_FS_ACCESS_DENIED,
-      'Stat failed for buffer read'
+      "Stat failed for buffer read",
     );
     mockFs.stat.mockImplementation(async () => {
       throw specificError;

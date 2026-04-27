@@ -38,14 +38,14 @@ else
   # This output to stderr is acceptable as it's a bootstrap/dev environment issue.
   if [ -z "$TSX_CMD" ]; then
     echo "WARN: [conduit-mcp/start.sh] tsx command not found. Attempting to install it locally (will not be saved to package.json)..." >&2
-    # Execute npm install in the project root context
-    (cd "$PROJECT_ROOT" && npm install tsx --no-save)
+    # Install project dependencies through the configured package manager.
+    (cd "$PROJECT_ROOT" && corepack pnpm install --prod=false)
     # Re-check for local tsx after attempting install
     if [ -f "$LOCAL_TSX_PATH" ]; then
       TSX_CMD="$LOCAL_TSX_PATH"
     else
       # If still not found, error out.
-      echo "ERROR: [conduit-mcp/start.sh] Failed to find or install tsx. Please install tsx globally ('npm install -g tsx') or ensure it's a devDependency and install project dependencies, or build the project first." >&2
+      echo "ERROR: [conduit-mcp/start.sh] Failed to find or install tsx. Please install dependencies with pnpm, or build the project first." >&2
       exit 1
     fi
   fi

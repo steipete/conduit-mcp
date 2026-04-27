@@ -1,8 +1,8 @@
-import fs from 'fs';
-import path from 'path';
-import { randomBytes } from 'crypto';
+import fs from "fs";
+import path from "path";
+import { randomBytes } from "crypto";
 
-const E2E_TEMP_BASE = path.resolve(__dirname, '../temp_data');
+const E2E_TEMP_BASE = path.resolve(__dirname, "../temp_data");
 
 export function ensureTempBaseExists(): void {
   if (!fs.existsSync(E2E_TEMP_BASE)) {
@@ -14,7 +14,7 @@ export function createTempDir(basePath?: string): string {
   ensureTempBaseExists();
 
   const tempDirBase = basePath || E2E_TEMP_BASE;
-  const randomSuffix = randomBytes(8).toString('hex');
+  const randomSuffix = randomBytes(8).toString("hex");
   const tempDirPath = path.join(tempDirBase, `temp_${randomSuffix}`);
 
   fs.mkdirSync(tempDirPath, { recursive: true });
@@ -26,7 +26,7 @@ export function createTempFile(filePath: string, content: string): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(filePath, content, 'utf8');
+  fs.writeFileSync(filePath, content, "utf8");
 }
 
 export function createTempFileInBase(filename: string, content: string): string {
@@ -68,7 +68,7 @@ export function getTempBasePath(): string {
 }
 
 export function readTempFile(filePath: string): string {
-  return fs.readFileSync(filePath, 'utf8');
+  return fs.readFileSync(filePath, "utf8");
 }
 
 export function tempFileExists(filePath: string): boolean {

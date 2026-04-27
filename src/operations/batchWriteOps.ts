@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from "path";
 import {
   WriteTool,
   ConduitServerConfig,
@@ -9,25 +9,25 @@ import {
   validateAndResolvePath,
   putContent,
   makeDirectory,
-} from '@/internal';
+} from "@/internal";
 
-const operationLogger = logger.child({ component: 'batchWriteOps' });
+const operationLogger = logger.child({ component: "batchWriteOps" });
 
 /**
  * Helper function to create error result items for write operations
  */
 function createErrorResultItem(
-  operation: 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch',
+  operation: "put" | "mkdir" | "copy" | "move" | "delete" | "touch",
   path: string | undefined,
   errorCode: ErrorCode,
   errorMessage: string,
   sourcePath?: string,
-  destinationPath?: string
+  destinationPath?: string,
 ): WriteTool.WriteResultItem {
   return {
-    status: 'error',
+    status: "error",
     operation_performed: operation,
-    path: path || 'unknown_path',
+    path: path || "unknown_path",
     source_path: sourcePath,
     destination_path: destinationPath,
     error_code: errorCode,
@@ -40,19 +40,19 @@ function createErrorResultItem(
  */
 export async function handleBatchPut(
   params: WriteTool.PutParams,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling batch put operation with ${params.entries.length} entries`);
 
   if (!params.entries || params.entries.length === 0) {
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         createErrorResultItem(
-          'put',
+          "put",
           undefined,
           ErrorCode.INVALID_PARAMETER,
-          "'entries' array is missing or empty for put operation."
+          "'entries' array is missing or empty for put operation.",
         ),
       ],
     };
@@ -90,15 +90,15 @@ export async function handleBatchPut(
       results.push(result);
     } catch (error) {
       operationLogger.warn(`Path validation failed for put entry: ${entry.path}`, error);
-      const errorMessage = error instanceof Error ? error.message : 'Path validation failed';
+      const errorMessage = error instanceof Error ? error.message : "Path validation failed";
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.ERR_FS_INVALID_PATH;
 
-      results.push(createErrorResultItem('put', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem("put", entry.path, errorCode, errorMessage));
     }
   }
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }
 
 /**
@@ -106,19 +106,19 @@ export async function handleBatchPut(
  */
 export async function handleBatchMkdir(
   params: WriteTool.MkdirParams,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling batch mkdir operation with ${params.entries.length} entries`);
 
   if (!params.entries || params.entries.length === 0) {
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         createErrorResultItem(
-          'mkdir',
+          "mkdir",
           undefined,
           ErrorCode.INVALID_PARAMETER,
-          "'entries' array is missing or empty for mkdir operation."
+          "'entries' array is missing or empty for mkdir operation.",
         ),
       ],
     };
@@ -176,15 +176,15 @@ export async function handleBatchMkdir(
       results.push(result);
     } catch (error) {
       operationLogger.warn(`Path validation failed for mkdir entry: ${entry.path}`, error);
-      const errorMessage = error instanceof Error ? error.message : 'Path validation failed';
+      const errorMessage = error instanceof Error ? error.message : "Path validation failed";
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.ERR_FS_INVALID_PATH;
 
-      results.push(createErrorResultItem('mkdir', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem("mkdir", entry.path, errorCode, errorMessage));
     }
   }
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }
 
 /**
@@ -192,19 +192,19 @@ export async function handleBatchMkdir(
  */
 export async function handleBatchCopy(
   params: WriteTool.CopyParams,
-  _config: ConduitServerConfig
+  _config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling batch copy operation with ${params.entries.length} entries`);
 
   if (!params.entries || params.entries.length === 0) {
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         createErrorResultItem(
-          'copy',
+          "copy",
           undefined,
           ErrorCode.INVALID_PARAMETER,
-          "'entries' array is missing or empty for copy operation."
+          "'entries' array is missing or empty for copy operation.",
         ),
       ],
     };
@@ -237,13 +237,13 @@ export async function handleBatchCopy(
         // Issue #1: When overwrite is false and destination exists, return error
         results.push(
           createErrorResultItem(
-            'copy',
+            "copy",
             undefined,
             ErrorCode.ERR_FS_DESTINATION_EXISTS,
             `Destination path ${entry.destination_path} already exists and overwrite is false.`,
             entry.source_path,
-            entry.destination_path
-          )
+            entry.destination_path,
+          ),
         );
         continue;
       }
@@ -255,17 +255,17 @@ export async function handleBatchCopy(
         if (
           sourceStats.isFile() &&
           destStats.isDirectory() &&
-          !entry.destination_path.endsWith('/')
+          !entry.destination_path.endsWith("/")
         ) {
           results.push(
             createErrorResultItem(
-              'copy',
+              "copy",
               undefined,
               ErrorCode.ERR_FS_COPY_TARGET_IS_DIR,
               `Cannot copy file ${entry.source_path} onto directory ${entry.destination_path}. To copy into a directory, ensure the destination path ends with a slash or is explicitly identified as a directory target.`,
               entry.source_path,
-              entry.destination_path
-            )
+              entry.destination_path,
+            ),
           );
           continue;
         }
@@ -279,18 +279,18 @@ export async function handleBatchCopy(
           // Clean up the error message for directory-to-file conflicts
           const errorMessage = error.message;
           if (
-            errorMessage.includes('cannot overwrite non-directory') &&
-            errorMessage.includes('with directory')
+            errorMessage.includes("cannot overwrite non-directory") &&
+            errorMessage.includes("with directory")
           ) {
             // Extract the clean part from the parenthetical comment
             const match = errorMessage.match(
-              /\(cannot overwrite non-directory (.+) with directory (.+)\)/
+              /\(cannot overwrite non-directory (.+) with directory (.+)\)/,
             );
             if (match) {
               const [, destPath, srcPath] = match;
               throw new ConduitError(
                 ErrorCode.ERR_FS_COPY_FAILED,
-                `Failed to copy path: Cannot overwrite non-directory ${destPath} with directory ${srcPath}`
+                `Failed to copy path: Cannot overwrite non-directory ${destPath} with directory ${srcPath}`,
               );
             }
           }
@@ -302,45 +302,45 @@ export async function handleBatchCopy(
       let actualDestinationPath = entry.destination_path;
       if (destinationExists) {
         const destStats = await fileSystemOps.getStats(resolvedDestinationPath);
-        if (destStats.isDirectory() && entry.destination_path.endsWith('/')) {
+        if (destStats.isDirectory() && entry.destination_path.endsWith("/")) {
           // When copying into a directory, show the actual final path
           actualDestinationPath = path.join(
             entry.destination_path,
-            path.basename(entry.source_path)
+            path.basename(entry.source_path),
           );
         }
       }
 
       results.push({
-        status: 'success',
-        operation_performed: 'copy',
+        status: "success",
+        operation_performed: "copy",
         source_path: entry.source_path,
         destination_path: actualDestinationPath,
-        message: 'File/directory copied successfully.',
+        message: "File/directory copied successfully.",
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(
         `Copy operation failed for entry: ${entry.source_path} -> ${entry.destination_path}`,
-        error
+        error,
       );
-      const errorMessage = error instanceof Error ? error.message : 'Copy operation failed';
+      const errorMessage = error instanceof Error ? error.message : "Copy operation failed";
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.OPERATION_FAILED;
 
       results.push(
         createErrorResultItem(
-          'copy',
+          "copy",
           undefined,
           errorCode,
           errorMessage,
           entry.source_path,
-          entry.destination_path
-        )
+          entry.destination_path,
+        ),
       );
     }
   }
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }
 
 /**
@@ -348,19 +348,19 @@ export async function handleBatchCopy(
  */
 export async function handleBatchMove(
   params: WriteTool.MoveParams,
-  _config: ConduitServerConfig
+  _config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling batch move operation with ${params.entries.length} entries`);
 
   if (!params.entries || params.entries.length === 0) {
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         createErrorResultItem(
-          'move',
+          "move",
           undefined,
           ErrorCode.INVALID_PARAMETER,
-          "'entries' array is missing or empty for move operation."
+          "'entries' array is missing or empty for move operation.",
         ),
       ],
     };
@@ -393,13 +393,13 @@ export async function handleBatchMove(
         // Issue #1: When overwrite is false and destination exists, return error
         results.push(
           createErrorResultItem(
-            'move',
+            "move",
             undefined,
             ErrorCode.ERR_FS_DESTINATION_EXISTS,
             `Destination path ${entry.destination_path} already exists and overwrite is false.`,
             entry.source_path,
-            entry.destination_path
-          )
+            entry.destination_path,
+          ),
         );
         continue;
       }
@@ -411,13 +411,13 @@ export async function handleBatchMove(
         if (sourceStats.isDirectory() && destStats.isFile()) {
           results.push(
             createErrorResultItem(
-              'move',
+              "move",
               undefined,
               ErrorCode.ERR_FS_MOVE_FAILED,
               `Failed to move path: Cannot overwrite non-directory ${entry.destination_path} with directory ${entry.source_path}`,
               entry.source_path,
-              entry.destination_path
-            )
+              entry.destination_path,
+            ),
           );
           continue;
         }
@@ -426,17 +426,17 @@ export async function handleBatchMove(
         if (
           sourceStats.isFile() &&
           destStats.isDirectory() &&
-          !entry.destination_path.endsWith('/')
+          !entry.destination_path.endsWith("/")
         ) {
           results.push(
             createErrorResultItem(
-              'move',
+              "move",
               undefined,
               ErrorCode.ERR_FS_MOVE_TARGET_IS_DIR,
               `Cannot move file ${entry.source_path} onto directory ${entry.destination_path}. To move into a directory, ensure the destination path ends with a slash.`,
               entry.source_path,
-              entry.destination_path
-            )
+              entry.destination_path,
+            ),
           );
           continue;
         }
@@ -449,45 +449,45 @@ export async function handleBatchMove(
       let actualDestinationPath = entry.destination_path;
       if (destinationExists) {
         const destStats = await fileSystemOps.getStats(resolvedDestinationPath);
-        if (destStats.isDirectory() && entry.destination_path.endsWith('/')) {
+        if (destStats.isDirectory() && entry.destination_path.endsWith("/")) {
           // When moving into a directory, show the actual final path
           actualDestinationPath = path.join(
             entry.destination_path,
-            path.basename(entry.source_path)
+            path.basename(entry.source_path),
           );
         }
       }
 
       results.push({
-        status: 'success',
-        operation_performed: 'move',
+        status: "success",
+        operation_performed: "move",
         source_path: entry.source_path,
         destination_path: actualDestinationPath,
-        message: 'File/directory moved successfully.',
+        message: "File/directory moved successfully.",
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(
         `Move operation failed for entry: ${entry.source_path} -> ${entry.destination_path}`,
-        error
+        error,
       );
-      const errorMessage = error instanceof Error ? error.message : 'Move operation failed';
+      const errorMessage = error instanceof Error ? error.message : "Move operation failed";
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.OPERATION_FAILED;
 
       results.push(
         createErrorResultItem(
-          'move',
+          "move",
           undefined,
           errorCode,
           errorMessage,
           entry.source_path,
-          entry.destination_path
-        )
+          entry.destination_path,
+        ),
       );
     }
   }
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }
 
 /**
@@ -495,19 +495,19 @@ export async function handleBatchMove(
  */
 export async function handleBatchDelete(
   params: WriteTool.DeleteParams,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling batch delete operation with ${params.entries.length} entries`);
 
   if (!params.entries || params.entries.length === 0) {
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         createErrorResultItem(
-          'delete',
+          "delete",
           undefined,
           ErrorCode.INVALID_PARAMETER,
-          "'entries' array is missing or empty for delete operation."
+          "'entries' array is missing or empty for delete operation.",
         ),
       ],
     };
@@ -528,28 +528,28 @@ export async function handleBatchDelete(
       await fileSystemOps.deletePath(resolvedPath, recursive);
 
       results.push({
-        status: 'success',
-        operation_performed: 'delete',
+        status: "success",
+        operation_performed: "delete",
         path: entry.path,
-        message: `${recursive ? 'Directory' : 'File'} deleted successfully.`,
+        message: `${recursive ? "Directory" : "File"} deleted successfully.`,
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(`Delete operation failed for entry: ${entry.path}`, error);
-      let errorMessage = error instanceof Error ? error.message : 'Delete operation failed';
+      let errorMessage = error instanceof Error ? error.message : "Delete operation failed";
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.OPERATION_FAILED;
 
       // Provide more specific error message for deletion permission denied
       if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
-        const allowedPathsStr = config.allowedPaths.join(', ');
+        const allowedPathsStr = config.allowedPaths.join(", ");
         errorMessage = `Access to path ${entry.path} for deletion is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: ${allowedPathsStr}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration.`;
       }
 
-      results.push(createErrorResultItem('delete', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem("delete", entry.path, errorCode, errorMessage));
     }
   }
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }
 
 /**
@@ -557,19 +557,19 @@ export async function handleBatchDelete(
  */
 export async function handleBatchTouch(
   params: WriteTool.TouchParams,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<WriteTool.DefinedBatchResponse> {
   operationLogger.debug(`Handling batch touch operation with ${params.entries.length} entries`);
 
   if (!params.entries || params.entries.length === 0) {
     return {
-      tool_name: 'write',
+      tool_name: "write",
       results: [
         createErrorResultItem(
-          'touch',
+          "touch",
           undefined,
           ErrorCode.INVALID_PARAMETER,
-          "'entries' array is missing or empty for touch operation."
+          "'entries' array is missing or empty for touch operation.",
         ),
       ],
     };
@@ -592,26 +592,26 @@ export async function handleBatchTouch(
       await fileSystemOps.touchFile(resolvedPath);
 
       results.push({
-        status: 'success',
-        operation_performed: 'touch',
+        status: "success",
+        operation_performed: "touch",
         path: entry.path,
-        message: `File ${fileExistedBefore ? 'timestamps updated' : 'created'} successfully.`,
+        message: `File ${fileExistedBefore ? "timestamps updated" : "created"} successfully.`,
       } as WriteTool.WriteResultSuccess);
     } catch (error) {
       operationLogger.warn(`Touch operation failed for entry: ${entry.path}`, error);
-      let errorMessage = error instanceof Error ? error.message : 'Touch operation failed';
+      let errorMessage = error instanceof Error ? error.message : "Touch operation failed";
       const errorCode =
         error instanceof ConduitError ? error.errorCode : ErrorCode.OPERATION_FAILED;
 
       // Provide more specific error message for touch permission denied
       if (error instanceof ConduitError && error.errorCode === ErrorCode.ERR_FS_PERMISSION_DENIED) {
-        const allowedPathsStr = config.allowedPaths.join(', ');
+        const allowedPathsStr = config.allowedPaths.join(", ");
         errorMessage = `Access to path ${entry.path} for creation is denied. It is not within the allowed paths defined by CONDUIT_ALLOWED_PATHS (currently: ${allowedPathsStr}). You might need to adjust CONDUIT_ALLOWED_PATHS environment variable or the server configuration.`;
       }
 
-      results.push(createErrorResultItem('touch', entry.path, errorCode, errorMessage));
+      results.push(createErrorResultItem("touch", entry.path, errorCode, errorMessage));
     }
   }
 
-  return { tool_name: 'write', results };
+  return { tool_name: "write", results };
 }

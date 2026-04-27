@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { runConduitMCPScript } from './utils/e2eTestRunner';
-import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
-import { TestToolResponse, isNoticeResponse, isToolResponse } from './utils/types';
+import { describe, it, expect } from "vitest";
+import { runConduitMCPScript } from "./utils/e2eTestRunner";
+import { loadTestScenarios, TestScenario } from "./utils/scenarioLoader";
+import { TestToolResponse, isNoticeResponse, isToolResponse } from "./utils/types";
 
-describe('E2E Test Tool Operations', () => {
-  const scenarios = loadTestScenarios('testTool.scenarios.json');
+describe("E2E Test Tool Operations", () => {
+  const scenarios = loadTestScenarios("testTool.scenarios.json");
 
-  describe('First Use Informational Notice', () => {
-    it('should show info notice on first request with default paths', async () => {
+  describe("First Use Informational Notice", () => {
+    it("should show info notice on first request with default paths", async () => {
       const requestPayload = {
-        tool_name: 'test',
+        tool_name: "test",
         params: {
-          operation: 'echo',
-          params_to_echo: 'Hello, World!',
+          operation: "echo",
+          params_to_echo: "Hello, World!",
         },
       };
 
@@ -27,30 +27,30 @@ describe('E2E Test Tool Operations', () => {
 
       if (isNoticeResponse(result.response)) {
         const [infoNotice, actualToolResponse] = result.response;
-        expect(infoNotice.type).toBe('info_notice');
-        expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-        expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
+        expect(infoNotice.type).toBe("info_notice");
+        expect(infoNotice.notice_code).toBe("DEFAULT_PATHS_USED");
+        expect(infoNotice.message).toContain("CONDUIT_ALLOWED_PATHS was not explicitly set");
 
         // Second element should be the actual tool response object
-        expect(actualToolResponse.tool_name).toBe('test');
+        expect(actualToolResponse.tool_name).toBe("test");
         const testResponse = actualToolResponse as TestToolResponse;
         expect(testResponse.results).toBeDefined();
-        expect(testResponse.results?.status).toBe('success');
-        expect(testResponse.results?.echoed_params).toBe('Hello, World!');
+        expect(testResponse.results?.status).toBe("success");
+        expect(testResponse.results?.echoed_params).toBe("Hello, World!");
       }
     });
 
-    it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
+    it("should not show info notice when CONDUIT_ALLOWED_PATHS is set", async () => {
       const requestPayload = {
-        tool_name: 'test',
+        tool_name: "test",
         params: {
-          operation: 'echo',
-          params_to_echo: 'No notice test',
+          operation: "echo",
+          params_to_echo: "No notice test",
         },
       };
 
       const result = await runConduitMCPScript(requestPayload, {
-        CONDUIT_ALLOWED_PATHS: '/tmp',
+        CONDUIT_ALLOWED_PATHS: "/tmp",
       });
 
       if (result.exitCode !== 0) {
@@ -62,19 +62,19 @@ describe('E2E Test Tool Operations', () => {
       // Should be the direct tool response object (no notice)
       expect(isToolResponse(result.response)).toBe(true);
       const response = result.response as TestToolResponse;
-      expect(response.tool_name).toBe('test');
+      expect(response.tool_name).toBe("test");
       expect(response.results).toBeDefined();
-      expect(response.results?.status).toBe('success');
-      expect(response.results?.echoed_params).toBe('No notice test');
+      expect(response.results?.status).toBe("success");
+      expect(response.results?.echoed_params).toBe("No notice test");
     });
   });
 
   scenarios.forEach((scenario: TestScenario) => {
-    describe('Dynamic Test Tool Scenarios', () => {
+    describe("Dynamic Test Tool Scenarios", () => {
       it(`${scenario.description || scenario.name}`, async () => {
         const result = await runConduitMCPScript(
           scenario.request_payload as any,
-          (scenario.env_vars as Record<string, string>) || {}
+          (scenario.env_vars as Record<string, string>) || {},
         );
 
         expect(result.exitCode).toBe(scenario.expected_exit_code);
@@ -84,7 +84,7 @@ describe('E2E Test Tool Operations', () => {
           expect(isNoticeResponse(result.response)).toBe(true);
           if (isNoticeResponse(result.response)) {
             const [infoNotice, actualToolResponse] = result.response;
-            expect(infoNotice.type).toBe('info_notice');
+            expect(infoNotice.type).toBe("info_notice");
             if (scenario.notice_code) {
               expect(infoNotice.notice_code).toBe(scenario.notice_code);
             }

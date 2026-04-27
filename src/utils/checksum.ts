@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from "crypto";
 
 /**
  * Calculates a checksum for the given content using the specified algorithm.
@@ -8,9 +8,9 @@ import crypto from 'crypto';
  */
 export async function calculateChecksum(
   content: Buffer | string,
-  algorithm: string = 'sha256'
+  algorithm: string = "sha256",
 ): Promise<string> {
   const hash = crypto.createHash(algorithm);
   hash.update(content);
-  return hash.digest('hex');
+  return hash.digest("hex");
 }

@@ -1,17 +1,17 @@
-import { readToolHandler } from '@/tools/readTool';
-import { ReadTool } from '@/types/tools';
-import { ErrorCode } from '@/utils/errorHandler';
-import { vi, type MockedFunction } from 'vitest';
+import { readToolHandler } from "@/tools/readTool";
+import { ReadTool } from "@/types/tools";
+import { ErrorCode } from "@/utils/errorHandler";
+import { vi, type MockedFunction } from "vitest";
 
 // Mock internal module
-vi.mock('@/internal', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/internal')>();
+vi.mock("@/internal", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/internal")>();
   return {
     ...original,
     conduitConfig: {
-      server_name: 'test-server',
-      server_version: '1.0.0',
-      allowed_paths: ['/'],
+      server_name: "test-server",
+      server_version: "1.0.0",
+      allowed_paths: ["/"],
       maxFileReadBytes: 1024 * 1024,
       maxUrlDownloadSizeBytes: 1024 * 1024,
       require_path_in_allowed_list: false,
@@ -33,39 +33,39 @@ vi.mock('@/internal', async (importOriginal) => {
 });
 
 // Mock operations
-vi.mock('@/operations/getContentOps', () => ({
+vi.mock("@/operations/getContentOps", () => ({
   getContent: vi.fn(),
 }));
-vi.mock('@/operations/metadataOps', () => ({
+vi.mock("@/operations/metadataOps", () => ({
   getMetadata: vi.fn(),
 }));
-vi.mock('@/operations/diffOps', () => ({
+vi.mock("@/operations/diffOps", () => ({
   getDiff: vi.fn(),
 }));
 
 // Import mocked modules - will be initialized in beforeAll
-let conduitConfig: typeof import('@/internal').conduitConfig;
-let mockedGetContent: MockedFunction<typeof import('@/operations/getContentOps').getContent>;
-let mockedGetMetadata: MockedFunction<typeof import('@/operations/metadataOps').getMetadata>;
-let mockedGetDiff: MockedFunction<typeof import('@/operations/diffOps').getDiff>;
+let conduitConfig: typeof import("@/internal").conduitConfig;
+let mockedGetContent: MockedFunction<typeof import("@/operations/getContentOps").getContent>;
+let mockedGetMetadata: MockedFunction<typeof import("@/operations/metadataOps").getMetadata>;
+let mockedGetDiff: MockedFunction<typeof import("@/operations/diffOps").getDiff>;
 
-describe('ReadTool', () => {
-  const mockSourceFile = '/allowed/file.txt';
-  const mockSourceUrl = 'http://example.com/page.html';
-  const mockImageUrl = 'http://example.com/image.png';
+describe("ReadTool", () => {
+  const mockSourceFile = "/allowed/file.txt";
+  const mockSourceUrl = "http://example.com/page.html";
+  const mockImageUrl = "http://example.com/image.png";
 
   beforeAll(async () => {
     // Import mocked modules
-    const internal = await import('@/internal');
+    const internal = await import("@/internal");
     conduitConfig = internal.conduitConfig;
 
-    const getContentOps = await import('@/operations/getContentOps');
+    const getContentOps = await import("@/operations/getContentOps");
     mockedGetContent = getContentOps.getContent as MockedFunction<typeof getContentOps.getContent>;
 
-    const metadataOps = await import('@/operations/metadataOps');
+    const metadataOps = await import("@/operations/metadataOps");
     mockedGetMetadata = metadataOps.getMetadata as MockedFunction<typeof metadataOps.getMetadata>;
 
-    const diffOps = await import('@/operations/diffOps');
+    const diffOps = await import("@/operations/diffOps");
     mockedGetDiff = diffOps.getDiff as MockedFunction<typeof diffOps.getDiff>;
   });
 
@@ -73,203 +73,203 @@ describe('ReadTool', () => {
     vi.clearAllMocks();
   });
 
-  describe('handleContentOperation', () => {
-    it('should read text file content correctly', async () => {
+  describe("handleContentOperation", () => {
+    it("should read text file content correctly", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
-        content: 'File content',
-        mime_type: 'text/plain',
-        output_format_used: 'text',
+        source_type: "file",
+        status: "success",
+        content: "File content",
+        mime_type: "text/plain",
+        output_format_used: "text",
         size_bytes: 12,
       });
 
       const params: ReadTool.ContentParams = {
-        operation: 'content',
+        operation: "content",
         sources: [mockSourceFile],
-        format: 'text',
+        format: "text",
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].content).toBe('File content');
-        expect(response.results[0].mime_type).toBe('text/plain');
-        expect(response.results[0].output_format_used).toBe('text');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].content).toBe("File content");
+        expect(response.results[0].mime_type).toBe("text/plain");
+        expect(response.results[0].output_format_used).toBe("text");
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should read file content as base64', async () => {
+    it("should read file content as base64", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
-        content: Buffer.from('Base64Test').toString('base64'),
-        mime_type: 'text/plain',
-        output_format_used: 'base64',
+        source_type: "file",
+        status: "success",
+        content: Buffer.from("Base64Test").toString("base64"),
+        mime_type: "text/plain",
+        output_format_used: "base64",
         size_bytes: 10,
       });
 
       const params: ReadTool.ContentParams = {
-        operation: 'content',
+        operation: "content",
         sources: [mockSourceFile],
-        format: 'base64',
+        format: "base64",
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].content).toBe(Buffer.from('Base64Test').toString('base64'));
-        expect(response.results[0].output_format_used).toBe('base64');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].content).toBe(Buffer.from("Base64Test").toString("base64"));
+        expect(response.results[0].output_format_used).toBe("base64");
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should fetch URL and convert to markdown', async () => {
+    it("should fetch URL and convert to markdown", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceUrl,
-        source_type: 'url',
-        status: 'success',
-        content: '# Markdown Content',
-        mime_type: 'text/html',
-        output_format_used: 'markdown',
-        markdown_conversion_status: 'success',
+        source_type: "url",
+        status: "success",
+        content: "# Markdown Content",
+        mime_type: "text/html",
+        output_format_used: "markdown",
+        markdown_conversion_status: "success",
         size_bytes: 19,
       });
 
       const params: ReadTool.ContentParams = {
-        operation: 'content',
+        operation: "content",
         sources: [mockSourceUrl],
-        format: 'markdown',
+        format: "markdown",
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].content).toBe('# Markdown Content');
-        expect(response.results[0].output_format_used).toBe('markdown');
-        expect(response.results[0].markdown_conversion_status).toBe('success');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].content).toBe("# Markdown Content");
+        expect(response.results[0].output_format_used).toBe("markdown");
+        expect(response.results[0].markdown_conversion_status).toBe("success");
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceUrl, params, conduitConfig);
     });
 
-    it('should fallback to text for markdown if URL content is not HTML', async () => {
+    it("should fallback to text for markdown if URL content is not HTML", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceUrl,
-        source_type: 'url',
-        status: 'success',
+        source_type: "url",
+        status: "success",
         content: null,
-        mime_type: 'application/json',
-        output_format_used: 'markdown',
-        detected_format: 'application/json',
-        user_note: 'Content could not be converted to Markdown as it is not HTML.',
-        markdown_conversion_status: 'skipped_unsupported_content_type',
+        mime_type: "application/json",
+        output_format_used: "markdown",
+        detected_format: "application/json",
+        user_note: "Content could not be converted to Markdown as it is not HTML.",
+        markdown_conversion_status: "skipped_unsupported_content_type",
         size_bytes: 8,
       });
 
       const params: ReadTool.ContentParams = {
-        operation: 'content',
+        operation: "content",
         sources: [mockSourceUrl],
-        format: 'markdown',
+        format: "markdown",
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
         expect(response.results[0].content).toBeNull();
-        expect(response.results[0].output_format_used).toBe('markdown');
-        expect(response.results[0].detected_format).toBe('application/json');
+        expect(response.results[0].output_format_used).toBe("markdown");
+        expect(response.results[0].detected_format).toBe("application/json");
         expect(response.results[0].user_note).toBe(
-          'Content could not be converted to Markdown as it is not HTML.'
+          "Content could not be converted to Markdown as it is not HTML.",
         );
         expect(response.results[0].markdown_conversion_status).toBe(
-          'skipped_unsupported_content_type'
+          "skipped_unsupported_content_type",
         );
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceUrl, params, conduitConfig);
     });
 
-    it('should calculate checksum for a file', async () => {
+    it("should calculate checksum for a file", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
-        content: 'mockedchecksum-testspecific',
-        checksum: 'mockedchecksum-testspecific',
-        mime_type: 'text/plain',
-        output_format_used: 'checksum',
-        checksum_algorithm_used: 'sha256',
+        source_type: "file",
+        status: "success",
+        content: "mockedchecksum-testspecific",
+        checksum: "mockedchecksum-testspecific",
+        mime_type: "text/plain",
+        output_format_used: "checksum",
+        checksum_algorithm_used: "sha256",
         size_bytes: 12,
       });
 
       const params: ReadTool.ContentParams = {
-        operation: 'content',
+        operation: "content",
         sources: [mockSourceFile],
-        format: 'checksum',
-        checksum_algorithm: 'sha256',
+        format: "checksum",
+        checksum_algorithm: "sha256",
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].checksum).toBe('mockedchecksum-testspecific');
-        expect(response.results[0].content).toBe('mockedchecksum-testspecific');
-        expect(response.results[0].output_format_used).toBe('checksum');
-        expect(response.results[0].checksum_algorithm_used).toBe('sha256');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].checksum).toBe("mockedchecksum-testspecific");
+        expect(response.results[0].content).toBe("mockedchecksum-testspecific");
+        expect(response.results[0].output_format_used).toBe("checksum");
+        expect(response.results[0].checksum_algorithm_used).toBe("sha256");
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should handle image compression for base64 format', async () => {
+    it("should handle image compression for base64 format", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
-        content: Buffer.from('compressed_image_data').toString('base64'),
-        mime_type: 'image/png',
-        output_format_used: 'base64',
+        source_type: "file",
+        status: "success",
+        content: Buffer.from("compressed_image_data").toString("base64"),
+        mime_type: "image/png",
+        output_format_used: "base64",
         compression_applied: true,
         original_size_bytes: 2000,
         size_bytes: 20,
       });
 
       const params: ReadTool.ContentParams = {
-        operation: 'content',
+        operation: "content",
         sources: [mockSourceFile],
-        format: 'base64',
+        format: "base64",
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
         expect(response.results[0].content).toBe(
-          Buffer.from('compressed_image_data').toString('base64')
+          Buffer.from("compressed_image_data").toString("base64"),
         );
         expect(response.results[0].compression_applied).toBe(true);
         expect(response.results[0].original_size_bytes).toBe(2000);
@@ -277,255 +277,255 @@ describe('ReadTool', () => {
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should use default format if not specified (text file)', async () => {
+    it("should use default format if not specified (text file)", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
-        content: 'File content',
-        mime_type: 'text/plain',
-        output_format_used: 'text',
+        source_type: "file",
+        status: "success",
+        content: "File content",
+        mime_type: "text/plain",
+        output_format_used: "text",
         size_bytes: 12,
       });
 
-      const params: ReadTool.ContentParams = { operation: 'content', sources: [mockSourceFile] };
+      const params: ReadTool.ContentParams = { operation: "content", sources: [mockSourceFile] };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].output_format_used).toBe('text');
-        expect(response.results[0].content).toBe('File content');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].output_format_used).toBe("text");
+        expect(response.results[0].content).toBe("File content");
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should use default format if not specified (image file -> base64)', async () => {
+    it("should use default format if not specified (image file -> base64)", async () => {
       mockedGetContent.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
-        content: Buffer.from('jpegdata').toString('base64'),
-        mime_type: 'image/jpeg',
-        output_format_used: 'base64',
+        source_type: "file",
+        status: "success",
+        content: Buffer.from("jpegdata").toString("base64"),
+        mime_type: "image/jpeg",
+        output_format_used: "base64",
         size_bytes: 8,
       });
 
-      const params: ReadTool.ContentParams = { operation: 'content', sources: [mockSourceFile] };
+      const params: ReadTool.ContentParams = { operation: "content", sources: [mockSourceFile] };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].output_format_used).toBe('base64');
-        expect(response.results[0].content).toBe(Buffer.from('jpegdata').toString('base64'));
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].output_format_used).toBe("base64");
+        expect(response.results[0].content).toBe(Buffer.from("jpegdata").toString("base64"));
       }
       expect(mockedGetContent).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should return INVALID_PARAMETER error if sources array is empty for content op', async () => {
-      const params: ReadTool.Parameters = { operation: 'content', sources: [] };
+    it("should return INVALID_PARAMETER error if sources array is empty for content op", async () => {
+      const params: ReadTool.Parameters = { operation: "content", sources: [] };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedContentResponse;
 
-      expect(response.tool_name).toBe('read');
+      expect(response.tool_name).toBe("read");
       expect(response.results).toHaveLength(0);
       expect(mockedGetContent).not.toHaveBeenCalled();
     });
   });
 
-  describe('handleMetadataOperation', () => {
-    it('should fetch metadata for a local file', async () => {
+  describe("handleMetadataOperation", () => {
+    it("should fetch metadata for a local file", async () => {
       mockedGetMetadata.mockResolvedValue({
         source: mockSourceFile,
-        source_type: 'file',
-        status: 'success',
+        source_type: "file",
+        status: "success",
         metadata: {
-          name: 'file.txt',
-          entry_type: 'file',
+          name: "file.txt",
+          entry_type: "file",
           size_bytes: 100,
-          mime_type: 'text/plain',
+          mime_type: "text/plain",
           created_at: new Date().toISOString(),
           modified_at: new Date().toISOString(),
         } as any,
       });
 
       const params: ReadTool.MetadataParams = {
-        operation: 'metadata',
+        operation: "metadata",
         sources: [mockSourceFile],
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedMetadataResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].source_type).toBe('file');
-        expect(response.results[0].metadata?.name).toBe('file.txt');
-        expect(response.results[0].metadata?.entry_type).toBe('file');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].source_type).toBe("file");
+        expect(response.results[0].metadata?.name).toBe("file.txt");
+        expect(response.results[0].metadata?.entry_type).toBe("file");
       }
       expect(mockedGetMetadata).toHaveBeenCalledWith(mockSourceFile, params, conduitConfig);
     });
 
-    it('should fetch metadata for a URL (HEAD request)', async () => {
+    it("should fetch metadata for a URL (HEAD request)", async () => {
       mockedGetMetadata.mockResolvedValue({
         source: mockImageUrl,
-        source_type: 'url',
-        status: 'success',
+        source_type: "url",
+        status: "success",
         metadata: {
-          name: 'image.png',
-          entry_type: 'file',
-          mime_type: 'image/png',
+          name: "image.png",
+          entry_type: "file",
+          mime_type: "image/png",
           size_bytes: 12345,
-          modified_at: '1994-11-15T12:45:26.000Z',
+          modified_at: "1994-11-15T12:45:26.000Z",
         },
       });
 
       const params: ReadTool.MetadataParams = {
-        operation: 'metadata',
+        operation: "metadata",
         sources: [mockImageUrl],
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedMetadataResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results[0].status).toBe('success');
-      if (response.results[0].status === 'success') {
-        expect(response.results[0].source_type).toBe('url');
-        expect(response.results[0].metadata?.name).toBe('image.png');
-        expect(response.results[0].metadata?.mime_type).toBe('image/png');
+      expect(response.tool_name).toBe("read");
+      expect(response.results[0].status).toBe("success");
+      if (response.results[0].status === "success") {
+        expect(response.results[0].source_type).toBe("url");
+        expect(response.results[0].metadata?.name).toBe("image.png");
+        expect(response.results[0].metadata?.mime_type).toBe("image/png");
         expect(response.results[0].metadata?.size_bytes).toBe(12345);
-        expect(response.results[0].metadata?.modified_at).toBe('1994-11-15T12:45:26.000Z');
+        expect(response.results[0].metadata?.modified_at).toBe("1994-11-15T12:45:26.000Z");
       }
       expect(mockedGetMetadata).toHaveBeenCalledWith(mockImageUrl, params, conduitConfig);
     });
   });
 
-  describe('handleDiffOperation', () => {
-    it('should perform a diff between two local files', async () => {
-      const file1 = '/allowed/file1.txt';
-      const file2 = '/allowed/file2.txt';
+  describe("handleDiffOperation", () => {
+    it("should perform a diff between two local files", async () => {
+      const file1 = "/allowed/file1.txt";
+      const file2 = "/allowed/file2.txt";
 
       mockedGetDiff.mockResolvedValue({
-        status: 'success',
-        diff_content: '--- a/file1\n+++ b/file2\n',
+        status: "success",
+        diff_content: "--- a/file1\n+++ b/file2\n",
         sources_compared: [file1, file2],
-        diff_format_used: 'unified',
+        diff_format_used: "unified",
       });
 
       const params: ReadTool.DiffParams = {
-        operation: 'diff',
+        operation: "diff",
         sources: [file1, file2] as [string, string],
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedDiffResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results.status).toBe('success');
-      if (response.results.status === 'success') {
-        expect(response.results.diff_content).toBe('--- a/file1\n+++ b/file2\n');
+      expect(response.tool_name).toBe("read");
+      expect(response.results.status).toBe("success");
+      if (response.results.status === "success") {
+        expect(response.results.diff_content).toBe("--- a/file1\n+++ b/file2\n");
         expect(response.results.sources_compared).toEqual([file1, file2]);
       }
       expect(mockedGetDiff).toHaveBeenCalledWith(params, conduitConfig);
     });
 
-    it('should handle error if diff sources are not two files', async () => {
+    it("should handle error if diff sources are not two files", async () => {
       // This test simulates what would happen if getDiff was called with invalid params
       mockedGetDiff.mockResolvedValue({
-        status: 'error',
+        status: "error",
         error_code: ErrorCode.INVALID_PARAMETER,
-        error_message: 'Diff operation requires exactly two source file paths.',
+        error_message: "Diff operation requires exactly two source file paths.",
       });
 
       const params: ReadTool.DiffParams = {
-        operation: 'diff',
+        operation: "diff",
         sources: [mockSourceFile] as never,
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedDiffResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results.status).toBe('error');
-      if (response.results.status === 'error') {
+      expect(response.tool_name).toBe("read");
+      expect(response.results.status).toBe("error");
+      if (response.results.status === "error") {
         expect(response.results.error_code).toBe(ErrorCode.INVALID_PARAMETER);
-        expect(response.results.error_message).toContain('exactly two source');
+        expect(response.results.error_message).toContain("exactly two source");
       }
     });
 
-    it('should handle error if diff sources include a URL', async () => {
+    it("should handle error if diff sources include a URL", async () => {
       // This test simulates what would happen if getDiff was called with URL params
       mockedGetDiff.mockResolvedValue({
-        status: 'error',
+        status: "error",
         error_code: ErrorCode.INVALID_PARAMETER,
-        error_message: 'Diff operation only supports local files, not URLs.',
+        error_message: "Diff operation only supports local files, not URLs.",
       });
 
       const params: ReadTool.DiffParams = {
-        operation: 'diff',
+        operation: "diff",
         sources: [mockSourceFile, mockSourceUrl] as [string, string],
       };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedDiffResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results.status).toBe('error');
-      if (response.results.status === 'error') {
+      expect(response.tool_name).toBe("read");
+      expect(response.results.status).toBe("error");
+      if (response.results.status === "error") {
         expect(response.results.error_code).toBe(ErrorCode.INVALID_PARAMETER);
-        expect(response.results.error_message).toContain('only supports local files');
+        expect(response.results.error_message).toContain("only supports local files");
       }
     });
 
-    it('should return INVALID_PARAMETER error if sources array has more than two for diff op', async () => {
+    it("should return INVALID_PARAMETER error if sources array has more than two for diff op", async () => {
       mockedGetDiff.mockResolvedValue({
-        status: 'error',
+        status: "error",
         error_code: ErrorCode.INVALID_PARAMETER,
-        error_message: 'Diff operation requires exactly two sources',
+        error_message: "Diff operation requires exactly two sources",
       });
 
-      const params: ReadTool.Parameters = { operation: 'diff', sources: ['s1', 's2'] };
+      const params: ReadTool.Parameters = { operation: "diff", sources: ["s1", "s2"] };
       const response = (await readToolHandler(
         params,
-        conduitConfig
+        conduitConfig,
       )) as ReadTool.DefinedDiffResponse;
 
-      expect(response.tool_name).toBe('read');
-      expect(response.results.status).toBe('error');
-      if (response.results.status === 'error') {
+      expect(response.tool_name).toBe("read");
+      expect(response.results.status).toBe("error");
+      if (response.results.status === "error") {
         expect(response.results.error_code).toBe(ErrorCode.INVALID_PARAMETER);
         expect(response.results.error_message).toContain(
-          'Diff operation requires exactly two sources'
+          "Diff operation requires exactly two sources",
         );
       }
       expect(mockedGetDiff).toHaveBeenCalledWith(params, conduitConfig);
     });
   });
 
-  it('should return error for invalid operation', async () => {
-    const params = { operation: 'invalid_op', sources: ['s'] } as never;
+  it("should return error for invalid operation", async () => {
+    const params = { operation: "invalid_op", sources: ["s"] } as never;
     const response = await readToolHandler(params, conduitConfig);
 
-    expect((response as any).status).toBe('error');
-    if ('error_code' in response) {
+    expect((response as any).status).toBe("error");
+    if ("error_code" in response) {
       expect(response.error_code).toBe(ErrorCode.UNSUPPORTED_OPERATION);
-      expect(response.error_message).toContain('Unsupported read operation: invalid_op');
+      expect(response.error_message).toContain("Unsupported read operation: invalid_op");
     }
   });
 });

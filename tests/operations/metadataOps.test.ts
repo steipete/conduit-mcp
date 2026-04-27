@@ -1,30 +1,30 @@
 /// <reference types="vitest/globals" />
 
-import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from 'vitest';
-import { mockDeep, type DeepMockProxy, mockReset } from 'vitest-mock-extended';
-import * as fs from 'fs'; // For fs.Stats type
+import { vi, describe, it, expect, beforeEach, afterEach, type MockedFunction } from "vitest";
+import { mockDeep, type DeepMockProxy, mockReset } from "vitest-mock-extended";
+import * as fs from "fs"; // For fs.Stats type
 import {
   getMetadata,
   // getMetadataFromFile, // Not exporting these directly for now, test via getMetadata
   // getMetadataFromUrl
-} from '@/operations/metadataOps';
+} from "@/operations/metadataOps";
 
 // Mock @/internal
-vi.mock('@/internal', async (importOriginal) => {
-  const originalModule = await importOriginal<typeof import('@/internal')>();
+vi.mock("@/internal", async (importOriginal) => {
+  const originalModule = await importOriginal<typeof import("@/internal")>();
 
   return {
     ...originalModule,
-    conduitConfig: mockDeep<import('@/types/config').ConduitServerConfig>(),
+    conduitConfig: mockDeep<import("@/types/config").ConduitServerConfig>(),
     logger: (() => {
-      const mockLogger = mockDeep<import('pino').Logger<string>>();
+      const mockLogger = mockDeep<import("pino").Logger<string>>();
       (mockLogger.child as MockedFunction<typeof mockLogger.child>).mockReturnValue(mockLogger);
       return mockLogger;
     })(),
-    fileSystemOps: mockDeep<typeof import('@/core/fileSystemOps')>(),
-    securityHandler: mockDeep<typeof import('@/core/securityHandler')>(),
-    webFetcher: mockDeep<typeof import('@/core/webFetcher')>(),
-    mimeService: mockDeep<typeof import('@/core/mimeService')>(),
+    fileSystemOps: mockDeep<typeof import("@/core/fileSystemOps")>(),
+    securityHandler: mockDeep<typeof import("@/core/securityHandler")>(),
+    webFetcher: mockDeep<typeof import("@/core/webFetcher")>(),
+    mimeService: mockDeep<typeof import("@/core/mimeService")>(),
     getMimeType: vi.fn(),
     formatToISO8601UTC: vi.fn(),
     validateAndResolvePath: vi.fn(),
@@ -44,13 +44,13 @@ import {
   getMimeType,
   conduitConfig,
   validateAndResolvePath,
-} from '@/internal';
+} from "@/internal";
 
-describe('metadataOps', () => {
+describe("metadataOps", () => {
   // Initialize test-level variables with correct types
   const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
   const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
-  const mockedLogger = logger as unknown as DeepMockProxy<import('pino').Logger<string>>;
+  const mockedLogger = logger as unknown as DeepMockProxy<import("pino").Logger<string>>;
   const mockedSecurityHandler = securityHandler as DeepMockProxy<typeof securityHandler>;
   const mockedWebFetcher = webFetcher as DeepMockProxy<typeof webFetcher>;
   const mockedMimeService = mimeService as DeepMockProxy<typeof mimeService>;
@@ -64,8 +64,8 @@ describe('metadataOps', () => {
     // Add any specific config defaults needed for metadataOps if any
   };
 
-  const testFilePath = '/test/workspace/somefile.txt';
-  const testFileUrl = 'http://example.com/somefile.txt';
+  const testFilePath = "/test/workspace/somefile.txt";
+  const testFileUrl = "http://example.com/somefile.txt";
 
   beforeEach(() => {
     // Call mockReset on all deep-mocked objects and vi.fn() mocks
@@ -88,46 +88,46 @@ describe('metadataOps', () => {
     // Set up default implementations for metadata tests
     mockedFsOps.getLstats.mockResolvedValue({} as fs.Stats);
     mockedFsOps.createEntryInfo.mockResolvedValue({
-      name: '',
-      path: '',
-      type: 'file' as const,
+      name: "",
+      path: "",
+      type: "file" as const,
       size_bytes: 0,
-      mime_type: '',
-      created_at: '',
-      modified_at: '',
-      permissions_octal: '',
-      permissions_string: '',
+      mime_type: "",
+      created_at: "",
+      modified_at: "",
+      permissions_octal: "",
+      permissions_string: "",
     });
-    mockedValidateAndResolvePath.mockResolvedValue('');
+    mockedValidateAndResolvePath.mockResolvedValue("");
     mockedWebFetcher.fetchUrlContent.mockResolvedValue({
-      finalUrl: '',
-      mimeType: '',
+      finalUrl: "",
+      mimeType: "",
       headers: {},
       httpStatus: 200,
-      content: Buffer.from(''),
+      content: Buffer.from(""),
       size_bytes: 0,
-      range_request_status: 'not_supported',
+      range_request_status: "not_supported",
     });
-    mockedMimeService.getMimeType.mockReturnValue(Promise.resolve('text/plain'));
+    mockedMimeService.getMimeType.mockReturnValue(Promise.resolve("text/plain"));
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('getMetadata - for File source', () => {
+  describe("getMetadata - for File source", () => {
     const baseFileParams: ReadTool.MetadataParams = {
-      operation: 'metadata',
+      operation: "metadata",
       sources: [testFilePath],
     };
 
-    it('should return success with file metadata for a valid file path', async () => {
+    it("should return success with file metadata for a valid file path", async () => {
       const mockStats = {
         isFile: () => true,
         isDirectory: () => false,
         size: 1234,
-        birthtimeMs: new Date('2023-01-01T10:00:00Z').getTime(),
-        mtimeMs: new Date('2023-01-02T11:00:00Z').getTime(),
+        birthtimeMs: new Date("2023-01-01T10:00:00Z").getTime(),
+        mtimeMs: new Date("2023-01-02T11:00:00Z").getTime(),
         mode: 33188, // Corresponds to -rw-r--r--
       } as fs.Stats;
 
@@ -136,34 +136,34 @@ describe('metadataOps', () => {
       mockedFsOps.pathExists.mockResolvedValue(true);
       mockedFsOps.getLstats.mockResolvedValue(mockStats);
       mockedFsOps.createEntryInfo.mockResolvedValue({
-        name: 'somefile.txt',
+        name: "somefile.txt",
         path: testFilePath,
-        type: 'file',
+        type: "file",
         size_bytes: 1234,
-        mime_type: 'text/plain',
-        created_at: '2023-01-01T10:00:00.000Z',
-        modified_at: '2023-01-02T11:00:00.000Z',
-        permissions_octal: '0644',
-        permissions_string: '-rw-r--r--',
+        mime_type: "text/plain",
+        created_at: "2023-01-01T10:00:00.000Z",
+        modified_at: "2023-01-02T11:00:00.000Z",
+        permissions_octal: "0644",
+        permissions_string: "-rw-r--r--",
       });
 
       const result = (await getMetadata(
         testFilePath,
         baseFileParams,
-        mockedConfig as ConduitServerConfig
+        mockedConfig as ConduitServerConfig,
       )) as ReadTool.MetadataResultSuccess;
 
-      expect(result.status).toBe('success');
+      expect(result.status).toBe("success");
       expect(result.source).toBe(testFilePath);
-      expect(result.source_type).toBe('file');
+      expect(result.source_type).toBe("file");
       expect(result.metadata).toBeDefined();
-      expect(result.metadata.name).toBe('somefile.txt');
-      expect(result.metadata.entry_type).toBe('file');
+      expect(result.metadata.name).toBe("somefile.txt");
+      expect(result.metadata.entry_type).toBe("file");
       expect(result.metadata.size_bytes).toBe(1234);
-      expect(result.metadata.mime_type).toBe('text/plain');
-      expect(result.metadata.created_at).toBe('2023-01-01T10:00:00.000Z');
-      expect(result.metadata.modified_at).toBe('2023-01-02T11:00:00.000Z');
-      expect(result.metadata.permissions_string).toBe('-rw-r--r--');
+      expect(result.metadata.mime_type).toBe("text/plain");
+      expect(result.metadata.created_at).toBe("2023-01-01T10:00:00.000Z");
+      expect(result.metadata.modified_at).toBe("2023-01-02T11:00:00.000Z");
+      expect(result.metadata.permissions_string).toBe("-rw-r--r--");
       expect(mockedValidateAndResolvePath).toHaveBeenCalledWith(testFilePath, {
         isExistenceRequired: true,
         checkAllowed: true,
@@ -174,54 +174,54 @@ describe('metadataOps', () => {
     // More tests for file source: directory, errors (not found, access denied), etc.
   });
 
-  describe('getMetadata - for URL source', () => {
+  describe("getMetadata - for URL source", () => {
     const baseWebParams: ReadTool.MetadataParams = {
-      operation: 'metadata',
+      operation: "metadata",
       sources: [testFileUrl],
     };
 
-    it('should return success with URL metadata for a valid URL', async () => {
+    it("should return success with URL metadata for a valid URL", async () => {
       const mockFetchContentResult = {
         // Renamed for clarity
         finalUrl: testFileUrl,
-        mimeType: 'application/json', // fetchUrlContent returns mimeType directly
+        mimeType: "application/json", // fetchUrlContent returns mimeType directly
         headers: {
-          'content-length': '5678',
+          "content-length": "5678",
           // 'content-type' is not directly returned by fetchUrlContent, mimeType is used
-          'last-modified': 'Tue, 03 Jan 2023 12:00:00 GMT',
+          "last-modified": "Tue, 03 Jan 2023 12:00:00 GMT",
         },
         httpStatus: 200,
         error: null,
-        content: Buffer.from(''), // Content buffer, not directly used for metadata but expected by type
+        content: Buffer.from(""), // Content buffer, not directly used for metadata but expected by type
         isBinary: false,
         size: 5678,
         isPartialContent: false,
-        rangeRequestStatus: 'not_requested' as const,
+        rangeRequestStatus: "not_requested" as const,
       };
       // Corrected mock to use fetchUrlContent
       mockedWebFetcher.fetchUrlContent.mockResolvedValue(mockFetchContentResult);
-      mockedFormatToISO.mockReturnValueOnce('2023-01-03T12:00:00.000Z'); // last-modified
+      mockedFormatToISO.mockReturnValueOnce("2023-01-03T12:00:00.000Z"); // last-modified
 
       const result = (await getMetadata(
         testFileUrl,
         baseWebParams,
-        mockedConfig as ConduitServerConfig
+        mockedConfig as ConduitServerConfig,
       )) as ReadTool.MetadataResultSuccess;
 
-      expect(result.status).toBe('success');
+      expect(result.status).toBe("success");
       expect(result.source).toBe(testFileUrl);
-      expect(result.source_type).toBe('url');
+      expect(result.source_type).toBe("url");
       expect(result.http_status_code).toBe(200);
       expect(result.metadata).toBeDefined();
-      expect(result.metadata.name).toBe('somefile.txt');
-      expect(result.metadata.entry_type).toBe('url');
+      expect(result.metadata.name).toBe("somefile.txt");
+      expect(result.metadata.entry_type).toBe("url");
       expect(result.metadata.size_bytes).toBe(5678);
-      expect(result.metadata.mime_type).toBe('application/json');
-      expect(result.metadata.modified_at).toBe('2023-01-03T12:00:00.000Z');
+      expect(result.metadata.mime_type).toBe("application/json");
+      expect(result.metadata.modified_at).toBe("2023-01-03T12:00:00.000Z");
       // Construct expected headers carefully based on what getMetadataFromUrl transforms
       const expectedHeaders = {
-        'content-length': '5678',
-        'last-modified': 'Tue, 03 Jan 2023 12:00:00 GMT',
+        "content-length": "5678",
+        "last-modified": "Tue, 03 Jan 2023 12:00:00 GMT",
       };
       expect(result.metadata.http_headers).toEqual(expectedHeaders);
       expect(mockedWebFetcher.fetchUrlContent).toHaveBeenCalledWith(testFileUrl, true, undefined);

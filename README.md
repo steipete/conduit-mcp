@@ -51,7 +51,7 @@ Just tell your MCP client about your new digital pet:
 ```bash
 git clone <repository_url>
 cd conduit-mcp
-npm install
+pnpm install
 # Configure your MCP client to use ./start.sh
 ```
 
@@ -514,19 +514,18 @@ Your cat is well-mannered and provides detailed error information:
 ### Running Tests
 
 ```bash
-npm test                # Run all tests
-npm run test:coverage   # With coverage report
-npm run test:unit       # Unit tests only
-npm run test:e2e        # End-to-end tests
+pnpm test               # Run all tests
+pnpm run coverage       # With coverage report
+pnpm run test:e2e       # End-to-end tests
 ```
 
 ### Building
 
 ```bash
-npm run build          # Compile TypeScript
-npm run dev            # Development mode with auto-reload
-npm run lint           # Check code style
-npm run format         # Auto-format code
+pnpm run build         # Compile TypeScript
+pnpm run dev           # Development mode with auto-reload
+pnpm run lint          # Check code style
+pnpm run format        # Auto-format code
 ```
 
 ## 🤝 Contributing
@@ -564,7 +563,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Protocols**: 100% MCP compliant
 - **Character Encoding**: UTF-8 all the way
 - **Timestamp Format**: ISO 8601 UTC (because cats are international)
-- **Node.js**: Requires >=18.0.0
+- **Node.js**: Requires >=24.0.0
 
 ## 🎯 Use Cases
 

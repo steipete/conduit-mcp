@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { runConduitMCPScript } from './utils/e2eTestRunner';
-import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario } from './utils/scenarioLoader';
-import type { BufferEncoding } from './utils/types';
-import path from 'path';
-import fs from 'fs';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { runConduitMCPScript } from "./utils/e2eTestRunner";
+import { createTempDir } from "./utils/tempFs";
+import { loadTestScenarios, TestScenario } from "./utils/scenarioLoader";
+import type { BufferEncoding } from "./utils/types";
+import path from "path";
+import fs from "fs";
 
-describe('E2E Read Operations', () => {
+describe("E2E Read Operations", () => {
   let testWorkspaceDir: string;
 
   beforeEach(() => {
@@ -22,14 +22,14 @@ describe('E2E Read Operations', () => {
     }
   });
 
-  describe('First Use Informational Notice', () => {
-    it('should show info notice on first request with default paths', async () => {
+  describe("First Use Informational Notice", () => {
+    it("should show info notice on first request with default paths", async () => {
       const requestPayload = {
-        tool_name: 'read',
+        tool_name: "read",
         params: {
-          operation: 'content',
-          sources: ['/nonexistent/file.txt'],
-          format: 'text',
+          operation: "content",
+          sources: ["/nonexistent/file.txt"],
+          format: "text",
         },
       };
 
@@ -47,29 +47,29 @@ describe('E2E Read Operations', () => {
 
       // First element should be the info notice
       const infoNotice = (result.response as unknown[])[0] as Record<string, unknown>;
-      expect(infoNotice.type).toBe('info_notice');
-      expect(infoNotice.notice_code).toBe('DEFAULT_PATHS_USED');
-      expect(infoNotice.message).toContain('CONDUIT_ALLOWED_PATHS was not explicitly set');
+      expect(infoNotice.type).toBe("info_notice");
+      expect(infoNotice.notice_code).toBe("DEFAULT_PATHS_USED");
+      expect(infoNotice.message).toContain("CONDUIT_ALLOWED_PATHS was not explicitly set");
 
       // Second element should be the actual tool response object
       const actualToolResponse = (result.response as unknown[])[1] as Record<string, unknown>;
-      expect(actualToolResponse.tool_name).toBe('read');
+      expect(actualToolResponse.tool_name).toBe("read");
       expect(Array.isArray(actualToolResponse.results)).toBe(true);
       expect(actualToolResponse.results).toHaveLength(1);
 
       // The tool response item should be an error for nonexistent file
       const toolResponseItem = (actualToolResponse.results as any[])[0];
-      expect(toolResponseItem.status).toBe('error');
-      expect(toolResponseItem.error_message).toContain('Path not found');
+      expect(toolResponseItem.status).toBe("error");
+      expect(toolResponseItem.error_message).toContain("Path not found");
     });
 
-    it('should not show info notice when CONDUIT_ALLOWED_PATHS is set', async () => {
+    it("should not show info notice when CONDUIT_ALLOWED_PATHS is set", async () => {
       const requestPayload = {
-        tool_name: 'read',
+        tool_name: "read",
         params: {
-          operation: 'content',
-          sources: ['/nonexistent/file.txt'],
-          format: 'text',
+          operation: "content",
+          sources: ["/nonexistent/file.txt"],
+          format: "text",
         },
       };
 
@@ -85,18 +85,18 @@ describe('E2E Read Operations', () => {
 
       // Should be the direct tool response object (no notice)
       const response = result.response as Record<string, unknown>;
-      expect(response.tool_name).toBe('read');
+      expect(response.tool_name).toBe("read");
       expect(Array.isArray(response.results)).toBe(true);
       expect(response.results).toHaveLength(1);
 
       const toolResponseItem = (response.results as unknown[])[0] as Record<string, unknown>;
-      expect(toolResponseItem.status).toBe('error');
-      expect(toolResponseItem.error_message).toContain('Path not found');
+      expect(toolResponseItem.status).toBe("error");
+      expect(toolResponseItem.error_message).toContain("Path not found");
     });
   });
 
   // Load scenarios and create dynamic tests
-  const scenarios = loadTestScenarios('readTool.scenarios.json');
+  const scenarios = loadTestScenarios("readTool.scenarios.json");
 
   scenarios.forEach((scenario: TestScenario) => {
     describe(`${scenario.name}`, () => {
@@ -113,8 +113,8 @@ describe('E2E Read Operations', () => {
               fs.mkdirSync(parentDir, { recursive: true });
             }
 
-            fs.writeFileSync(filePath, file.content || '', {
-              encoding: (file.encoding as BufferEncoding) || 'utf8',
+            fs.writeFileSync(filePath, file.content || "", {
+              encoding: (file.encoding as BufferEncoding) || "utf8",
             });
           }
         }
@@ -128,23 +128,23 @@ describe('E2E Read Operations', () => {
         // Process placeholder substitution
         const processedRequestPayload = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.request_payload)),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         const processedExpectedStdout = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.expected_stdout)),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         const processedEnvVars = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.env_vars || {})),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         // Run the test
         const result = await runConduitMCPScript(
           processedRequestPayload as object,
-          processedEnvVars as Record<string, string>
+          processedEnvVars as Record<string, string>,
         );
 
         // Assertions
@@ -157,7 +157,7 @@ describe('E2E Read Operations', () => {
 
           // First element should be the info notice
           const infoNotice = (result.response as unknown[])[0] as Record<string, unknown>;
-          expect(infoNotice.type).toBe('info_notice');
+          expect(infoNotice.type).toBe("info_notice");
           if (scenario.notice_code) {
             expect(infoNotice.notice_code).toBe(scenario.notice_code);
           }
@@ -177,17 +177,17 @@ describe('E2E Read Operations', () => {
  * Recursively substitute template values in an object
  */
 function substituteTemplateValues(obj: unknown, tempDir: string): unknown {
-  if (typeof obj === 'string') {
+  if (typeof obj === "string") {
     return obj
       .replace(/\{\{TEMP_DIR\}\}/g, tempDir)
-      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, '/'));
+      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, "/"));
   }
 
   if (Array.isArray(obj)) {
     return obj.map((item) => substituteTemplateValues(item, tempDir));
   }
 
-  if (obj && typeof obj === 'object') {
+  if (obj && typeof obj === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = substituteTemplateValues(value, tempDir);

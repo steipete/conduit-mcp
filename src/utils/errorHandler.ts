@@ -1,4 +1,4 @@
-import { MCPError, MCPErrorStatus, ErrorCode } from '@/types/common';
+import { MCPError, MCPErrorStatus, ErrorCode } from "@/types/common";
 
 // Re-export ErrorCode so callers can continue to import from utils/errorHandler via internal barrel.
 export { ErrorCode };
@@ -24,7 +24,7 @@ export function createMCPError(errorCode: ErrorCode, message: string): MCPError 
  */
 export function createMCPErrorStatus(errorCode: ErrorCode, message: string): MCPErrorStatus {
   return {
-    status: 'error',
+    status: "error",
     error_code: errorCode,
     error_message: message,
   };
@@ -42,7 +42,7 @@ export class ConduitError extends Error {
   constructor(errorCode: ErrorCode, message?: string, options?: { httpStatus?: number }) {
     let fullMessage: string;
     if (!message && errorCode === ErrorCode.ERR_INTERNAL_SERVER_ERROR) {
-      fullMessage = 'An internal server error occurred.';
+      fullMessage = "An internal server error occurred.";
     } else {
       fullMessage = message || `Conduit operation failed with code: ${errorCode}`;
     }

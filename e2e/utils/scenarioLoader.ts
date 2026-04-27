@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from "fs";
+import path from "path";
 
 // Generic tool result structure
 export interface ToolResult {
@@ -57,14 +57,14 @@ export interface TestScenario {
   }>;
   setup_filesystem?: Array<{
     type:
-      | 'createFile'
-      | 'createDirectory'
-      | 'createSymlink'
-      | 'createBinaryFile'
-      | 'createMultipleFiles'
-      | 'createZipArchive'
-      | 'createTarGzArchive'
-      | 'createEmptyZipArchive';
+      | "createFile"
+      | "createDirectory"
+      | "createSymlink"
+      | "createBinaryFile"
+      | "createMultipleFiles"
+      | "createZipArchive"
+      | "createTarGzArchive"
+      | "createEmptyZipArchive";
     path?: string;
     content?: string;
     target?: string;
@@ -83,7 +83,7 @@ export interface TestScenario {
   }>;
   cleanup_filesystem?: string[];
   filesystem_effects?: Array<{
-    type: 'file_exists' | 'file_not_exists' | 'directory_exists' | 'directory_not_exists';
+    type: "file_exists" | "file_not_exists" | "directory_exists" | "directory_not_exists";
     path: string;
     content?: string;
   }>;
@@ -95,13 +95,13 @@ export interface ScenarioFile {
 }
 
 export function loadTestScenarios(scenarioFileName: string): TestScenario[] {
-  const scenarioPath = path.join(__dirname, '..', 'scenarios', scenarioFileName);
+  const scenarioPath = path.join(__dirname, "..", "scenarios", scenarioFileName);
 
   if (!fs.existsSync(scenarioPath)) {
     throw new Error(`Scenario file not found: ${scenarioPath}`);
   }
 
-  const scenarioContent = fs.readFileSync(scenarioPath, 'utf8');
+  const scenarioContent = fs.readFileSync(scenarioPath, "utf8");
   const scenarioData: ScenarioFile = JSON.parse(scenarioContent);
 
   if (!scenarioData.scenarios || !Array.isArray(scenarioData.scenarios)) {

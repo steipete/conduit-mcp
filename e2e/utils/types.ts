@@ -2,21 +2,21 @@
 
 // BufferEncoding type definition for Node.js
 export type BufferEncoding =
-  | 'ascii'
-  | 'utf8'
-  | 'utf-8'
-  | 'utf16le'
-  | 'ucs2'
-  | 'ucs-2'
-  | 'base64'
-  | 'base64url'
-  | 'latin1'
-  | 'binary'
-  | 'hex';
+  | "ascii"
+  | "utf8"
+  | "utf-8"
+  | "utf16le"
+  | "ucs2"
+  | "ucs-2"
+  | "base64"
+  | "base64url"
+  | "latin1"
+  | "binary"
+  | "hex";
 
 // MCP JSON-RPC response types
 export interface MCPResponse {
-  jsonrpc: '2.0';
+  jsonrpc: "2.0";
   id: number | string;
   result?: unknown;
   error?: {
@@ -28,7 +28,7 @@ export interface MCPResponse {
 
 export interface MCPToolCallResult {
   content: Array<{
-    type: 'text';
+    type: "text";
     text: string;
   }>;
   isError?: boolean;
@@ -37,7 +37,7 @@ export interface MCPToolCallResult {
 // Tool response types (legacy format for compatibility)
 export interface BaseToolResponse {
   tool_name: string;
-  status?: 'success' | 'error';
+  status?: "success" | "error";
   error_code?: string;
   error_message?: string;
 }
@@ -45,7 +45,7 @@ export interface BaseToolResponse {
 // List tool specific types
 export interface DirectoryEntry {
   name: string;
-  type: 'file' | 'directory' | 'symlink' | 'other';
+  type: "file" | "directory" | "symlink" | "other";
   size_bytes?: number;
   modified?: string;
   created?: string;
@@ -54,7 +54,7 @@ export interface DirectoryEntry {
 }
 
 export interface ListToolResponse extends BaseToolResponse {
-  tool_name: 'list';
+  tool_name: "list";
   results?:
     | DirectoryEntry[]
     | {
@@ -65,7 +65,7 @@ export interface ListToolResponse extends BaseToolResponse {
 }
 
 export interface ListCapabilitiesResponse extends BaseToolResponse {
-  tool_name: 'list';
+  tool_name: "list";
   results?: {
     server_version: string;
     active_configuration: {
@@ -90,7 +90,7 @@ export interface ListCapabilitiesResponse extends BaseToolResponse {
 }
 
 export interface ListFilesystemStatsResponse extends BaseToolResponse {
-  tool_name: 'list';
+  tool_name: "list";
   results?: {
     path_queried: string;
     total_bytes: number;
@@ -104,7 +104,7 @@ export interface ListFilesystemStatsResponse extends BaseToolResponse {
 // Find tool specific types
 export interface FindResultItem {
   path: string;
-  type: 'file' | 'directory' | 'symlink';
+  type: "file" | "directory" | "symlink";
   name: string;
   size_bytes?: number;
   created_at?: string;
@@ -116,7 +116,7 @@ export interface FindResultItem {
 }
 
 export interface FindToolResponse extends BaseToolResponse {
-  tool_name: 'find';
+  tool_name: "find";
   results?: FindResultItem[];
 }
 
@@ -139,14 +139,14 @@ export interface ReadResultItem {
 }
 
 export interface ReadToolResponse extends BaseToolResponse {
-  tool_name: 'read';
+  tool_name: "read";
   results?: ReadResultItem[];
 }
 
 // Write tool specific types
 export interface WriteResultItem {
   path: string;
-  status: 'created' | 'updated';
+  status: "created" | "updated";
   previous_size?: number;
   new_size: number;
   checksum?: string;
@@ -154,13 +154,13 @@ export interface WriteResultItem {
 }
 
 export interface WriteToolResponse extends BaseToolResponse {
-  tool_name: 'write';
+  tool_name: "write";
   results?: WriteResultItem[];
 }
 
 // Test tool specific types
 export interface TestToolResponse extends BaseToolResponse {
-  tool_name: 'test';
+  tool_name: "test";
   results?: {
     status: string;
     echoed_params?: unknown;
@@ -181,7 +181,7 @@ export type ToolResponse =
 
 // Notice type
 export interface InfoNotice {
-  type: 'info_notice';
+  type: "info_notice";
   notice_code: string;
   message?: string;
   details?: Record<string, unknown>;
@@ -229,18 +229,18 @@ export interface ExpectedStdout {
 // Helper type guards
 export function isInfoNotice(obj: unknown): obj is InfoNotice {
   return (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    'type' in obj &&
-    (obj as { type: unknown }).type === 'info_notice'
+    "type" in obj &&
+    (obj as { type: unknown }).type === "info_notice"
   );
 }
 
 export function isToolResponse(obj: unknown): obj is ToolResponse {
   return (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    ('tool_name' in obj || ('status' in obj && (obj as { status: unknown }).status === 'error'))
+    ("tool_name" in obj || ("status" in obj && (obj as { status: unknown }).status === "error"))
   );
 }
 
@@ -255,44 +255,44 @@ export function isNoticeResponse(response: unknown): response is [InfoNotice, To
 
 // Type assertion helpers
 export function assertListToolResponse(response: unknown): asserts response is ListToolResponse {
-  if (!isToolResponse(response) || response.tool_name !== 'list') {
-    throw new Error('Response is not a ListToolResponse');
+  if (!isToolResponse(response) || response.tool_name !== "list") {
+    throw new Error("Response is not a ListToolResponse");
   }
 }
 
 export function assertFindToolResponse(response: unknown): asserts response is FindToolResponse {
-  if (!isToolResponse(response) || response.tool_name !== 'find') {
-    throw new Error('Response is not a FindToolResponse');
+  if (!isToolResponse(response) || response.tool_name !== "find") {
+    throw new Error("Response is not a FindToolResponse");
   }
 }
 
 export function assertReadToolResponse(response: unknown): asserts response is ReadToolResponse {
-  if (!isToolResponse(response) || response.tool_name !== 'read') {
-    throw new Error('Response is not a ReadToolResponse');
+  if (!isToolResponse(response) || response.tool_name !== "read") {
+    throw new Error("Response is not a ReadToolResponse");
   }
 }
 
 export function assertWriteToolResponse(response: unknown): asserts response is WriteToolResponse {
-  if (!isToolResponse(response) || response.tool_name !== 'write') {
-    throw new Error('Response is not a WriteToolResponse');
+  if (!isToolResponse(response) || response.tool_name !== "write") {
+    throw new Error("Response is not a WriteToolResponse");
   }
 }
 
 // MCP Response helper functions
 export function isMCPResponse(obj: unknown): obj is MCPResponse {
   return (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    'jsonrpc' in obj &&
-    (obj as { jsonrpc: unknown }).jsonrpc === '2.0'
+    "jsonrpc" in obj &&
+    (obj as { jsonrpc: unknown }).jsonrpc === "2.0"
   );
 }
 
 export function isMCPToolCallResult(obj: unknown): obj is MCPToolCallResult {
   return (
-    typeof obj === 'object' &&
+    typeof obj === "object" &&
     obj !== null &&
-    'content' in obj &&
+    "content" in obj &&
     Array.isArray((obj as { content: unknown }).content)
   );
 }
@@ -310,9 +310,9 @@ export function extractToolResponseFromMCP(mcpResponse: MCPResponse): ToolRespon
   if (isMCPToolCallResult(result)) {
     // Parse the text content from MCP result
     const textContent = result.content
-      .filter((item) => item.type === 'text')
+      .filter((item) => item.type === "text")
       .map((item) => item.text)
-      .join('\n');
+      .join("\n");
 
     try {
       const parsed = JSON.parse(textContent);
@@ -325,13 +325,13 @@ export function extractToolResponseFromMCP(mcpResponse: MCPResponse): ToolRespon
         return parsed[1];
       }
 
-      throw new Error('Parsed content is not a valid tool response');
+      throw new Error("Parsed content is not a valid tool response");
     } catch (error) {
       throw new Error(`Failed to parse tool response from MCP content: ${error}`);
     }
   }
 
-  throw new Error('MCP result is not a tool call result');
+  throw new Error("MCP result is not a tool call result");
 }
 
 export function extractNoticeFromMCP(mcpResponse: MCPResponse): [InfoNotice, ToolResponse] | null {
@@ -339,9 +339,9 @@ export function extractNoticeFromMCP(mcpResponse: MCPResponse): [InfoNotice, Too
 
   if (isMCPToolCallResult(result)) {
     const textContent = result.content
-      .filter((item) => item.type === 'text')
+      .filter((item) => item.type === "text")
       .map((item) => item.text)
-      .join('\n');
+      .join("\n");
 
     try {
       const parsed = JSON.parse(textContent);

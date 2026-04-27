@@ -9,14 +9,14 @@ import {
   conduitConfig,
   validateAndResolvePath,
   createMCPErrorStatus,
-} from '@/internal';
-import { createErrorResponse } from '@/utils/errorHandler';
-import { handleListEntries } from '@/operations/listOps';
-import path from 'path';
+} from "@/internal";
+import { createErrorResponse } from "@/utils/errorHandler";
+import { handleListEntries } from "@/operations/listOps";
+import path from "path";
 
 export async function listToolHandler(
   params: ListTool.Parameters,
-  config: ConduitServerConfig
+  config: ConduitServerConfig,
 ): Promise<
   | ListTool.DefinedEntriesResponse
   | ListTool.DefinedServerCapabilitiesResponse
@@ -25,9 +25,9 @@ export async function listToolHandler(
 > {
   try {
     switch (params.operation) {
-      case 'entries': {
+      case "entries": {
         // Type guard params to ListTool.EntriesParams is still good practice
-        if (params.operation === 'entries') {
+        if (params.operation === "entries") {
           try {
             const resolvedPath = await validateAndResolvePath(params.path, {
               isExistenceRequired: true,
@@ -37,43 +37,43 @@ export async function listToolHandler(
             const baseStats = await fileSystemOps.getStats(resolvedPath);
             if (!baseStats.isDirectory()) {
               return {
-                tool_name: 'list',
+                tool_name: "list",
                 ...createMCPErrorStatus(
                   ErrorCode.ERR_FS_PATH_IS_FILE,
-                  `Provided path is a file, not a directory: ${resolvedPath}`
+                  `Provided path is a file, not a directory: ${resolvedPath}`,
                 ),
               };
             }
 
             const entries = await handleListEntries(params /*, config */); // Call the new op handler
-            return { tool_name: 'list', results: entries };
+            return { tool_name: "list", results: entries };
           } catch (error) {
             if (error instanceof ConduitError) {
               return {
-                tool_name: 'list',
+                tool_name: "list",
                 ...createMCPErrorStatus(error.errorCode, error.message),
               };
             }
             return {
-              tool_name: 'list',
+              tool_name: "list",
               ...createMCPErrorStatus(
                 ErrorCode.INTERNAL_ERROR,
-                `Path validation failed: ${error instanceof Error ? error.message : String(error)}`
+                `Path validation failed: ${error instanceof Error ? error.message : String(error)}`,
               ),
             };
           }
         }
         // Fallback, though type guard should prevent this
         return {
-          tool_name: 'list',
-          ...createErrorResponse(ErrorCode.INTERNAL_ERROR, 'Type guard failed for list.entries'),
+          tool_name: "list",
+          ...createErrorResponse(ErrorCode.INTERNAL_ERROR, "Type guard failed for list.entries"),
         };
       }
 
-      case 'system_info': {
+      case "system_info": {
         const systemInfoParams = params as ListTool.SystemInfoParams;
         switch (systemInfoParams.info_type) {
-          case 'server_capabilities': {
+          case "server_capabilities": {
             const capabilities: ListTool.ServerCapabilities = {
               server_version: config.serverVersion,
               active_configuration: {
@@ -88,20 +88,20 @@ export async function listToolHandler(
                 RECURSIVE_SIZE_TIMEOUT_MS: conduitConfig.recursiveSizeTimeoutMs,
                 ALLOWED_PATHS: config.resolvedAllowedPaths,
               },
-              supported_checksum_algorithms: ['md5', 'sha1', 'sha256', 'sha512'],
-              supported_archive_formats: ['zip', 'tar.gz', 'tgz'],
+              supported_checksum_algorithms: ["md5", "sha1", "sha256", "sha512"],
+              supported_archive_formats: ["zip", "tar.gz", "tgz"],
               default_checksum_algorithm: conduitConfig.defaultChecksumAlgorithm,
               max_recursive_depth: conduitConfig.maxRecursiveDepth,
             };
-            return { tool_name: 'list', results: capabilities };
+            return { tool_name: "list", results: capabilities };
           }
 
-          case 'filesystem_stats': {
+          case "filesystem_stats": {
             if (!systemInfoParams.path) {
               return {
-                tool_name: 'list',
+                tool_name: "list",
                 results: {
-                  info_type_requested: 'filesystem_stats',
+                  info_type_requested: "filesystem_stats",
                   status_message:
                     "No specific path provided for filesystem_stats. To retrieve statistics for a filesystem volume, please provide a 'path' parameter pointing to a location within one of the configured allowed paths.",
                   server_version: config.serverVersion,
@@ -113,7 +113,7 @@ export async function listToolHandler(
               const stats = await fileSystemOps.getFilesystemStats(systemInfoParams.path);
               const resolvedPath = path.resolve(systemInfoParams.path);
               return {
-                tool_name: 'list',
+                tool_name: "list",
                 results: {
                   path_queried: resolvedPath,
                   total_bytes: stats.total_bytes,
@@ -127,10 +127,10 @@ export async function listToolHandler(
 
           default:
             return {
-              tool_name: 'list',
+              tool_name: "list",
               ...createErrorResponse(
                 ErrorCode.INVALID_PARAMETER,
-                `Unknown info_type: ${(systemInfoParams as unknown as { info_type: string }).info_type}`
+                `Unknown info_type: ${(systemInfoParams as unknown as { info_type: string }).info_type}`,
               ),
             };
         }
@@ -138,26 +138,26 @@ export async function listToolHandler(
 
       default:
         return {
-          tool_name: 'list',
+          tool_name: "list",
           ...createErrorResponse(
             ErrorCode.INVALID_PARAMETER,
-            `Unknown operation: ${(params as unknown as { operation: string }).operation}`
+            `Unknown operation: ${(params as unknown as { operation: string }).operation}`,
           ),
         };
     }
   } catch (error) {
-    logger.error('Error in listToolHandler:', error);
+    logger.error("Error in listToolHandler:", error);
     if (error instanceof ConduitError) {
       return {
-        tool_name: 'list',
+        tool_name: "list",
         ...createErrorResponse(error.errorCode, error.message),
       };
     }
     return {
-      tool_name: 'list',
+      tool_name: "list",
       ...createErrorResponse(
         ErrorCode.INTERNAL_ERROR,
-        `Unexpected error: ${error instanceof Error ? error.message : String(error)}`
+        `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
       ),
     };
   }

@@ -1,15 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { runConduitMCPScript } from './utils/e2eTestRunner';
-import { createTempDir } from './utils/tempFs';
-import { loadTestScenarios, TestScenario, ToolResult, Assertion } from './utils/scenarioLoader';
-import { BufferEncoding } from './utils/types';
-import path from 'path';
-import fs from 'fs';
-import AdmZip from 'adm-zip';
-import * as tar from 'tar';
-import { ensureDirSync } from 'fs-extra';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { runConduitMCPScript } from "./utils/e2eTestRunner";
+import { createTempDir } from "./utils/tempFs";
+import { loadTestScenarios, TestScenario, ToolResult, Assertion } from "./utils/scenarioLoader";
+import { BufferEncoding } from "./utils/types";
+import path from "path";
+import fs from "fs";
+import AdmZip from "adm-zip";
+import * as tar from "tar";
+import { ensureDirSync } from "fs-extra";
 
-describe('E2E Archive Operations', () => {
+describe("E2E Archive Operations", () => {
   let testWorkspaceDir: string;
 
   beforeEach(() => {
@@ -26,7 +26,7 @@ describe('E2E Archive Operations', () => {
   });
 
   // Load scenarios and create dynamic tests
-  const scenarios = loadTestScenarios('archiveTool.scenarios.json');
+  const scenarios = loadTestScenarios("archiveTool.scenarios.json");
 
   scenarios.forEach((scenario: TestScenario) => {
     describe(`${scenario.name}`, () => {
@@ -43,26 +43,26 @@ describe('E2E Archive Operations', () => {
             }
 
             // Handle archive creation
-            if (file.content_type === 'archive') {
-              if (file.archive_type === 'zip') {
+            if (file.content_type === "archive") {
+              if (file.archive_type === "zip") {
                 const zip = new AdmZip();
 
                 for (const entry of file.entries || []) {
                   if (entry.content !== undefined) {
                     // Regular file
                     zip.addFile(entry.path, Buffer.from(entry.content));
-                  } else if (entry.path.endsWith('/')) {
+                  } else if (entry.path.endsWith("/")) {
                     // Directory entry
-                    zip.addFile(entry.path, Buffer.alloc(0), '');
+                    zip.addFile(entry.path, Buffer.alloc(0), "");
                   }
                 }
 
                 ensureDirSync(parentDir);
                 zip.writeZip(filePath);
-              } else if (file.archive_type === 'tar.gz') {
+              } else if (file.archive_type === "tar.gz") {
                 // Create temporary staging directory
                 const archiveName = path.basename(filePath, path.extname(filePath));
-                const stagingDir = path.join(testWorkspaceDir, 'temp_archive_staging', archiveName);
+                const stagingDir = path.join(testWorkspaceDir, "temp_archive_staging", archiveName);
                 ensureDirSync(stagingDir);
 
                 const filesToArchive: string[] = [];
@@ -71,7 +71,7 @@ describe('E2E Archive Operations', () => {
                   if (entry.content !== undefined) {
                     const entryPath = path.join(stagingDir, entry.path);
                     ensureDirSync(path.dirname(entryPath));
-                    fs.writeFileSync(entryPath, entry.content, 'utf8');
+                    fs.writeFileSync(entryPath, entry.content, "utf8");
                     filesToArchive.push(entry.path);
                   }
                 }
@@ -85,19 +85,19 @@ describe('E2E Archive Operations', () => {
                     file: filePath,
                     cwd: stagingDir,
                   },
-                  filesToArchive
+                  filesToArchive,
                 );
 
                 // Clean up staging directory
-                fs.rmSync(path.join(testWorkspaceDir, 'temp_archive_staging'), {
+                fs.rmSync(path.join(testWorkspaceDir, "temp_archive_staging"), {
                   recursive: true,
                   force: true,
                 });
               }
             } else {
               // Regular file
-              fs.writeFileSync(filePath, file.content || '', {
-                encoding: (file.encoding || 'utf8') as BufferEncoding,
+              fs.writeFileSync(filePath, file.content || "", {
+                encoding: (file.encoding || "utf8") as BufferEncoding,
               });
             }
           }
@@ -108,23 +108,23 @@ describe('E2E Archive Operations', () => {
         // Process placeholder substitution
         const processedRequestPayload = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.request_payload)),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         const processedExpectedStdout = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.expected_stdout)),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         const processedEnvVars = substituteTemplateValues(
           JSON.parse(JSON.stringify(scenario.env_vars || {})),
-          testWorkspaceDir
+          testWorkspaceDir,
         );
 
         // Run the test
         const result = await runConduitMCPScript(
           processedRequestPayload as any,
-          processedEnvVars as Record<string, string>
+          processedEnvVars as Record<string, string>,
         );
 
         // Assertions
@@ -137,7 +137,7 @@ describe('E2E Archive Operations', () => {
 
           // First element should be the info notice
           const infoNotice = (result.response as any[])[0];
-          expect(infoNotice.type).toBe('info_notice');
+          expect(infoNotice.type).toBe("info_notice");
           if (scenario.notice_code) {
             expect(infoNotice.notice_code).toBe(scenario.notice_code);
           }
@@ -148,7 +148,7 @@ describe('E2E Archive Operations', () => {
         } else {
           verifyArchiveResults(
             result.response as ToolResult,
-            processedExpectedStdout as ToolResult
+            processedExpectedStdout as ToolResult,
           );
         }
 
@@ -157,35 +157,35 @@ describe('E2E Archive Operations', () => {
           for (const assertion of scenario.assertions) {
             const processedAssertion = substituteTemplateValues(
               assertion,
-              testWorkspaceDir
+              testWorkspaceDir,
             ) as Assertion;
 
-            if (processedAssertion.type === 'file_content') {
+            if (processedAssertion.type === "file_content") {
               expect(fs.existsSync(processedAssertion.path!)).toBe(true);
-              const actualContent = fs.readFileSync(processedAssertion.path!, 'utf8');
+              const actualContent = fs.readFileSync(processedAssertion.path!, "utf8");
               expect(actualContent).toBe(processedAssertion.expected_content);
-            } else if (processedAssertion.type === 'file_exists') {
+            } else if (processedAssertion.type === "file_exists") {
               expect(fs.existsSync(processedAssertion.path!)).toBe(processedAssertion.should_exist);
-            } else if (processedAssertion.type === 'file_not_exists') {
+            } else if (processedAssertion.type === "file_not_exists") {
               expect(fs.existsSync(processedAssertion.path!)).toBe(false);
-            } else if (processedAssertion.type === 'archive_contains') {
+            } else if (processedAssertion.type === "archive_contains") {
               expect(fs.existsSync(processedAssertion.archive_path!)).toBe(true);
 
               const archivePath = processedAssertion.archive_path!;
               const expectedEntries = processedAssertion.expected_entries!;
 
-              if (archivePath.endsWith('.zip')) {
+              if (archivePath.endsWith(".zip")) {
                 // Handle ZIP archives
                 const zip = new AdmZip(archivePath);
-                const actualEntries = zip.getEntries().map((e) => e.entryName.replace(/\\/g, '/'));
+                const actualEntries = zip.getEntries().map((e) => e.entryName.replace(/\\/g, "/"));
                 expect(actualEntries).toEqual(expect.arrayContaining(expectedEntries));
-              } else if (archivePath.endsWith('.tar.gz') || archivePath.endsWith('.tar')) {
+              } else if (archivePath.endsWith(".tar.gz") || archivePath.endsWith(".tar")) {
                 // Handle TAR/TAR.GZ archives
                 const actualEntries: string[] = [];
                 await tar.list({
                   file: archivePath,
                   onentry: (entry) => {
-                    actualEntries.push(entry.path.replace(/\\/g, '/'));
+                    actualEntries.push(entry.path.replace(/\\/g, "/"));
                   },
                 });
                 expect(actualEntries).toEqual(expect.arrayContaining(expectedEntries));
@@ -244,7 +244,7 @@ function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined)
 
       expect(actualResult.status).toBe(expectedResult.status);
 
-      if (expectedResult.status === 'success') {
+      if (expectedResult.status === "success") {
         // Check operation type
         if (expectedResult.operation) {
           expect(actualResult.operation).toBe(expectedResult.operation);
@@ -281,27 +281,27 @@ function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined)
           const actualMessage = actualResult.message;
 
           // Check if messages match exactly or if one is missing a trailing period
-          const expectedNormalized = expectedMessage.endsWith('.')
+          const expectedNormalized = expectedMessage.endsWith(".")
             ? expectedMessage
-            : expectedMessage + '.';
-          const actualNormalized = actualMessage?.endsWith('.')
+            : expectedMessage + ".";
+          const actualNormalized = actualMessage?.endsWith(".")
             ? actualMessage
-            : (actualMessage || '') + '.';
+            : (actualMessage || "") + ".";
 
           expect(actualNormalized).toBe(expectedNormalized);
         }
-      } else if (expectedResult.status === 'error') {
+      } else if (expectedResult.status === "error") {
         // Check error details - be flexible about specific error codes for path validation
         if (expectedResult.error_code) {
           if (
-            expectedResult.error_code === 'ERR_INVALID_PARAMETER' &&
-            (actualResult.error_code === 'ERR_FS_NOT_FOUND' ||
-              actualResult.error_code === 'ERR_FS_ACCESS_DENIED' ||
-              actualResult.error_code === 'ERR_FS_PERMISSION_DENIED')
+            expectedResult.error_code === "ERR_INVALID_PARAMETER" &&
+            (actualResult.error_code === "ERR_FS_NOT_FOUND" ||
+              actualResult.error_code === "ERR_FS_ACCESS_DENIED" ||
+              actualResult.error_code === "ERR_FS_PERMISSION_DENIED")
           ) {
             // Accept file system errors as parameter validation errors
             expect(actualResult.error_code).toMatch(
-              /ERR_(FS_NOT_FOUND|FS_ACCESS_DENIED|FS_PERMISSION_DENIED|INVALID_PARAMETER)/
+              /ERR_(FS_NOT_FOUND|FS_ACCESS_DENIED|FS_PERMISSION_DENIED|INVALID_PARAMETER)/,
             );
           } else {
             expect(actualResult.error_code).toBe(expectedResult.error_code);
@@ -309,12 +309,12 @@ function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined)
         }
         if (expectedResult.error_message) {
           // Be flexible about error message wording
-          if (expectedResult.error_message.includes('Path validation failed')) {
+          if (expectedResult.error_message.includes("Path validation failed")) {
             // Accept either "Path validation failed" or specific path errors
-            const actualMsg = actualResult.error_message?.toLowerCase() || '';
-            const hasPathValidationFailed = actualMsg.includes('path validation failed');
-            const hasPathNotFound = actualMsg.includes('path not found');
-            const hasAccessDenied = actualMsg.includes('access') && actualMsg.includes('denied');
+            const actualMsg = actualResult.error_message?.toLowerCase() || "";
+            const hasPathValidationFailed = actualMsg.includes("path validation failed");
+            const hasPathNotFound = actualMsg.includes("path not found");
+            const hasAccessDenied = actualMsg.includes("access") && actualMsg.includes("denied");
             expect(hasPathValidationFailed || hasPathNotFound || hasAccessDenied).toBe(true);
           } else {
             expect(actualResult.error_message).toBe(expectedResult.error_message);
@@ -329,17 +329,17 @@ function verifyArchiveResults(actual: unknown, expected: ToolResult | undefined)
  * Recursively substitute template values in an object
  */
 function substituteTemplateValues(obj: unknown, tempDir: string): unknown {
-  if (typeof obj === 'string') {
+  if (typeof obj === "string") {
     return obj
       .replace(/\{\{TEMP_DIR\}\}/g, tempDir)
-      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, '/'));
+      .replace(/\{\{TEMP_DIR_FORWARD_SLASH\}\}/g, tempDir.replace(/\\/g, "/"));
   }
 
   if (Array.isArray(obj)) {
     return obj.map((item) => substituteTemplateValues(item, tempDir));
   }
 
-  if (obj && typeof obj === 'object') {
+  if (obj && typeof obj === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = substituteTemplateValues(value, tempDir);

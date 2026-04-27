@@ -6,8 +6,8 @@ import {
   MCPErrorStatus,
   MCPSuccess,
   RangeRequestStatus,
-} from './common';
-import { ErrorCode } from '@/internal';
+} from "./common";
+import { ErrorCode } from "@/internal";
 
 // This file will be expanded with specific request and response types for each tool
 // as they are implemented. For now, it re-exports common types useful for tools.
@@ -37,10 +37,10 @@ export namespace ReadTool {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for ReadTool types
 export namespace ReadTool {
-  export type ReadOperation = 'content' | 'metadata' | 'diff';
-  export type ContentFormat = 'text' | 'base64' | 'markdown' | 'checksum';
-  export type ChecksumAlgorithm = 'md5' | 'sha1' | 'sha256' | 'sha512';
-  export type DiffFormat = 'unified';
+  export type ReadOperation = "content" | "metadata" | "diff";
+  export type ContentFormat = "text" | "base64" | "markdown" | "checksum";
+  export type ChecksumAlgorithm = "md5" | "sha1" | "sha256" | "sha512";
+  export type DiffFormat = "unified";
 
   export interface BaseParams {
     sources: string[];
@@ -48,7 +48,7 @@ export namespace ReadTool {
   }
 
   export interface ContentParams extends BaseParams {
-    operation: 'content';
+    operation: "content";
     format?: ContentFormat;
     checksum_algorithm?: ChecksumAlgorithm | string; // Allow string for broader compatibility, validation in handler
     offset?: number;
@@ -56,11 +56,11 @@ export namespace ReadTool {
   }
 
   export interface MetadataParams extends BaseParams {
-    operation: 'metadata';
+    operation: "metadata";
   }
 
   export interface DiffParams extends BaseParams {
-    operation: 'diff';
+    operation: "diff";
     sources: [string, string]; // Exactly two sources for diff
     diff_format?: DiffFormat;
   }
@@ -70,12 +70,12 @@ export namespace ReadTool {
   // --- Result Types ---
   interface BaseResult {
     source: string;
-    source_type: 'file' | 'url';
+    source_type: "file" | "url";
     http_status_code?: number; // Added to make it available on error items
   }
 
   export interface ContentResultSuccess extends MCPSuccess, BaseResult {
-    output_format_used: ContentFormat | 'text'; // 'text' if markdown fallback
+    output_format_used: ContentFormat | "text"; // 'text' if markdown fallback
     content?: string | null; // Text, base64, markdown, binary placeholder, checksum string, or null
     mime_type?: string; // Original mime_type from source
     detected_format?: string; // Actual mime_type if different or for clarity (e.g. for non-HTML fallback)
@@ -87,20 +87,20 @@ export namespace ReadTool {
     checksum?: string;
     checksum_algorithm_used?: ChecksumAlgorithm | string;
     range_request_status?: RangeRequestStatus;
-    markdown_conversion_status?: 'success' | 'skipped_unsupported_content_type';
+    markdown_conversion_status?: "success" | "skipped_unsupported_content_type";
     markdown_conversion_skipped_reason?: string;
   }
   export type ContentResultItem = ContentResultSuccess | (MCPErrorStatus & BaseResult);
 
   export interface DefinedContentResponse {
-    tool_name: 'read';
+    tool_name: "read";
     results: ContentResultItem[];
     info_notices?: InfoNotice[];
   }
 
   export interface Metadata {
     name: string;
-    entry_type: 'file' | 'directory' | 'symlink' | 'other' | 'url' | 'special';
+    entry_type: "file" | "directory" | "symlink" | "other" | "url" | "special";
     size_bytes?: number;
     mime_type?: string;
     created_at?: string;
@@ -117,7 +117,7 @@ export namespace ReadTool {
   export type MetadataResultItem = MetadataResultSuccess | (MCPErrorStatus & BaseResult);
 
   export interface DefinedMetadataResponse {
-    tool_name: 'read';
+    tool_name: "read";
     results: MetadataResultItem[];
     info_notices?: InfoNotice[];
   }
@@ -130,7 +130,7 @@ export namespace ReadTool {
   export type DiffResult = DiffResultSuccess | MCPErrorStatus;
 
   export interface DefinedDiffResponse {
-    tool_name: 'read';
+    tool_name: "read";
     results: DiffResult; // Singular
     info_notices?: InfoNotice[];
   }
@@ -139,18 +139,18 @@ export namespace ReadTool {
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for WriteTool types
 export namespace WriteTool {
   export type WriteOperation =
-    | 'put'
-    | 'mkdir'
-    | 'copy'
-    | 'move'
-    | 'delete'
-    | 'touch'
-    | 'archive'
-    | 'unarchive'
-    | 'extract';
-  export type InputEncoding = 'text' | 'base64' | 'base64_gzipped_file_ref';
-  export type WriteMode = 'overwrite' | 'append' | 'error_if_exists';
-  export type ArchiveFormat = 'zip' | 'tar.gz' | 'tgz';
+    | "put"
+    | "mkdir"
+    | "copy"
+    | "move"
+    | "delete"
+    | "touch"
+    | "archive"
+    | "unarchive"
+    | "extract";
+  export type InputEncoding = "text" | "base64" | "base64_gzipped_file_ref";
+  export type WriteMode = "overwrite" | "append" | "error_if_exists";
+  export type ArchiveFormat = "zip" | "tar.gz" | "tgz";
 
   // Entry types for batchable operations
   export interface BaseWriteEntry {
@@ -160,7 +160,7 @@ export namespace WriteTool {
   export interface PutEntry extends BaseWriteEntry {
     content: string; // Can be text or base64 encoded binary
     input_encoding?: InputEncoding;
-    write_mode?: 'overwrite' | 'append' | 'error_if_exists';
+    write_mode?: "overwrite" | "append" | "error_if_exists";
     checksum_algorithm?: string;
   }
 
@@ -190,44 +190,44 @@ export namespace WriteTool {
 
   // Base parameters for operations that use the 'entries' array
   export interface BaseBatchParams {
-    operation: 'put' | 'mkdir' | 'copy' | 'move' | 'delete' | 'touch';
+    operation: "put" | "mkdir" | "copy" | "move" | "delete" | "touch";
     entries: Array<PutEntry | MkdirEntry | CopyEntry | MoveEntry | DeleteEntry | TouchEntry>;
   }
 
   // Specific parameter types for each operation
   export interface PutParams extends BaseBatchParams {
-    operation: 'put';
+    operation: "put";
     entries: PutEntry[];
   }
 
   export interface MkdirParams extends BaseBatchParams {
-    operation: 'mkdir';
+    operation: "mkdir";
     entries: MkdirEntry[];
   }
 
   export interface CopyParams extends BaseBatchParams {
-    operation: 'copy';
+    operation: "copy";
     entries: CopyEntry[];
   }
 
   export interface MoveParams extends BaseBatchParams {
-    operation: 'move';
+    operation: "move";
     entries: MoveEntry[];
   }
 
   export interface DeleteParams extends BaseBatchParams {
-    operation: 'delete';
+    operation: "delete";
     entries: DeleteEntry[];
   }
 
   export interface TouchParams extends BaseBatchParams {
-    operation: 'touch';
+    operation: "touch";
     entries: TouchEntry[];
   }
 
   // Archive/unarchive operations (single operations, not batched)
   export interface ArchiveParams {
-    operation: 'archive';
+    operation: "archive";
     source_paths: string[];
     archive_path: string;
     format?: ArchiveFormat | string; // Allow string for broader compatibility
@@ -237,7 +237,7 @@ export namespace WriteTool {
   }
 
   export interface UnarchiveParams {
-    operation: 'unarchive';
+    operation: "unarchive";
     archive_path: string;
     destination_path: string;
     format?: ArchiveFormat | string;
@@ -274,7 +274,7 @@ export namespace WriteTool {
   export type WriteResultItem = WriteResultSuccess | (MCPErrorStatus & BaseResult);
 
   export interface DefinedBatchResponse {
-    tool_name: 'write';
+    tool_name: "write";
     results: WriteResultItem[];
     info_notices?: InfoNotice[];
   }
@@ -282,7 +282,7 @@ export namespace WriteTool {
   export type ArchiveActionResult = WriteResultSuccess | MCPErrorStatus; // For single archive/unarchive
 
   export interface DefinedArchiveResponse {
-    tool_name: 'write';
+    tool_name: "write";
     results: ArchiveTool.ArchiveResultItem[];
     info_notices?: InfoNotice[];
   }
@@ -290,22 +290,22 @@ export namespace WriteTool {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for ListTool types
 export namespace ListTool {
-  export type ListOperation = 'entries' | 'system_info';
-  export type SystemInfoType = 'server_capabilities' | 'filesystem_stats';
+  export type ListOperation = "entries" | "system_info";
+  export type SystemInfoType = "server_capabilities" | "filesystem_stats";
 
   export interface BaseParams {
     operation: ListOperation;
   }
 
   export interface EntriesParams extends BaseParams {
-    operation: 'entries';
+    operation: "entries";
     path: string;
     recursive_depth?: number;
     calculate_recursive_size?: boolean;
   }
 
   export interface SystemInfoParams extends BaseParams {
-    operation: 'system_info';
+    operation: "system_info";
     info_type: SystemInfoType;
     path?: string; // Only for info_type: "filesystem_stats"
   }
@@ -317,7 +317,7 @@ export namespace ListTool {
   // export { EntryInfo } from '../common'; // No, it's directly available
 
   export interface DefinedEntriesResponse {
-    tool_name: 'list';
+    tool_name: "list";
     results: EntryInfo[];
     info_notices?: InfoNotice[];
   }
@@ -332,7 +332,7 @@ export namespace ListTool {
   }
 
   export interface DefinedServerCapabilitiesResponse {
-    tool_name: 'list';
+    tool_name: "list";
     results: ServerCapabilities; // Singular
     info_notices?: InfoNotice[];
   }
@@ -345,7 +345,7 @@ export namespace ListTool {
     used_bytes: number;
   }
   export interface FilesystemStatsNoPath {
-    info_type_requested: 'filesystem_stats';
+    info_type_requested: "filesystem_stats";
     status_message: string;
     server_version: string;
     server_start_time_iso: string;
@@ -353,7 +353,7 @@ export namespace ListTool {
   }
 
   export interface DefinedFilesystemStatsResponse {
-    tool_name: 'list';
+    tool_name: "list";
     results: FilesystemStats | FilesystemStatsNoPath; // Singular, union type
     info_notices?: InfoNotice[];
   }
@@ -362,7 +362,7 @@ export namespace ListTool {
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for FindTool types
 export namespace FindTool {
   export interface Parameters {
-    operation: 'search';
+    operation: "search";
     path: string;
     recursive?: boolean;
 
@@ -387,7 +387,7 @@ export namespace FindTool {
     created_before?: string;
 
     // Type filters
-    entry_type?: 'file' | 'directory' | 'any';
+    entry_type?: "file" | "directory" | "any";
     mime_type?: string;
 
     // Result options
@@ -397,7 +397,7 @@ export namespace FindTool {
   // Response is an array of EntryInfo objects, similar to list.entries
   // EntryInfo is already available from common types.
   export interface DefinedFindResponse {
-    tool_name: 'find';
+    tool_name: "find";
     results: EntryInfo[];
     info_notices?: InfoNotice[];
   }
@@ -407,12 +407,12 @@ export namespace FindTool {
 // eslint-disable-next-line @typescript-eslint/no-namespace -- namespace provides organized API structure for TestTool types
 export namespace TestTool {
   export interface EchoParams {
-    operation: 'echo';
+    operation: "echo";
     params_to_echo: unknown; // params can be any structure for testing
   }
 
   export interface GenerateErrorParams {
-    operation: 'generate_error';
+    operation: "generate_error";
     error_code_to_generate: ErrorCode | string; // Allow any string for testing unregistered codes too
     error_message_to_generate: string;
   }
@@ -427,7 +427,7 @@ export namespace TestTool {
   // No specific success type for generate_error.
 
   export interface DefinedEchoResponse {
-    tool_name: 'test';
+    tool_name: "test";
     results: EchoResultSuccess; // Singular
     info_notices?: InfoNotice[];
   }
@@ -447,16 +447,16 @@ export namespace ArchiveTool {
   }
 
   export interface CreateArchiveParams {
-    operation: 'create';
+    operation: "create";
     source_paths: string[];
     archive_path: string;
-    compression?: 'gzip' | 'none';
+    compression?: "gzip" | "none";
     metadata?: Record<string, unknown>; // metadata can have various structures
     options?: ArchiveOptions;
   }
 
   export interface ExtractArchiveParams {
-    operation: 'extract';
+    operation: "extract";
     archive_path: string;
     target_path: string;
     options?: ArchiveOptions;
@@ -466,29 +466,29 @@ export namespace ArchiveTool {
 
   // --- Result Types ---
   export interface ArchiveResultError {
-    status: 'error'; // from MCPErrorStatus
+    status: "error"; // from MCPErrorStatus
     error_code: string; // from MCPErrorStatus
     error_message: string; // from MCPErrorStatus
-    operation: 'create' | 'extract';
+    operation: "create" | "extract";
   }
 
   export interface CreateArchiveSuccess {
-    status: 'success';
-    operation: 'create';
+    status: "success";
+    operation: "create";
     archive_path: string;
     format_used: string; // e.g., 'zip', 'tar', 'tar.gz'
     size_bytes: number;
     entries_processed: number; // Number of top-level source paths processed
     checksum_sha256?: string;
-    compression_used?: 'zip' | 'gzip' | 'none';
+    compression_used?: "zip" | "gzip" | "none";
     metadata?: Record<string, unknown>; // metadata can have various structures
     options_applied?: ArchiveOptions;
     message?: string;
   }
 
   export interface ExtractArchiveSuccess {
-    status: 'success';
-    operation: 'extract';
+    status: "success";
+    operation: "extract";
     archive_path: string;
     target_path: string;
     format_used: string; // e.g., 'zip', 'tar', 'tar.gz'
@@ -503,7 +503,7 @@ export namespace ArchiveTool {
   // So if Response is MCPToolResponse<ArchiveResultItem[]>, then it means results: ArchiveResultItem[]
   // Let's define the Response structure explicitly to match MCPToolResponse expectation for an object
   export interface Response {
-    tool_name: 'ArchiveTool';
+    tool_name: "ArchiveTool";
     results: ArchiveResultItem[];
     // Plus potential InfoNotice as per MCPToolResponse definition
     // This needs to be a union if InfoNotice can also be at the top level alone
