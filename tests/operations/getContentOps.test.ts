@@ -72,7 +72,7 @@ vi.mock("fs/promises", async (importOriginal) => {
 
 describe("getContentOps", () => {
   // This mockedLogger will be the one provided to getContentOps via the @/internal mock.
-  const mockedLogger = internalLogger as DeepMockProxy<import("pino").Logger>;
+  const mockedLogger = internalLogger as unknown as DeepMockProxy<import("pino").Logger>;
   const mockedConfig = conduitConfig as DeepMockProxy<ConduitServerConfig>;
   const mockedFsOps = fileSystemOps as DeepMockProxy<typeof fileSystemOps>;
   const mockedWebFetcher = webFetcher as DeepMockProxy<typeof webFetcher>;
